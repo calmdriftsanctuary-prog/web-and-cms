@@ -32,7 +32,6 @@ export async function POST(request: Request) {
       validTreatmentId = defaultTreatment?.id;
     }
 
-    // 1. Insert Booking into Supabase CMS Calendar
     const { data: booking, error: dbError } = await supabase
       .from('bookings')
       .insert({
@@ -53,12 +52,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
     }
 
-    // 2. Dispatch Confirmation Email via Resend using CMS Template Settings
     const resendApiKey = process.env.RESEND_API_KEY;
     if (resendApiKey && resendApiKey.startsWith('re_')) {
       const defaultConsultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
 
-      // Fetch template from DB if available
       const { data: dbTemplate } = await supabase
         .from('email_templates')
         .select('*')
@@ -78,23 +75,20 @@ export async function POST(request: Request) {
         `;
       }
 
-      const buttonText = dbTemplate?.button_text || 'Complete Digital Consultation';
+      const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
       const buttonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
 
-      // Append fully clickable table-wrapped dynamic button markup
-      if (buttonText) {
-        emailHtml += `
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
-            <table border="0" cellspacing="0" cellpadding="0">
-              <tr>
-                <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
-                  <a href="${buttonUrl}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">${buttonText}</a>
-                </td>
-              </tr>
-            </table>
-          </div>
-        `;
-      }
+      emailHtml += `
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
+          <table border="0" cellspacing="0" cellpadding="0">
+            <tr>
+              <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                <a href="${buttonUrl}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">${buttonText}</a>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
 
       try {
         await resend.emails.send({
