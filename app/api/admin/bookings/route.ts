@@ -93,9 +93,17 @@ export async function POST(request: Request) {
 
     if (type === 'template') {
       const { key, subject, content, button_text, button_url } = body;
+      const finalButtonUrl = button_url && button_url.trim() !== '' ? button_url : 'https://calmdriftsanctuary.co.uk';
+      
       const { error } = await supabase
         .from('email_templates')
-        .upsert({ key, subject, content, button_text, button_url }, { onConflict: 'key' });
+        .upsert({ 
+          key, 
+          subject, 
+          content, 
+          button_text: button_text || 'Complete Digital Consultation', 
+          button_url: finalButtonUrl 
+        }, { onConflict: 'key' });
 
       if (error) throw error;
       return NextResponse.json({ success: true });
@@ -250,8 +258,7 @@ export async function POST(request: Request) {
             `,
           });
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
-          // Explicit fallback generation for the booking ID link
-          const fallbackLink = `https://calmdriftsanctuary.co.uk/consultation/${booking.id}`;
+          const absoluteConsultationUrl = `https://calmdriftsanctuary.co.uk/consultation/${booking.id}`;
 
           const { data: dbTemplate } = await supabase
             .from('email_templates')
@@ -285,12 +292,11 @@ export async function POST(request: Request) {
 
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
           
-          // Strict evaluation: Use custom URL if valid, otherwise force the absolute fallback link
-          const finalUrl = (dbTemplate?.button_url && dbTemplate.button_url.trim() !== '') 
-            ? dbTemplate.button_url 
-            : fallbackLink;
+          const rawDbUrl = dbTemplate?.button_url;
+          const finalUrl = (rawDbUrl && typeof rawDbUrl === 'string' && rawDbUrl.trim() !== '') 
+            ? rawDbUrl.trim() 
+            : absoluteConsultationUrl;
 
-          // BULLETPROOF ANCHOR TAG WITH EXPLICIT HARDCODED HREF
           if (buttonText) {
             emailHtml += `
               <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
