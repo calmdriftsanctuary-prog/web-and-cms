@@ -96,10 +96,10 @@ export async function POST(request: Request) {
     }
 
     if (type === 'template') {
-      const { key, subject, content } = body;
+      const { key, subject, content, button_text, button_url } = body;
       const { error } = await supabase
         .from('email_templates')
-        .upsert({ key, subject, content }, { onConflict: 'key' });
+        .upsert({ key, subject, content, button_text, button_url }, { onConflict: 'key' });
 
       if (error) throw error;
       return NextResponse.json({ success: true });
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
             `,
           });
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
-          const consultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
+          const defaultConsultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
 
           // Fetch template from DB if available
           const { data: dbTemplate } = await supabase
@@ -283,19 +283,23 @@ export async function POST(request: Request) {
             `;
           }
 
-          // Append guaranteed table-wrapped consultation button markup
-          emailHtml += `
-            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
-              <p style="font-weight: 300; margin-bottom: 12px; color: #2C332B;">Please complete your pre-treatment digital consultation prior to arrival:</p>
-              <table border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
-                    <a href="${consultationLink}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">Complete Digital Consultation</a>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          `;
+          const buttonText = dbTemplate?.button_text || 'Complete Digital Consultation';
+          const buttonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
+
+          // Append fully clickable table-wrapped dynamic button markup
+          if (buttonText) {
+            emailHtml += `
+              <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
+                <table border="0" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                      <a href="${buttonUrl}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">${buttonText}</a>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            `;
+          }
 
           await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',

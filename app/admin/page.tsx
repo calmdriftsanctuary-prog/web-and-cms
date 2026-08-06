@@ -91,9 +91,11 @@ interface FieldConfig {
 
 interface SiteTemplate {
   key: string;
-  title: string;
+  title?: string;
   subject?: string;
   content: string;
+  button_text?: string;
+  button_url?: string;
 }
 
 export default function AdminDashboard() {
@@ -155,6 +157,8 @@ export default function AdminDashboard() {
   const [editingTemplateKey, setEditingTemplateKey] = useState('confirmation_email');
   const [templateSubject, setTemplateSubject] = useState('');
   const [templateContent, setTemplateContent] = useState('');
+  const [templateButtonText, setTemplateButtonText] = useState('');
+  const [templateButtonUrl, setTemplateButtonUrl] = useState('');
 
   const loadData = () => {
     setLoading(true);
@@ -168,6 +172,7 @@ export default function AdminDashboard() {
         setSocialLinks(data.socialLinks || []);
         setCustomFields(data.customFields || []);
         setFieldConfigs(data.fieldConfigs || []);
+        
         const loadedTemplates = data.templates || [];
         setTemplates(loadedTemplates);
 
@@ -184,11 +189,13 @@ export default function AdminDashboard() {
         if (contentMap.reviews_heading !== undefined) setReviewsHeading(contentMap.reviews_heading);
         if (contentMap.reviews_subtext !== undefined) setReviewsSubtext(contentMap.reviews_subtext);
 
-        // Dynamically populate fields based on the current editingTemplateKey
+        // Populate active template fields immediately
         const activeTmpl = loadedTemplates.find((t: any) => t.key === editingTemplateKey);
         if (activeTmpl) {
           setTemplateSubject(activeTmpl.subject || '');
           setTemplateContent(activeTmpl.content || '');
+          setTemplateButtonText(activeTmpl.button_text || '');
+          setTemplateButtonUrl(activeTmpl.button_url || '');
         }
 
         setLoading(false);
@@ -209,6 +216,49 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleTemplateChange = (key: string) => {
+    setEditingTemplateKey(key);
+    const found = templates.find((t) => t.key === key);
+    setTemplateSubject(found?.subject || '');
+    setTemplateContent(found?.content || '');
+    setTemplateButtonText(found?.button_text || '');
+    setTemplateButtonUrl(found?.button_url || '');
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      type: 'template',
+      key: editingTemplateKey,
+      subject: templateSubject,
+      content: templateContent,
+      button_text: templateButtonText,
+      button_url: templateButtonUrl,
+    };
+
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      setTemplates((prev) => {
+        const existingIndex = prev.findIndex((t) => t.key === editingTemplateKey);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], subject: templateSubject, content: templateContent, button_text: templateButtonText, button_url: templateButtonUrl };
+          return updated;
+        } else {
+          return [...prev, { key: editingTemplateKey, subject: templateSubject, content: templateContent, button_text: templateButtonText, button_url: templateButtonUrl }];
+        }
+      });
+      alert('Email template updated successfully!');
+    } else {
+      alert('Failed to update email template.');
+    }
+  };
 
   const clientsMap = bookings.reduce((acc, booking) => {
     const email = booking.client_email.toLowerCase();
@@ -477,31 +527,6 @@ export default function AdminDashboard() {
     setNewTime('');
     loadData();
     alert('Appointment rescheduled successfully!');
-  };
-
-  const handleSaveTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'template', key: editingTemplateKey, subject: templateSubject, content: templateContent }),
-    });
-    if (res.ok) {
-      // Update local template state instantly so changes persist on re-select
-      setTemplates((prev) => {
-        const existingIndex = prev.findIndex((t) => t.key === editingTemplateKey);
-        if (existingIndex >= 0) {
-          const updated = [...prev];
-          updated[existingIndex] = { ...updated[existingIndex], subject: templateSubject, content: templateContent };
-          return updated;
-        } else {
-          return [...prev, { key: editingTemplateKey, title: editingTemplateKey, subject: templateSubject, content: templateContent }];
-        }
-      });
-      alert('Email template updated successfully!');
-    } else {
-      alert('Failed to update email template.');
-    }
   };
 
   const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab);
@@ -1035,20 +1060,14 @@ export default function AdminDashboard() {
           <div className="max-w-2xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Confirmation & Notification Emails</h2>
-              <p className="text-xs text-[#6B7280]">Edit subject lines and email copy for client notifications.</p>
+              <p className="text-xs text-[#6B7280]">Edit subject lines, email copy, and button configurations for client notifications.</p>
             </div>
             <form onSubmit={handleSaveTemplate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Select Email Template</label>
                 <select 
                   value={editingTemplateKey} 
-                  onChange={(e) => {
-                    const key = e.target.value;
-                    setEditingTemplateKey(key);
-                    const found = templates.find((t) => t.key === key);
-                    setTemplateSubject(found?.subject || '');
-                    setTemplateContent(found?.content || '');
-                  }}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
                   className="w-full p-3 border rounded-xl text-sm bg-white"
                 >
                   <option value="confirmation_email">Booking Confirmation Email</option>
@@ -1062,11 +1081,21 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email Subject Line</label>
-                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Thank you for your review!" />
+                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Your Sanctuary Appointment Confirmed" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email / Message Body Content</label>
-                <textarea rows={5} value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="w-full p-3.5 border rounded-xl text-sm" />
+                <textarea rows={5} value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="w-full p-3.5 border rounded-xl text-sm" placeholder="Type your email body copy here..." />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
+                <div>
+                  <label className="block text-xs font-semibold uppercase mb-1">Button Text (Optional)</label>
+                  <input type="text" value={templateButtonText} onChange={(e) => setTemplateButtonText(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Complete Digital Consultation" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase mb-1">Button Custom Link URL (Optional)</label>
+                  <input type="text" value={templateButtonUrl} onChange={(e) => setTemplateButtonUrl(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="Leave blank for automatic booking/form link" />
+                </div>
               </div>
               <button type="submit" className="w-full py-4 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Save Email Template</button>
             </form>
