@@ -250,7 +250,8 @@ export async function POST(request: Request) {
             `,
           });
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
-          const defaultConsultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
+          // Explicit fallback generation for the booking ID link
+          const fallbackLink = `https://calmdriftsanctuary.co.uk/consultation/${booking.id}`;
 
           const { data: dbTemplate } = await supabase
             .from('email_templates')
@@ -283,20 +284,26 @@ export async function POST(request: Request) {
             .replace(/\n/g, '<br/>');
 
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
-          const resolvedButtonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
+          
+          // Strict evaluation: Use custom URL if valid, otherwise force the absolute fallback link
+          const finalUrl = (dbTemplate?.button_url && dbTemplate.button_url.trim() !== '') 
+            ? dbTemplate.button_url 
+            : fallbackLink;
 
-          // GUARANTEED CLICKABLE BUTTON MARKUP WITH EXPLICIT HREF
-          emailHtml += `
-            <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
-              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
-                <tr>
-                  <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
-                    <a href="${resolvedButtonUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600; background-color: #6B8E70;">${buttonText}</a>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          `;
+          // BULLETPROOF ANCHOR TAG WITH EXPLICIT HARDCODED HREF
+          if (buttonText) {
+            emailHtml += `
+              <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
+                <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                  <tr>
+                    <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                      <a href="${finalUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600; background-color: #6B8E70;">${buttonText}</a>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            `;
+          }
 
           await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
