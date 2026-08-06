@@ -12,30 +12,29 @@ export async function POST(request: Request) {
     const { bookingId, medicalConditions, allergies, pressurePreference, emergencyContact } = body;
 
     if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
     }
 
-    // Save consultation record into Supabase
-    const { data: consultation, error } = await supabase
+    const { error: insertError } = await supabase
       .from('consultations')
       .insert({
         booking_id: bookingId,
-        medical_conditions: medicalConditions || 'None reported',
-        allergies: allergies || 'None reported',
-        pressure_preference: pressurePreference || 'Medium',
-        emergency_contact: emergencyContact,
-      })
-      .select()
-      .single();
+        responses: {
+          medicalConditions,
+          allergies,
+          pressurePreference,
+          emergencyContact,
+        },
+      });
 
-    if (error) {
-      console.error('Supabase Consultation Insert Error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (insertError) {
+      console.error('Consultation Insert Error:', insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, consultation });
-  } catch (err: any) {
-    console.error('Consultation Route Error:', err);
-    return NextResponse.json({ error: 'Failed to save consultation.' }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Consultation API Route Error:', error);
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
