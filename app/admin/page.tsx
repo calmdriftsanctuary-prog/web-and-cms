@@ -98,6 +98,44 @@ interface SiteTemplate {
   button_url?: string;
 }
 
+const DEFAULT_TEMPLATES: Record<string, { subject: string; content: string; button_text: string }> = {
+  confirmation_email: {
+    subject: 'Your Sanctuary Appointment Confirmed',
+    content: 'Dear [Client Name],\n\nYour appointment for [Treatment Title] on [Date & Time] has been officially confirmed. We look forward to welcoming you.',
+    button_text: 'Complete Digital Consultation'
+  },
+  reschedule_email: {
+    subject: 'Appointment Rescheduled - Sanctuary',
+    content: 'Dear [Client Name],\n\nYour appointment has been successfully rescheduled to a new time slot.',
+    button_text: 'View Booking Details'
+  },
+  cancellation_email: {
+    subject: 'Appointment Cancelled - Sanctuary',
+    content: 'Dear [Client Name],\n\nWe are writing to confirm that your appointment has been cancelled.',
+    button_text: 'Book New Session'
+  },
+  consultation_email: {
+    subject: 'Please Complete Your Sanctuary Consultation Form',
+    content: 'Dear [Client Name],\n\nAs part of your preparation for your upcoming visit, please complete your intake consultation form securely online prior to arrival.',
+    button_text: 'Complete Consultation Form'
+  },
+  review_email: {
+    subject: 'Thank you for visiting Calm Drift Sanctuary',
+    content: 'Dear [Client Name],\n\nWe hope you enjoyed your restorative experience with us. We would love to hear your feedback.',
+    button_text: 'Leave a Review'
+  },
+  booking_thankyou: {
+    subject: 'Thank you for your reservation',
+    content: 'Thank you for booking with Calm Drift Sanctuary.',
+    button_text: 'Return to Home'
+  },
+  consultation_thankyou: {
+    subject: 'Consultation Submitted Successfully',
+    content: 'Thank you for submitting your consultation form. Our practitioners have received your details.',
+    button_text: 'Close Window'
+  }
+};
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'appointments' | 'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews'>('appointments');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -155,9 +193,9 @@ export default function AdminDashboard() {
   const [editingDefaultField, setEditingDefaultField] = useState<FieldConfig | null>(null);
 
   const [editingTemplateKey, setEditingTemplateKey] = useState('confirmation_email');
-  const [templateSubject, setTemplateSubject] = useState('');
-  const [templateContent, setTemplateContent] = useState('');
-  const [templateButtonText, setTemplateButtonText] = useState('');
+  const [templateSubject, setTemplateSubject] = useState(DEFAULT_TEMPLATES.confirmation_email.subject);
+  const [templateContent, setTemplateContent] = useState(DEFAULT_TEMPLATES.confirmation_email.content);
+  const [templateButtonText, setTemplateButtonText] = useState(DEFAULT_TEMPLATES.confirmation_email.button_text);
   const [templateButtonUrl, setTemplateButtonUrl] = useState('');
 
   const loadData = () => {
@@ -189,14 +227,14 @@ export default function AdminDashboard() {
         if (contentMap.reviews_heading !== undefined) setReviewsHeading(contentMap.reviews_heading);
         if (contentMap.reviews_subtext !== undefined) setReviewsSubtext(contentMap.reviews_subtext);
 
-        // Populate active template fields immediately
+        // Populate active template fields immediately with DB data or fallback defaults
         const activeTmpl = loadedTemplates.find((t: any) => t.key === editingTemplateKey);
-        if (activeTmpl) {
-          setTemplateSubject(activeTmpl.subject || '');
-          setTemplateContent(activeTmpl.content || '');
-          setTemplateButtonText(activeTmpl.button_text || '');
-          setTemplateButtonUrl(activeTmpl.button_url || '');
-        }
+        const defaults = DEFAULT_TEMPLATES[editingTemplateKey] || { subject: '', content: '', button_text: '' };
+        
+        setTemplateSubject(activeTmpl?.subject || defaults.subject);
+        setTemplateContent(activeTmpl?.content || defaults.content);
+        setTemplateButtonText(activeTmpl?.button_text || defaults.button_text);
+        setTemplateButtonUrl(activeTmpl?.button_url || '');
 
         setLoading(false);
       })
@@ -220,9 +258,11 @@ export default function AdminDashboard() {
   const handleTemplateChange = (key: string) => {
     setEditingTemplateKey(key);
     const found = templates.find((t) => t.key === key);
-    setTemplateSubject(found?.subject || '');
-    setTemplateContent(found?.content || '');
-    setTemplateButtonText(found?.button_text || '');
+    const defaults = DEFAULT_TEMPLATES[key] || { subject: '', content: '', button_text: '' };
+
+    setTemplateSubject(found?.subject || defaults.subject);
+    setTemplateContent(found?.content || defaults.content);
+    setTemplateButtonText(found?.button_text || defaults.button_text);
     setTemplateButtonUrl(found?.button_url || '');
   };
 

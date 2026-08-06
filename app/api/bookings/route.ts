@@ -53,12 +53,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
     }
 
-    // 2. Dispatch Confirmation Email via Resend with Guaranteed Consultation Button
+    // 2. Dispatch Confirmation Email via Resend using CMS Template Settings
     const resendApiKey = process.env.RESEND_API_KEY;
     if (resendApiKey && resendApiKey.startsWith('re_')) {
-      const consultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
+      const defaultConsultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
 
-      // Fetch template from DB if available, otherwise fallback
+      // Fetch template from DB if available
       const { data: dbTemplate } = await supabase
         .from('email_templates')
         .select('*')
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       let emailHtml = dbTemplate?.content;
       if (!emailHtml) {
         emailHtml = `
-          <div style="font-family: sans-serif; color: #2C332B; padding: 24px; background-color: #FAF9F6; border-radius: 12px;">
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
             <h2 style="font-family: Georgia, serif; color: #2C332B; font-weight: 500;">Your Sanctuary Reservation is Confirmed</h2>
             <p style="font-weight: 300; color: #6B7280;">Dear ${clientName},</p>
             <p style="font-weight: 300;">We look forward to hosting you on <strong>${start.toLocaleString()}</strong>.</p>
@@ -78,13 +78,23 @@ export async function POST(request: Request) {
         `;
       }
 
-      // Guarantee the consultation button block is attached at the bottom
-      emailHtml += `
-        <div style="margin-top: 24px;">
-          <p style="font-weight: 300; margin-bottom: 12px;">Please complete your pre-treatment digital consultation prior to arrival:</p>
-          <a href="${consultationLink}" style="background-color: #6B8E70; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-weight: 600; display: inline-block;">Complete Digital Consultation</a>
-        </div>
-      `;
+      const buttonText = dbTemplate?.button_text || 'Complete Digital Consultation';
+      const buttonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
+
+      // Append fully clickable table-wrapped dynamic button markup
+      if (buttonText) {
+        emailHtml += `
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
+            <table border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                  <a href="${buttonUrl}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">${buttonText}</a>
+                </td>
+              </tr>
+            </table>
+          </div>
+        `;
+      }
 
       try {
         await resend.emails.send({
