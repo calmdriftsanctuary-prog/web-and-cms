@@ -258,11 +258,18 @@ export async function POST(request: Request) {
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
           const consultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
 
-          await resend.emails.send({
-            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
-            to: [booking.client_email],
-            subject: 'Appointment Confirmed - Sanctuary',
-            html: `
+          // Fetch template from DB if available
+          const { data: dbTemplate } = await supabase
+            .from('email_templates')
+            .select('*')
+            .eq('key', 'confirmation_email')
+            .single();
+
+          const emailSubject = dbTemplate?.subject || 'Appointment Confirmed - Sanctuary';
+          
+          let emailHtml = dbTemplate?.content;
+          if (!emailHtml) {
+            emailHtml = `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
                 <h2 style="color: #6B8E70;">Appointment Confirmed</h2>
                 <p>Dear ${booking.client_name},</p>
@@ -272,14 +279,29 @@ export async function POST(request: Request) {
                   <strong>Date & Time:</strong> ${new Date(booking.start_time).toLocaleString()}<br/>
                   <strong>Duration:</strong> ${booking.treatments?.duration_minutes || 60} mins
                 </p>
-                <p>Please complete your pre-treatment digital consultation prior to arrival:</p>
-                <p style="margin-top: 20px;">
-                  <a href="${consultationLink}" style="background-color: #6B8E70; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-weight: 600; display: inline-block;">Complete Digital Consultation</a>
-                </p>
-                <br/>
-                <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
               </div>
-            `,
+            `;
+          }
+
+          // Append guaranteed table-wrapped consultation button markup
+          emailHtml += `
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
+              <p style="font-weight: 300; margin-bottom: 12px; color: #2C332B;">Please complete your pre-treatment digital consultation prior to arrival:</p>
+              <table border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                    <a href="${consultationLink}" target="_blank" style="font-size: 14px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600;">Complete Digital Consultation</a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          `;
+
+          await resend.emails.send({
+            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+            to: [booking.client_email],
+            subject: emailSubject,
+            html: emailHtml,
           });
         }
       }
