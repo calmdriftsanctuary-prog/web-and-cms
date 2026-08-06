@@ -21,7 +21,7 @@ interface Booking {
   status: string;
   notes?: string;
   treatment_id?: string;
-  treatments: { id: string; title: string; duration_minutes: number; price_gbp: number };
+  treatments?: { id: string; title: string; duration_minutes: number; price_gbp: number };
   consultations?: Consultation[];
 }
 
@@ -93,19 +93,29 @@ export default function AdminCalendarPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const blockedRes = await fetch(`/api/admin/blocked-times`);
-      const blockedData = await blockedRes.json();
-      setBlockedTimes(blockedData.blockedTimes || []);
+      const blockedRes = await fetch(`/api/admin/blocked-times`).catch(() => null);
+      if (blockedRes && blockedRes.ok) {
+        const blockedData = await blockedRes.json();
+        setBlockedTimes(blockedData.blockedTimes || []);
+      }
 
-      const allBookingsRes = await fetch(`/api/bookings/all`).catch(() => null);
-      if (allBookingsRes && allBookingsRes.ok) {
-        const data = await allBookingsRes.json();
-        const fetchedBookings = data.bookings || [];
+      // Updated to fetch from /api/admin/bookings?bookings=true (same as Schedule tab)
+      const adminRes = await fetch(`/api/admin/bookings?bookings=true`).catch(() => null);
+      if (adminRes && adminRes.ok) {
+        const adminData = await adminRes.json();
+        const fetchedBookings = adminData.bookings || [];
         setBookings(fetchedBookings);
 
         if (selectedBooking) {
           const updated = fetchedBookings.find((b: Booking) => b.id === selectedBooking.id);
           if (updated) setSelectedBooking(updated);
+        }
+
+        if (adminData.treatments) {
+          setTreatments(adminData.treatments);
+          if (adminData.treatments.length > 0 && !selectedTreatmentId) {
+            setSelectedTreatmentId(adminData.treatments[0].id);
+          }
         }
 
         const clientMap = new Map<string, ClientRecord>();
@@ -119,17 +129,6 @@ export default function AdminCalendarPage() {
           }
         });
         setClients(Array.from(clientMap.values()));
-      }
-
-      const adminRes = await fetch(`/api/admin/bookings`).catch(() => null);
-      if (adminRes && adminRes.ok) {
-        const adminData = await adminRes.json();
-        if (adminData.treatments) {
-          setTreatments(adminData.treatments);
-          if (adminData.treatments.length > 0 && !selectedTreatmentId) {
-            setSelectedTreatmentId(adminData.treatments[0].id);
-          }
-        }
       }
     } catch (err) {
       console.error('Failed to load schedule data', err);
