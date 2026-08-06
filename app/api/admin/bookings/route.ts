@@ -37,7 +37,6 @@ export async function GET(request: Request) {
     if (includeBookings === 'true' || includeBookings === '1') {
       let query = supabase
         .from('bookings')
-        // FIX APPLIED HERE: changed consultations(*) to form_submissions(*)
         .select('*, treatments(title, price_gbp, duration_minutes), form_submissions(*)')
         .order('start_time', { ascending: false });
 
@@ -257,6 +256,8 @@ export async function POST(request: Request) {
             `,
           });
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
+          const consultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
+
           await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: [booking.client_email],
@@ -271,7 +272,10 @@ export async function POST(request: Request) {
                   <strong>Date & Time:</strong> ${new Date(booking.start_time).toLocaleString()}<br/>
                   <strong>Duration:</strong> ${booking.treatments?.duration_minutes || 60} mins
                 </p>
-                <p>We look forward to welcoming you.</p>
+                <p>Please complete your pre-treatment digital consultation prior to arrival:</p>
+                <p style="margin-top: 20px;">
+                  <a href="${consultationLink}" style="background-color: #6B8E70; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-weight: 600; display: inline-block;">Complete Digital Consultation</a>
+                </p>
                 <br/>
                 <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
               </div>
