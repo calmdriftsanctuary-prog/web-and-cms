@@ -9,7 +9,6 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// COMPREHENSIVE GET: Handles all admin queries, treatment loading, booking listings, and filtering
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -17,7 +16,6 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status');
     const searchQuery = searchParams.get('search');
 
-    // Fetch all treatments (both active and inactive for admin management)
     const { data: treatments, error: treatmentError } = await supabase
       .from('treatments')
       .select('*')
@@ -49,7 +47,6 @@ export async function GET(request: Request) {
 
       bookings = bookingData || [];
 
-      // Optional client search filter
       if (searchQuery) {
         const queryLower = searchQuery.toLowerCase();
         bookings = bookings.filter((b: any) => 
@@ -79,7 +76,6 @@ export async function GET(request: Request) {
   }
 }
 
-// COMPREHENSIVE POST: Handles admin status updates, rescheduling, manual bookings, and full email dispatching
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -218,7 +214,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // 1. UPDATE BOOKING STATUS (Confirmations, Cancellations, Completion)
     if (type === 'update_booking_status') {
       const { data: booking, error: fetchErr } = await supabase
         .from('bookings')
@@ -237,7 +232,6 @@ export async function POST(request: Request) {
 
       if (updateErr) throw updateErr;
 
-      // Dispatch Email Notification via Resend based on status change
       if (booking.client_email) {
         if (status === 'cancelled' || trigger_email === 'cancellation') {
           await resend.emails.send({
@@ -258,35 +252,39 @@ export async function POST(request: Request) {
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
           const defaultConsultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
 
-          // Fetch template from DB if available
           const { data: dbTemplate } = await supabase
             .from('email_templates')
             .select('*')
             .eq('key', 'confirmation_email')
             .single();
 
-          const emailSubject = dbTemplate?.subject || 'Appointment Confirmed - Sanctuary';
-          
-          let emailHtml = dbTemplate?.content;
-          if (!emailHtml) {
-            emailHtml = `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
-                <h2 style="color: #6B8E70;">Appointment Confirmed</h2>
-                <p>Dear ${booking.client_name},</p>
-                <p>Your appointment has been officially confirmed:</p>
-                <p style="background: #FAF9F6; padding: 15px; border-radius: 8px; border-left: 4px solid #6B8E70;">
-                  <strong>Treatment:</strong> ${booking.treatments?.title || 'Treatment'}<br/>
-                  <strong>Date & Time:</strong> ${new Date(booking.start_time).toLocaleString()}<br/>
-                  <strong>Duration:</strong> ${booking.treatments?.duration_minutes || 60} mins
-                </p>
-              </div>
-            `;
-          }
+          const clientName = booking.client_name || 'Client';
+          const treatmentTitle = booking.treatments?.title || 'Treatment';
+          const startTimeFormatted = new Date(booking.start_time).toLocaleString();
 
-          const buttonText = dbTemplate?.button_text || 'Complete Digital Consultation';
+          let emailSubject = dbTemplate?.subject || 'Your [Treatment Title] at Calm Drift Sanctuary Confirmed';
+          emailSubject = emailSubject
+            .replace(/\[Client Name\]/g, clientName)
+            .replace(/\[Treatment Title\]/g, treatmentTitle)
+            .replace(/\[Date & Time\]/g, startTimeFormatted);
+
+          let rawContent = dbTemplate?.content || `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
+              <h2 style="color: #6B8E70;">Appointment Confirmed</h2>
+              <p>Dear [Client Name],</p>
+              <p>Your appointment for <strong>[Treatment Title]</strong> on [Date & Time] has been officially confirmed.</p>
+            </div>
+          `;
+
+          let emailHtml = rawContent
+            .replace(/\[Client Name\]/g, clientName)
+            .replace(/\[Treatment Title\]/g, treatmentTitle)
+            .replace(/\[Date & Time\]/g, startTimeFormatted)
+            .replace(/\n/g, '<br/>');
+
+          const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
           const buttonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
 
-          // Append fully clickable table-wrapped dynamic button markup
           if (buttonText) {
             emailHtml += `
               <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
@@ -305,7 +303,7 @@ export async function POST(request: Request) {
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: [booking.client_email],
             subject: emailSubject,
-            html: emailHtml,
+            html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">${emailHtml}</div>`,
           });
         }
       }
@@ -313,7 +311,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: 'Booking status updated and email processed successfully' });
     }
 
-    // 2. UPDATE BOOKING DETAILS (Rescheduling, time changes, treatment swaps, notes edits)
     if (type === 'update_booking_details') {
       const updateData: any = {};
       if (treatment_id) updateData.treatment_id = treatment_id;
@@ -338,14 +335,12 @@ export async function POST(request: Request) {
 
       if (updateErr) throw updateErr;
 
-      // Fetch newly updated treatment details if swapped
       let treatmentTitle = booking.treatments?.title;
       if (treatment_id && treatment_id !== booking.treatment_id) {
         const { data: newTr } = await supabase.from('treatments').select('title').eq('id', treatment_id).single();
         if (newTr) treatmentTitle = newTr.title;
       }
 
-      // Dispatch Reschedule Email via Resend
       if (booking.client_email) {
         const newTimeFormatted = start_time ? new Date(start_time).toLocaleString() : new Date(booking.start_time).toLocaleString();
         
