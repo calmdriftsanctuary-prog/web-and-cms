@@ -86,7 +86,18 @@ export async function POST(request: Request) {
         .replace(/\n/g, '<br/>');
 
       const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
-      const buttonUrl = dbTemplate?.button_url && dbTemplate.button_url.trim() !== '' ? dbTemplate.button_url : defaultConsultationLink;
+      
+      const rawDbUrl = dbTemplate?.button_url;
+      let buttonUrl = defaultConsultationLink;
+      
+      if (rawDbUrl && typeof rawDbUrl === 'string' && rawDbUrl.trim() !== '') {
+        const trimmedUrl = rawDbUrl.trim();
+        if (trimmedUrl.includes('calmdriftsanctuary.co.uk/consultation')) {
+          buttonUrl = `https://calmdriftsanctuary.co.uk/consultation/${booking.id}`;
+        } else {
+          buttonUrl = trimmedUrl;
+        }
+      }
 
       if (buttonText) {
         emailHtml += `
