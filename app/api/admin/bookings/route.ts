@@ -292,10 +292,21 @@ export async function POST(request: Request) {
 
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
           
+          // INTELLIGENT URL RESOLUTION:
+          // If the DB URL is empty OR points to the generic /consultation page without an ID, force the unique booking ID URL.
           const rawDbUrl = dbTemplate?.button_url;
-          const finalUrl = (rawDbUrl && typeof rawDbUrl === 'string' && rawDbUrl.trim() !== '') 
-            ? rawDbUrl.trim() 
-            : absoluteConsultationUrl;
+          let finalUrl = absoluteConsultationUrl;
+          
+          if (rawDbUrl && typeof rawDbUrl === 'string' && rawDbUrl.trim() !== '') {
+            const trimmedUrl = rawDbUrl.trim();
+            // If the custom URL is explicitly something else (like an external link or homepage), keep it.
+            // But if it's the generic consultation page without an ID, append the booking ID.
+            if (trimmedUrl.includes('/consultation') && !trimmedUrl.endsWith(`/${booking.id}`)) {
+              finalUrl = `https://calmdriftsanctuary.co.uk/consultation/${booking.id}`;
+            } else {
+              finalUrl = trimmedUrl;
+            }
+          }
 
           if (buttonText) {
             emailHtml += `
