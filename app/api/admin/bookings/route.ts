@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const resend = new Resend(process.env.RESND_API_KEY || process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // COMPREHENSIVE GET: Handles all admin queries, treatment loading, booking listings, and filtering
 export async function GET(request: Request) {
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
     if (type === 'send_consultation_email') {
       const { email, name } = body;
       await resend.emails.send({
-        from: 'Sanctuary <onboarding@resend.dev>',
+        from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
         to: [email],
         subject: 'Please Complete Your Sanctuary Consultation Form',
         html: `
@@ -242,7 +242,7 @@ export async function POST(request: Request) {
       if (booking.client_email) {
         if (status === 'cancelled' || trigger_email === 'cancellation') {
           await resend.emails.send({
-            from: 'Sanctuary <onboarding@resend.dev>',
+            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: [booking.client_email],
             subject: 'Appointment Cancelled - Sanctuary',
             html: `
@@ -258,7 +258,7 @@ export async function POST(request: Request) {
           });
         } else if (status === 'confirmed' || trigger_email === 'confirmation') {
           await resend.emails.send({
-            from: 'Sanctuary <onboarding@resend.dev>',
+            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: [booking.client_email],
             subject: 'Appointment Confirmed - Sanctuary',
             html: `
@@ -320,7 +320,7 @@ export async function POST(request: Request) {
         const newTimeFormatted = start_time ? new Date(start_time).toLocaleString() : new Date(booking.start_time).toLocaleString();
         
         await resend.emails.send({
-          from: 'Sanctuary <onboarding@resend.dev>',
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [booking.client_email],
           subject: 'Appointment Rescheduled - Sanctuary',
           html: `
