@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Phone, Mail, FileText, Clock, Sparkles, CheckCircle, AlertCircle, Plus, Edit, Users, Layers, Tag, Megaphone, Globe, Image as ImageIcon, Trash2, Share2, MailCheck, FormInput, XCircle, RefreshCw, Send, Star, BarChart3, PoundSterling } from 'lucide-react';
+import Link from 'next/link';
+import { Calendar as CalendarIcon, User, Phone, Mail, FileText, Clock, Sparkles, CheckCircle, AlertCircle, Plus, Edit, Users, Layers, Tag, Megaphone, Globe, Image as ImageIcon, Trash2, Share2, MailCheck, FormInput, XCircle, RefreshCw, Send, Star, BarChart3, PoundSterling } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -598,10 +599,13 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm">
+            <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center">
               <button onClick={() => setActiveTab('appointments')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'appointments' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                Calendar
+                Schedule
               </button>
+              <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
+                Calendar ↗
+              </Link>
               <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
                 CRM
               </button>

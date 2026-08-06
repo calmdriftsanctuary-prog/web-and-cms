@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from 'react';
 
+interface Consultation {
+  id: string;
+  medical_conditions: string;
+  allergies: string;
+  pressure_preference: string;
+  emergency_contact: string;
+  created_at: string;
+}
+
 interface Booking {
   id: string;
   client_name: string;
@@ -13,6 +22,7 @@ interface Booking {
   notes?: string;
   treatment_id?: string;
   treatments: { id: string; title: string; duration_minutes: number; price_gbp: number };
+  consultations?: Consultation[];
 }
 
 interface BlockedTime {
@@ -190,6 +200,20 @@ export default function AdminCalendarPage() {
     }
   };
 
+  const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
+    if (!confirm(`Send consultation intake form request email to ${clientName} (${clientEmail})?`)) return;
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'send_consultation_email', email: clientEmail, name: clientName }),
+    });
+    if (res.ok) {
+      alert('Consultation form email sent successfully!');
+    } else {
+      alert('Failed to send consultation email.');
+    }
+  };
+
   const handleManualBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSlot || !selectedTreatmentId) {
@@ -313,7 +337,6 @@ export default function AdminCalendarPage() {
     }
   };
 
-  // Filter items for the selected date (Excluding cancelled from calendar display)
   const dayBookings = bookings.filter(b => b.start_time.startsWith(selectedDate) && b.status !== 'cancelled');
   const dayBlocks = blockedTimes.filter(bt => bt.start_time.startsWith(selectedDate));
 
@@ -393,7 +416,6 @@ export default function AdminCalendarPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              {/* Render Bookings */}
               {dayBookings.map((b) => {
                 const startTime = new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const endTime = new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -429,7 +451,6 @@ export default function AdminCalendarPage() {
                 );
               })}
 
-              {/* Render Manual Blocked Times */}
               {dayBlocks.map((bt) => {
                 const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -482,6 +503,30 @@ export default function AdminCalendarPage() {
                 <p><strong>Phone:</strong> {selectedBooking.client_phone || 'N/A'}</p>
                 <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString()}</p>
                 {selectedBooking.notes && <p className="italic bg-gray-50 p-2 rounded text-xs"><strong>Notes:</strong> {selectedBooking.notes}</p>}
+              </div>
+
+              {/* Consultation Form Info Integration */}
+              <div className="pt-3 border-t space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-700">Consultation Form Status</h4>
+                {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1.5 text-xs text-gray-700">
+                    <p className="text-emerald-800 font-bold">✓ Form Completed</p>
+                    <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
+                    <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
+                    <p><strong>Pressure Pref:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
+                    <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-xs">
+                    <p className="text-amber-800 italic">No consultation form completed yet.</p>
+                    <button
+                      onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)}
+                      className="w-full py-1.5 bg-emerald-600 text-white rounded text-[10px] uppercase font-semibold hover:bg-emerald-700 transition"
+                    >
+                      Trigger Form Email
+                    </button>
+                  </div>
+                )}
               </div>
 
               {isEditing ? (
@@ -696,7 +741,7 @@ export default function AdminCalendarPage() {
               </div>
 
               <div>
-                <label className="block font-medium text-gray-700 mb-1">Available 30-Min Slot (Buffer enforced)</label>
+                <label className="block font-medium text-gray-700 mb-1">Available Slot</label>
                 {availableSlots.length === 0 ? (
                   <p className="text-red-500 text-xs italic">No available slots for this date/duration. Try another date or check existing blocks.</p>
                 ) : (
