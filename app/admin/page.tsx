@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Phone, Mail, FileText, Clock, Sparkles, CheckCircle, AlertCircle, Plus, Edit, Users, Layers, Tag, Megaphone, Globe, Image as ImageIcon, Trash2, Share2, MailCheck, FormInput, XCircle, RefreshCw, Send, Star } from 'lucide-react';
+import { Calendar, User, Phone, Mail, FileText, Clock, Sparkles, CheckCircle, AlertCircle, Plus, Edit, Users, Layers, Tag, Megaphone, Globe, Image as ImageIcon, Trash2, Share2, MailCheck, FormInput, XCircle, RefreshCw, Send, Star, BarChart3, PoundSterling } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -137,7 +137,7 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; content: string; butt
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'appointments' | 'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews'>('appointments');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('appointments');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -227,7 +227,6 @@ export default function AdminDashboard() {
         if (contentMap.reviews_heading !== undefined) setReviewsHeading(contentMap.reviews_heading);
         if (contentMap.reviews_subtext !== undefined) setReviewsSubtext(contentMap.reviews_subtext);
 
-        // Populate active template fields immediately with DB data or fallback defaults
         const activeTmpl = loadedTemplates.find((t: any) => t.key === editingTemplateKey);
         const defaults = DEFAULT_TEMPLATES[editingTemplateKey] || { subject: '', content: '', button_text: '' };
         
@@ -579,6 +578,11 @@ export default function AdminDashboard() {
     return acc;
   }, {});
 
+  // Reports calculations
+  const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.treatments?.price_gbp || 0), 0);
+  const completedBookingsCount = bookings.filter(b => b.status !== 'cancelled').length;
+  const averageBookingValue = completedBookingsCount > 0 ? Math.round(totalRevenue / completedBookingsCount) : 0;
+
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans p-4 sm:p-8 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -596,13 +600,16 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm">
               <button onClick={() => setActiveTab('appointments')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'appointments' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                Schedule
+                Calendar
               </button>
               <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
                 CRM
               </button>
               <button onClick={() => setActiveTab('cms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'cms' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
                 Treatments
+              </button>
+              <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reports' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+                Reports
               </button>
               <button onClick={() => setActiveTab('reviews')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reviews' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
                 Reviews
@@ -668,6 +675,26 @@ export default function AdminDashboard() {
                     <p className="text-xs font-medium text-[#6B8E70] mt-1">{selectedBooking.treatments?.title} (£{selectedBooking.treatments?.price_gbp})</p>
                     <p className="text-xs text-[#6B7280] mt-1">Time: {new Date(selectedBooking.start_time).toLocaleString()}</p>
                     {selectedBooking.notes && <p className="text-xs text-[#6B7280] mt-2 italic bg-[#FAF9F6] p-2.5 rounded-xl">Note: {selectedBooking.notes}</p>}
+                  </div>
+
+                  <div className="pt-4 border-t space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Form Status</h4>
+                    {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
+                      <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+                        <p className="text-emerald-700 font-medium">✓ Form Completed</p>
+                        <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
+                        <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
+                        <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
+                        <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+                        <p className="text-amber-700 italic">No consultation form completed yet.</p>
+                        <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
+                          <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2 pt-2 border-t">
@@ -770,7 +797,7 @@ export default function AdminDashboard() {
                       <p><strong>Emergency:</strong> {selectedClient.consultations[0].emergency_contact || 'None'}</p>
                     </div>
                   ) : (
-                    <p className="text-xs text-[#6B7280] italic">No consultation form submitted yet.</p>
+                    <p className="text-xs text-[#6B7280] italic">No consultation form completed yet.</p>
                   )}
                 </div>
               </div>
@@ -844,6 +871,35 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="max-w-4xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
+            <div>
+              <h2 className="font-serif text-2xl text-[#2C332B]">Financial & Performance Reports</h2>
+              <p className="text-xs text-[#6B7280] mt-0.5">Overview of revenue, booking volumes, and sanctuary performance metrics.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="p-6 bg-[#FAF9F6] border rounded-2xl space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Total Revenue</span>
+                <p className="font-serif text-3xl text-[#6B8E70]">£{totalRevenue}</p>
+                <p className="text-[11px] text-gray-500">From all confirmed appointments</p>
+              </div>
+
+              <div className="p-6 bg-[#FAF9F6] border rounded-2xl space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Confirmed Bookings</span>
+                <p className="font-serif text-3xl text-[#2C332B]">{completedBookingsCount}</p>
+                <p className="text-[11px] text-gray-500">Active reservations logged</p>
+              </div>
+
+              <div className="p-6 bg-[#FAF9F6] border rounded-2xl space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Avg. Booking Value</span>
+                <p className="font-serif text-3xl text-[#6B8E70]">£{averageBookingValue}</p>
+                <p className="text-[11px] text-gray-500">Per treatment session</p>
+              </div>
+            </div>
           </div>
         )}
 

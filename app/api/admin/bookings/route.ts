@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     if (includeBookings === 'true' || includeBookings === '1') {
       let query = supabase
         .from('bookings')
-        .select('*, treatments(title, price_gbp, duration_minutes), form_submissions(*)')
+        .select('*, treatments(title, price_gbp, duration_minutes), consultations(*)')
         .order('start_time', { ascending: false });
 
       if (statusFilter && statusFilter !== 'all') {
