@@ -53,27 +53,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
     }
 
-    // 2. Dispatch Confirmation Email via Resend with Consultation Button
+    // 2. Dispatch Confirmation Email via Resend with Guaranteed Consultation Button
     const resendApiKey = process.env.RESEND_API_KEY;
     if (resendApiKey && resendApiKey.startsWith('re_')) {
       const consultationLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calmdriftsanctuary.co.uk'}/consultation/${booking.id}`;
+
+      // Fetch template from DB if available, otherwise fallback
+      const { data: dbTemplate } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('key', 'confirmation_email')
+        .single();
+
+      const emailSubject = dbTemplate?.subject || 'Your Reservation at Calm Drift Sanctuary';
+      
+      let emailHtml = dbTemplate?.content;
+      if (!emailHtml) {
+        emailHtml = `
+          <div style="font-family: sans-serif; color: #2C332B; padding: 24px; background-color: #FAF9F6; border-radius: 12px;">
+            <h2 style="font-family: Georgia, serif; color: #2C332B; font-weight: 500;">Your Sanctuary Reservation is Confirmed</h2>
+            <p style="font-weight: 300; color: #6B7280;">Dear ${clientName},</p>
+            <p style="font-weight: 300;">We look forward to hosting you on <strong>${start.toLocaleString()}</strong>.</p>
+          </div>
+        `;
+      }
+
+      // Guarantee the consultation button block is attached at the bottom
+      emailHtml += `
+        <div style="margin-top: 24px;">
+          <p style="font-weight: 300; margin-bottom: 12px;">Please complete your pre-treatment digital consultation prior to arrival:</p>
+          <a href="${consultationLink}" style="background-color: #6B8E70; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-weight: 600; display: inline-block;">Complete Digital Consultation</a>
+        </div>
+      `;
 
       try {
         await resend.emails.send({
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [clientEmail],
-          subject: 'Your Reservation at Calm Drift Sanctuary',
-          html: `
-            <div style="font-family: sans-serif; color: #2C332B; padding: 24px; background-color: #FAF9F6; border-radius: 12px;">
-              <h2 style="font-family: Georgia, serif; color: #2C332B; font-weight: 500;">Your Sanctuary Reservation is Confirmed</h2>
-              <p style="font-weight: 300; color: #6B7280;">Dear ${clientName},</p>
-              <p style="font-weight: 300;">We look forward to hosting you on <strong>${start.toLocaleString()}</strong>.</p>
-              <p style="font-weight: 300;">Please complete your pre-treatment digital consultation prior to arrival:</p>
-              <p style="margin-top: 20px;">
-                <a href="${consultationLink}" style="background-color: #6B8E70; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-weight: 600; display: inline-block;">Complete Digital Consultation</a>
-              </p>
-            </div>
-          `,
+          subject: emailSubject,
+          html: emailHtml,
         });
       } catch (emailErr) {
         console.error('Resend Dispatch Error:', emailErr);

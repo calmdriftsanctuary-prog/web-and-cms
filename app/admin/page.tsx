@@ -34,8 +34,6 @@ interface Treatment {
   description: string;
   duration_minutes: number;
   price_gbp: number;
-  discount_active?: boolean;
-  discount_percent?: number;
 }
 
 interface Review {
@@ -111,16 +109,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
-  // CRM Drill-down State
   const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<{ name: string; email: string; phone: string } | null>(null);
 
-  // Reschedule Modal State
   const [reschedulingBooking, setReschedulingBooking] = useState<Booking | null>(null);
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
 
-  // Popup Overlay CMS State
   const [popupConfig, setPopupConfig] = useState<PopupConfig>({
     is_active: false,
     title: 'Exclusive Offer',
@@ -128,32 +123,28 @@ export default function AdminDashboard() {
     button_text: 'Claim Offer',
     link_url: '#',
   });
-  const [savingPopup, setSavingPopup] = useState(false);
 
-  // Page Content CMS State
   const [heroHeading, setHeroHeading] = useState('rest, restore, and reconnect.');
   const [heroSubtext, setHeroSubtext] = useState('Tailored massages and holistic rituals designed to ease tension.');
   const [bookingTitle, setBookingTitle] = useState('reserve your session');
   const [bookingSubtext, setBookingSubtext] = useState('Select a holistic treatment below to begin your reservation.');
+  const [galleryHeading, setGalleryHeading] = useState('Sanctuary Gallery');
+  const [gallerySubtext, setGallerySubtext] = useState('A glimpse into our restorative space');
+  const [reviewsHeading, setReviewsHeading] = useState('Client Experiences');
+  const [reviewsSubtext, setReviewsSubtext] = useState('Words from those who have visited our sanctuary');
   const [savingContent, setSavingContent] = useState(false);
 
-  // Treatment Modal Form State
   const [editingTreatment, setEditingTreatment] = useState<Partial<Treatment> | null>(null);
-  const [savingTreatment, setSavingTreatment] = useState(false);
 
-  // Gallery CMS Form State
   const [newImageTitle, setNewImageTitle] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [savingGallery, setSavingGallery] = useState(false);
 
-  // Social Links CMS Form State
   const [newPlatform, setNewPlatform] = useState('');
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [newIconUrl, setNewIconUrl] = useState('');
   const [savingSocial, setSavingSocial] = useState(false);
-  const [editingSocial, setEditingSocial] = useState<SocialLinkItem | null>(null);
 
-  // Form Builder CMS State
   const [formTypeTab, setFormTypeTab] = useState<'booking' | 'consultation'>('booking');
   const [fieldLabel, setFieldLabel] = useState('');
   const [fieldType, setFieldType] = useState('text');
@@ -161,7 +152,6 @@ export default function AdminDashboard() {
   const [isRequired, setIsRequired] = useState(false);
   const [editingDefaultField, setEditingDefaultField] = useState<FieldConfig | null>(null);
 
-  // Templates CMS State (Including Subject Lines)
   const [editingTemplateKey, setEditingTemplateKey] = useState('confirmation_email');
   const [templateSubject, setTemplateSubject] = useState('');
   const [templateContent, setTemplateContent] = useState('');
@@ -178,7 +168,8 @@ export default function AdminDashboard() {
         setSocialLinks(data.socialLinks || []);
         setCustomFields(data.customFields || []);
         setFieldConfigs(data.fieldConfigs || []);
-        setTemplates(data.templates || []);
+        const loadedTemplates = data.templates || [];
+        setTemplates(loadedTemplates);
 
         const contentMap = (data.pageContent || []).reduce((acc: any, item: any) => {
           acc[item.key] = item.value;
@@ -188,8 +179,13 @@ export default function AdminDashboard() {
         if (contentMap.hero_subtext !== undefined) setHeroSubtext(contentMap.hero_subtext);
         if (contentMap.booking_title !== undefined) setBookingTitle(contentMap.booking_title);
         if (contentMap.booking_subtext !== undefined) setBookingSubtext(contentMap.booking_subtext);
+        if (contentMap.gallery_heading !== undefined) setGalleryHeading(contentMap.gallery_heading);
+        if (contentMap.gallery_subtext !== undefined) setGallerySubtext(contentMap.gallery_subtext);
+        if (contentMap.reviews_heading !== undefined) setReviewsHeading(contentMap.reviews_heading);
+        if (contentMap.reviews_subtext !== undefined) setReviewsSubtext(contentMap.reviews_subtext);
 
-        const activeTmpl = (data.templates || []).find((t: any) => t.key === 'confirmation_email');
+        // Dynamically populate fields based on the current editingTemplateKey
+        const activeTmpl = loadedTemplates.find((t: any) => t.key === editingTemplateKey);
         if (activeTmpl) {
           setTemplateSubject(activeTmpl.subject || '');
           setTemplateContent(activeTmpl.content || '');
@@ -202,7 +198,6 @@ export default function AdminDashboard() {
         setLoading(false);
       });
 
-    // Fetch Reviews separately for moderation
     fetch('/api/reviews')
       .then((res) => res.json())
       .then((data) => {
@@ -215,7 +210,6 @@ export default function AdminDashboard() {
     loadData();
   }, []);
 
-  // CRM Aggregation & Client Management
   const clientsMap = bookings.reduce((acc, booking) => {
     const email = booking.client_email.toLowerCase();
     if (!acc[email]) {
@@ -241,7 +235,6 @@ export default function AdminDashboard() {
   const clientsList = Object.values(clientsMap);
   const selectedClient = selectedClientEmail ? clientsMap[selectedClientEmail.toLowerCase()] : null;
 
-  // Save Client Details Edit
   const handleSaveClientDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient || !selectedClientEmail) return;
@@ -264,7 +257,6 @@ export default function AdminDashboard() {
     alert('Client profile updated successfully!');
   };
 
-  // Trigger Consultation Email
   const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
     if (!confirm(`Send consultation intake form request email to ${clientName} (${clientEmail})?`)) return;
     await fetch('/api/admin/bookings', {
@@ -275,12 +267,10 @@ export default function AdminDashboard() {
     alert('Consultation form email sent successfully!');
   };
 
-  // Save Treatment
   const handleSaveTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTreatment) return;
 
-    setSavingTreatment(true);
     try {
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
@@ -294,15 +284,13 @@ export default function AdminDashboard() {
       } else {
         alert('Failed to save treatment.');
       }
-    } finally {
-      setSavingTreatment(false);
+    } catch (err) {
+      alert('Error saving treatment.');
     }
   };
 
-  // Save Popup
   const handleSavePopup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingPopup(true);
     try {
       await fetch('/api/admin/bookings', {
         method: 'POST',
@@ -311,12 +299,11 @@ export default function AdminDashboard() {
       });
       alert('Promotional Popup settings updated!');
       loadData();
-    } finally {
-      setSavingPopup(false);
+    } catch (err) {
+      alert('Failed to update popup');
     }
   };
 
-  // Save Page Content CMS
   const handleSaveContent = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingContent(true);
@@ -326,6 +313,10 @@ export default function AdminDashboard() {
         { key: 'hero_subtext', value: heroSubtext },
         { key: 'booking_title', value: bookingTitle },
         { key: 'booking_subtext', value: bookingSubtext },
+        { key: 'gallery_heading', value: galleryHeading },
+        { key: 'gallery_subtext', value: gallerySubtext },
+        { key: 'reviews_heading', value: reviewsHeading },
+        { key: 'reviews_subtext', value: reviewsSubtext },
       ];
 
       for (const item of keys) {
@@ -345,7 +336,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Add Gallery Image
   const handleAddGalleryImage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImageUrl) return;
@@ -375,7 +365,6 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  // Add Social Link
   const handleAddSocialLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlatform || !newSocialUrl) return;
@@ -394,19 +383,6 @@ export default function AdminDashboard() {
     } finally {
       setSavingSocial(false);
     }
-  };
-
-  const handleSaveSocialEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSocial) return;
-
-    await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'social_link', ...editingSocial }),
-    });
-    setEditingSocial(null);
-    loadData();
   };
 
   const handleToggleSocial = async (link: SocialLinkItem) => {
@@ -428,7 +404,6 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  // Form Builder handlers
   const handleAddCustomField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fieldLabel) return;
@@ -443,7 +418,7 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  const handleDeleteField = async (id: string) => {
+  const handleDeleteCustomField = async (id: string) => {
     if (!confirm('Delete this custom field?')) return;
     await fetch('/api/admin/bookings', {
       method: 'POST',
@@ -463,9 +438,9 @@ export default function AdminDashboard() {
     });
     setEditingDefaultField(null);
     loadData();
+    alert('Field configuration updated successfully!');
   };
 
-  // Cancel Appointment (Triggers Email)
   const handleCancelBooking = async (id: string) => {
     if (!confirm('Are you sure you want to cancel this appointment and notify the client?')) return;
     await fetch('/api/admin/bookings', {
@@ -475,10 +450,9 @@ export default function AdminDashboard() {
     });
     setSelectedBooking(null);
     loadData();
-    alert('Appointment cancelled and cancellation email triggered!');
+    alert('Appointment cancelled successfully!');
   };
 
-  // Reschedule Appointment (Triggers Email)
   const handleRescheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reschedulingBooking || !newDate || !newTime) return;
@@ -491,12 +465,10 @@ export default function AdminDashboard() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'update_booking_status',
+        type: 'update_booking_details',
         id: reschedulingBooking.id,
-        status: 'confirmed',
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
-        trigger_email: 'reschedule',
       }),
     });
 
@@ -504,18 +476,32 @@ export default function AdminDashboard() {
     setNewDate('');
     setNewTime('');
     loadData();
-    alert('Appointment rescheduled and update email triggered!');
+    alert('Appointment rescheduled successfully!');
   };
 
-  // Templates handler (Subject + Content)
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch('/api/admin/bookings', {
+    const res = await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'template', key: editingTemplateKey, subject: templateSubject, content: templateContent }),
     });
-    alert('Email template updated successfully!');
+    if (res.ok) {
+      // Update local template state instantly so changes persist on re-select
+      setTemplates((prev) => {
+        const existingIndex = prev.findIndex((t) => t.key === editingTemplateKey);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], subject: templateSubject, content: templateContent };
+          return updated;
+        } else {
+          return [...prev, { key: editingTemplateKey, title: editingTemplateKey, subject: templateSubject, content: templateContent }];
+        }
+      });
+      alert('Email template updated successfully!');
+    } else {
+      alert('Failed to update email template.');
+    }
   };
 
   const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab);
@@ -540,60 +526,44 @@ export default function AdminDashboard() {
               </span>
               <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
             </div>
-            {/* Calendar Button for Mobile View */}
-            <a
-              href="/admin/calendar"
-              className="md:hidden bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-emerald-700 transition inline-flex items-center gap-1 shadow-sm"
-            >
-              📅 Calendar
-            </a>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm">
               <button onClick={() => setActiveTab('appointments')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'appointments' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Calendar className="w-3.5 h-3.5 mr-1" /> Schedule</span>
+                Schedule
               </button>
               <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Users className="w-3.5 h-3.5 mr-1" /> CRM</span>
+                CRM
               </button>
               <button onClick={() => setActiveTab('cms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'cms' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Layers className="w-3.5 h-3.5 mr-1" /> Treatments</span>
+                Treatments
               </button>
               <button onClick={() => setActiveTab('reviews')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reviews' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Star className="w-3.5 h-3.5 mr-1" /> Reviews</span>
+                Reviews
               </button>
               <button onClick={() => setActiveTab('popup')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'popup' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Megaphone className="w-3.5 h-3.5 mr-1" /> Popup</span>
+                Popup
               </button>
               <button onClick={() => setActiveTab('gallery')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'gallery' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><ImageIcon className="w-3.5 h-3.5 mr-1" /> Gallery</span>
+                Gallery
               </button>
               <button onClick={() => setActiveTab('social')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'social' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Share2 className="w-3.5 h-3.5 mr-1" /> Socials</span>
+                Socials
               </button>
               <button onClick={() => setActiveTab('forms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'forms' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><FormInput className="w-3.5 h-3.5 mr-1" /> Form Builder</span>
+                Form Builder
               </button>
               <button onClick={() => setActiveTab('templates')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'templates' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><MailCheck className="w-3.5 h-3.5 mr-1" /> Emails & Thanks</span>
+                Emails & Thanks
               </button>
               <button onClick={() => setActiveTab('content')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'content' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                <span className="flex items-center"><Globe className="w-3.5 h-3.5 mr-1" /> Copy CMS</span>
+                Copy CMS
               </button>
             </div>
-
-            {/* Desktop Calendar Management Button */}
-            <a
-              href="/admin/calendar"
-              className="hidden md:inline-flex bg-emerald-600 text-white px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-emerald-700 transition items-center gap-2 shadow-sm"
-            >
-              📅 Calendar Hub
-            </a>
           </div>
         </header>
 
-        {/* TAB 1: SCHEDULE (DAY BY DAY VIEW) */}
         {activeTab === 'appointments' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
@@ -651,7 +621,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Reschedule Modal */}
         {reschedulingBooking && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
@@ -675,7 +644,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 2: CRM & CLIENT PROFILE DRILL-DOWN */}
         {activeTab === 'crm' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className={`${selectedClient ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
@@ -722,7 +690,6 @@ export default function AdminDashboard() {
                   <button onClick={() => setEditingClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone })} className="w-full py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit Client Details</button>
                 </div>
 
-                {/* Latest Consultation Form */}
                 <div className="pt-4 border-t space-y-3">
                   <div className="flex justify-between items-center">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Latest Consultation Form</h4>
@@ -741,26 +708,9 @@ export default function AdminDashboard() {
                     <p className="text-xs text-[#6B7280] italic">No consultation form submitted yet.</p>
                   )}
                 </div>
-
-                {/* Booking History */}
-                <div className="pt-4 border-t space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Booking History ({selectedClient.bookings.length})</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedClient.bookings.map((b) => (
-                      <div key={b.id} className="p-3 border rounded-xl text-xs bg-[#FAF9F6] flex justify-between">
-                        <div>
-                          <p className="font-medium text-[#2C332B]">{b.treatments?.title || 'Session'}</p>
-                          <p className="text-[#6B7280]">{new Date(b.start_time).toLocaleDateString()}</p>
-                        </div>
-                        <span className="capitalize text-[#6B8E70]">{b.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* Edit Client Modal */}
             {editingClient && (
               <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                 <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
@@ -789,12 +739,11 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: TREATMENTS */}
         {activeTab === 'cms' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Treatments & Discounts</h2>
-              <button onClick={() => setEditingTreatment({ title: '', description: '', duration_minutes: 60, price_gbp: 85, discount_active: false, discount_percent: 10 })} className="px-4 py-2 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full">
+              <button onClick={() => setEditingTreatment({ title: '', description: '', duration_minutes: 60, price_gbp: 85 })} className="px-4 py-2 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full">
                 <Plus className="w-3.5 h-3.5 inline mr-1" /> Add Treatment
               </button>
             </div>
@@ -833,7 +782,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 4: REVIEWS MANAGEMENT */}
         {activeTab === 'reviews' && (
           <div className="max-w-4xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
@@ -884,7 +832,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: POPUP */}
         {activeTab === 'popup' && (
           <div className="max-w-2xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <h2 className="font-serif text-2xl">Promotional Overlay Modal</h2>
@@ -900,7 +847,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: GALLERY CMS */}
         {activeTab === 'gallery' && (
           <div className="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
@@ -910,8 +856,8 @@ export default function AdminDashboard() {
 
             <form onSubmit={handleAddGalleryImage} className="space-y-4 p-4 bg-[#FAF9F6] border rounded-2xl">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Gallery Image</h3>
-              <input type="text" placeholder="Image Title (e.g. Relaxation Lounge)" value={newImageTitle} onChange={(e) => setNewImageTitle(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <input type="url" required placeholder="Image URL (e.g. https://images.unsplash.com/...)" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="text" placeholder="Image Title" value={newImageTitle} onChange={(e) => setNewImageTitle(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="url" required placeholder="Image URL" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <button type="submit" disabled={savingGallery} className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">
                 {savingGallery ? 'Adding...' : 'Add Image to Gallery'}
               </button>
@@ -926,9 +872,7 @@ export default function AdminDashboard() {
                       <img src={img.image_url} alt={img.title} className="w-12 h-12 object-cover rounded-lg" />
                       <span className="text-sm font-medium text-[#2C332B]">{img.title}</span>
                     </div>
-                    <button onClick={() => handleDeleteGalleryImage(img.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => handleDeleteGalleryImage(img.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -936,19 +880,17 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 7: SOCIAL LINKS CMS */}
         {activeTab === 'social' && (
           <div className="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Footer Social Icons & Links CMS</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">Toggle social media icons on/off and manage links in your footer.</p>
             </div>
 
             <form onSubmit={handleAddSocialLink} className="space-y-4 p-4 bg-[#FAF9F6] border rounded-2xl">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add Social Platform</h3>
-              <input type="text" required placeholder="Platform Name (e.g. Instagram, Facebook)" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <input type="url" required placeholder="Profile URL (e.g. https://instagram.com/yourprofile)" value={newSocialUrl} onChange={(e) => setNewSocialUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <input type="url" placeholder="Custom Icon Image URL (Optional)" value={newIconUrl} onChange={(e) => setNewIconUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="text" required placeholder="Platform Name" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="url" required placeholder="Profile URL" value={newSocialUrl} onChange={(e) => setNewSocialUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="url" placeholder="Custom Icon Image URL" value={newIconUrl} onChange={(e) => setNewIconUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <button type="submit" disabled={savingSocial} className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">
                 {savingSocial ? 'Adding...' : 'Add Social Link'}
               </button>
@@ -969,35 +911,14 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button onClick={() => setEditingSocial(link)} className="px-3 py-1.5 bg-[#FAF9F6] border text-xs uppercase rounded-lg">Edit</button>
-                      <button onClick={() => handleDeleteSocialLink(link.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
-                    </div>
+                    <button onClick={() => handleDeleteSocialLink(link.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
             </div>
-
-            {editingSocial && (
-              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
-                  <h3 className="font-serif text-xl">Edit Social Link</h3>
-                  <form onSubmit={handleSaveSocialEdit} className="space-y-3">
-                    <input type="text" required value={editingSocial.platform} onChange={(e) => setEditingSocial({ ...editingSocial, platform: e.target.value })} className="w-full p-3 border rounded-xl text-sm" placeholder="Platform" />
-                    <input type="url" required value={editingSocial.url} onChange={(e) => setEditingSocial({ ...editingSocial, url: e.target.value })} className="w-full p-3 border rounded-xl text-sm" placeholder="Profile URL" />
-                    <input type="url" value={editingSocial.icon_url || ''} onChange={(e) => setEditingSocial({ ...editingSocial, icon_url: e.target.value })} className="w-full p-3 border rounded-xl text-sm" placeholder="Icon Image URL" />
-                    <div className="flex space-x-3 pt-2">
-                      <button type="button" onClick={() => setEditingSocial(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
-                      <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Save</button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* TAB 8: FORM BUILDER */}
         {activeTab === 'forms' && (
           <div className="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
             <div>
@@ -1019,51 +940,12 @@ export default function AdminDashboard() {
                       <p className="text-sm font-medium text-[#2C332B]">{fc.field_label} <span className="text-xs text-[#6B8E70]">({fc.field_name})</span></p>
                       <p className="text-xs text-[#6B7280]">{fc.is_required ? 'Required' : 'Optional'} • {fc.is_active ? 'Active' : 'Hidden'}</p>
                     </div>
-                    <button onClick={() => setEditingDefaultField(fc)} className="px-3 py-1.5 bg-white border text-xs uppercase rounded-lg">Edit Field</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <form onSubmit={handleAddCustomField} className="space-y-4 p-4 bg-[#FAF9F6] border rounded-2xl">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add Custom Field to {formTypeTab === 'booking' ? 'Booking Form' : 'Consultation Form'}</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase mb-1">Field Type</label>
-                  <select value={fieldType} onChange={(e) => setFieldType(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white">
-                    <option value="text">Text Input</option>
-                    <option value="checkbox">Checkbox</option>
-                    <option value="dropdown">Dropdown</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase mb-1">Field Label</label>
-                  <input type="text" required placeholder="e.g. Special Request" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 border rounded-xl text-sm" />
-                </div>
-              </div>
-              {fieldType === 'dropdown' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase mb-1">Dropdown Options (Comma Separated)</label>
-                  <input type="text" placeholder="Option 1, Option 2, Option 3" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} className="w-full p-3 border rounded-xl text-sm" />
-                </div>
-              )}
-              <div className="flex items-center space-x-2 pt-2">
-                <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="h-4 w-4 text-[#6B8E70] rounded" />
-                <span className="text-xs font-semibold uppercase">Mandatory / Required Field</span>
-              </div>
-              <button type="submit" className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Add Custom Field</button>
-            </form>
-
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Custom Fields ({filteredCustomFields.length})</h3>
-              <div className="grid gap-3">
-                {filteredCustomFields.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between p-4 border rounded-xl bg-white">
-                    <div>
-                      <p className="text-sm font-medium text-[#2C332B]">{f.field_label} <span className="text-xs text-[#6B8E70]">({f.field_type})</span></p>
-                      <p className="text-xs text-[#6B7280]">{f.is_required ? 'Required' : 'Optional'}</p>
-                    </div>
-                    <button onClick={() => handleDeleteField(f.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    <button 
+                      onClick={() => setEditingDefaultField(fc)} 
+                      className="px-3 py-1.5 bg-white border text-xs uppercase rounded-lg hover:bg-gray-50 transition"
+                    >
+                      Edit Field
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1075,18 +957,36 @@ export default function AdminDashboard() {
                   <h3 className="font-serif text-xl">Edit Field: {editingDefaultField.field_name}</h3>
                   <form onSubmit={handleSaveDefaultFieldConfig} className="space-y-3">
                     <div>
-                      <label className="block text-xs uppercase mb-1">Field Label / Title</label>
-                      <input type="text" required value={editingDefaultField.field_label} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, field_label: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                      <label className="block text-xs uppercase mb-1">Field Label</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={editingDefaultField.field_label} 
+                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, field_label: e.target.value })} 
+                        className="w-full p-3 border rounded-xl text-sm" 
+                      />
                     </div>
                     <div className="flex items-center space-x-2 pt-2">
-                      <input type="checkbox" checked={editingDefaultField.is_required} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} className="h-4 w-4 text-[#6B8E70] rounded" />
-                      <span className="text-xs font-semibold uppercase">Required Field</span>
+                      <input 
+                        type="checkbox" 
+                        id="editIsReq"
+                        checked={editingDefaultField.is_required} 
+                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} 
+                        className="h-4 w-4 text-[#6B8E70]"
+                      />
+                      <label htmlFor="editIsReq" className="text-xs text-gray-700 cursor-pointer">Required Field</label>
                     </div>
-                    <div className="flex items-center space-x-2 pt-1">
-                      <input type="checkbox" checked={editingDefaultField.is_active} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} className="h-4 w-4 text-[#6B8E70] rounded" />
-                      <span className="text-xs font-semibold uppercase">Active / Visible on Form</span>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="checkbox" 
+                        id="editIsActive"
+                        checked={editingDefaultField.is_active} 
+                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} 
+                        className="h-4 w-4 text-[#6B8E70]"
+                      />
+                      <label htmlFor="editIsActive" className="text-xs text-gray-700 cursor-pointer">Active (Visible on Form)</label>
                     </div>
-                    <div className="flex space-x-3 pt-2">
+                    <div className="flex space-x-3 pt-4">
                       <button type="button" onClick={() => setEditingDefaultField(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
                       <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Save Changes</button>
                     </div>
@@ -1094,10 +994,43 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            <form onSubmit={handleAddCustomField} className="p-4 bg-[#FAF9F6] border rounded-2xl space-y-4 mt-6">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add Custom Field</h3>
+              <input type="text" required placeholder="Field Label (e.g. Any specific areas of tension?)" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <select value={fieldType} onChange={(e) => setFieldType(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm">
+                <option value="text">Text Input (Short)</option>
+                <option value="textarea">Textarea (Long)</option>
+                <option value="select">Dropdown Selection</option>
+                <option value="checkbox">Checkbox (True/False)</option>
+              </select>
+              {fieldType === 'select' && (
+                <input type="text" required placeholder="Comma separated options (e.g. Shoulders, Lower Back, Neck)" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              )}
+              <div className="flex items-center space-x-2 pt-1">
+                <input type="checkbox" id="isReq" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="h-4 w-4 text-[#6B8E70]" />
+                <label htmlFor="isReq" className="text-sm">Make this field required</label>
+              </div>
+              <button type="submit" className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Add Field</button>
+            </form>
+
+            <div className="space-y-3 pt-6 border-t">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Custom Fields ({formTypeTab})</h3>
+              <div className="grid gap-3">
+                {filteredCustomFields.map((cf) => (
+                  <div key={cf.id} className="flex items-center justify-between p-4 border rounded-xl bg-white">
+                    <div>
+                      <p className="text-sm font-medium text-[#2C332B]">{cf.field_label} <span className="text-xs text-[#6B7280]">({cf.field_type})</span></p>
+                      <p className="text-xs text-[#6B7280]">{cf.is_required ? 'Required' : 'Optional'}</p>
+                    </div>
+                    <button onClick={() => handleDeleteCustomField(cf.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* TAB 9: EMAILS & THANK YOU MESSAGES */}
         {activeTab === 'templates' && (
           <div className="max-w-2xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
@@ -1122,13 +1055,14 @@ export default function AdminDashboard() {
                   <option value="reschedule_email">Appointment Reschedule Notification Email</option>
                   <option value="cancellation_email">Appointment Cancellation Notification Email</option>
                   <option value="consultation_email">Consultation Form Intake Request Email</option>
+                  <option value="review_email">Review Submission / Thank-You Email</option>
                   <option value="booking_thankyou">Booking Complete Thank-You Message</option>
                   <option value="consultation_thankyou">Consultation Form Thank-You Message</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email Subject Line</label>
-                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Your sanctuary booking is confirmed" />
+                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Thank you for your review!" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email / Message Body Content</label>
@@ -1139,55 +1073,46 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 10: PAGE CONTENT COPY CMS */}
         {activeTab === 'content' && (
           <div className="max-w-2xl bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Website Copy CMS</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">Modify hero headings and booking form section copy live.</p>
+              <p className="text-xs text-[#6B7280] mt-0.5">Modify hero headings, section titles, and reviews copy live.</p>
             </div>
             <form onSubmit={handleSaveContent} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Main Hero Heading</label>
-                <input
-                  type="text"
-                  value={heroHeading}
-                  onChange={(e) => setHeroHeading(e.target.value)}
-                  className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm"
-                />
+                <input type="text" value={heroHeading} onChange={(e) => setHeroHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Main Hero Subtext</label>
-                <textarea
-                  rows={2}
-                  value={heroSubtext}
-                  onChange={(e) => setHeroSubtext(e.target.value)}
-                  className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm"
-                />
+                <textarea rows={2} value={heroSubtext} onChange={(e) => setHeroSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
               <div className="border-t pt-4">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Booking Section Title</label>
-                <input
-                  type="text"
-                  value={bookingTitle}
-                  onChange={(e) => setBookingTitle(e.target.value)}
-                  className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm"
-                />
+                <input type="text" value={bookingTitle} onChange={(e) => setBookingTitle(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Booking Section Subtext</label>
-                <textarea
-                  rows={2}
-                  value={bookingSubtext}
-                  onChange={(e) => setBookingSubtext(e.target.value)}
-                  className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm"
-                />
+                <textarea rows={2} value={bookingSubtext} onChange={(e) => setBookingSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
-              <button
-                type="submit"
-                disabled={savingContent}
-                className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#5B7B60] transition shadow-sm"
-              >
+              <div className="border-t pt-4">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Gallery Section Heading</label>
+                <input type="text" value={galleryHeading} onChange={(e) => setGalleryHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Gallery Section Subtext</label>
+                <input type="text" value={gallerySubtext} onChange={(e) => setGallerySubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+              </div>
+              <div className="border-t pt-4">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Reviews Section Heading</label>
+                <input type="text" value={reviewsHeading} onChange={(e) => setReviewsHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Reviews Section Subtext</label>
+                <input type="text" value={reviewsSubtext} onChange={(e) => setReviewsSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+              </div>
+              <button type="submit" disabled={savingContent} className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#5B7B60] transition shadow-sm">
                 {savingContent ? 'Updating...' : 'Save Website Copy'}
               </button>
             </form>
