@@ -279,10 +279,12 @@ export default function HomePage() {
                       required
                     >
                       {availableSlots.map((slot) => {
-                        const timeStr = new Date(slot).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const d = new Date(slot);
+                        const hours = String(d.getUTCHours()).padStart(2, '0');
+                        const minutes = String(d.getUTCMinutes()).padStart(2, '0');
                         return (
                           <option key={slot} value={slot}>
-                            {timeStr}
+                            {hours}:{minutes}
                           </option>
                         );
                       })}
