@@ -209,7 +209,15 @@ export default function AdminDashboard() {
     fetch('/api/admin/bookings?bookings=true')
       .then((res) => res.json())
       .then((data) => {
-        setBookings(data.bookings || []);
+        const fetchedBookings = (data.bookings || []).map((b: any) => {
+          const hasOptInExplicit = b.marketing_opt_in === true || b.marketing_opt_in === 1 || b.marketing_opt_in === 'true';
+          const hasOptInNote = typeof b.notes === 'string' && b.notes.toLowerCase().includes('marketing opt-in: yes');
+          return {
+            ...b,
+            marketing_opt_in: hasOptInExplicit || hasOptInNote,
+          };
+        });
+        setBookings(fetchedBookings);
         setTreatments(data.treatments || []);
         if (data.popup) setPopupConfig(data.popup);
         setGallery(data.gallery || []);
@@ -373,6 +381,21 @@ export default function AdminDashboard() {
       loadData();
     } else {
       alert('Failed to save treatment.');
+    }
+  };
+
+  const handleDeleteTreatment = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'delete_treatment', id }),
+    });
+
+    if (res.ok) {
+      loadData();
+    } else {
+      alert('Failed to delete treatment.');
     }
   };
 
@@ -544,7 +567,6 @@ export default function AdminDashboard() {
     list[index] = list[targetIndex];
     list[targetIndex] = temp;
 
-    // Reassign order
     const updated = list.map((item, idx) => ({ ...item, display_order: idx }));
 
     if (type === 'default') {
@@ -894,7 +916,10 @@ export default function AdminDashboard() {
                     <p className="text-xs text-[#6B7280] mt-1">{t.description}</p>
                     <p className="text-xs font-semibold text-[#6B8E70] mt-2">£{t.price_gbp} ({t.duration_minutes} mins)</p>
                   </div>
-                  <button onClick={() => setEditingTreatment(t)} className="w-full py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit</button>
+                  <div className="flex space-x-2 pt-2">
+                    <button onClick={() => setEditingTreatment(t)} className="w-1/2 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit</button>
+                    <button onClick={() => handleDeleteTreatment(t.id, t.title)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1099,7 +1124,6 @@ export default function AdminDashboard() {
               <button onClick={() => setFormTypeTab('consultation')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'consultation' ? 'bg-[#6B8E70] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Consultation Form Fields</button>
             </div>
 
-            {/* Standard Fields with Reordering & Editing */}
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Standard Fields ({formTypeTab})</h3>
               <div className="grid gap-3">
@@ -1147,7 +1171,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Custom Fields (Text, Dropdown, Checkbox) */}
             <form onSubmit={handleAddCustomField} className="p-4 bg-[#FAF9F6] border rounded-2xl space-y-4 mt-6">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Custom Field</h3>
               <input type="text" required placeholder="Field Label (e.g. Preferred music style, Dietary notes)" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
