@@ -130,7 +130,8 @@ export default function HomePage() {
           clientPhone,
           startTime: selectedSlot,
           durationMinutes: duration,
-          notes: `${clientNotes}${marketingConsent ? ' [Marketing Consent: Yes]' : ''}`,
+          notes: clientNotes,
+          marketingOptIn: marketingConsent,
         }),
       });
 
@@ -148,7 +149,7 @@ export default function HomePage() {
   if (loadingInitial) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
-        <div className="text-xs uppercase tracking-widest text-gray-400">Loading your relaxation at Calm Drift...</div>
+        <div className="text-xs uppercase tracking-widest text-gray-400">Loading Your Relaxation...</div>
       </div>
     );
   }
