@@ -29,7 +29,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [] });
     }
 
-    // Expand day range query slightly to catch any timezone-offset blocked times
     const queryStart = `${dateStr}T00:00:00`;
     const queryEnd = `${dateStr}T23:59:59`;
 
@@ -53,14 +52,12 @@ export async function GET(request: Request) {
       busyIntervals.push({ start, end: bufferedEnd });
     });
 
-    // Filter blocked times that overlap with this specific calendar date
     const dateMidnight = new Date(`${dateStr}T00:00:00Z`).getTime();
     const nextDateMidnight = dateMidnight + 24 * 60 * 60 * 1000;
 
     blockedTimes?.forEach(bt => {
       const btStart = new Date(bt.start_time).getTime();
       const btEnd = new Date(bt.end_time).getTime();
-      // If block overlaps with this day
       if (btStart < nextDateMidnight && btEnd > dateMidnight) {
         busyIntervals.push({ start: btStart, end: btEnd });
       }
@@ -78,8 +75,6 @@ export async function GET(request: Request) {
       parseInt(dateParts[2], 10)
     );
 
-    // Convert local 10am and 8pm to epoch ms for this date
-    // (Using UTC base since operating hours are fixed sanctuary hours)
     const openingTimeMs = baseDateMs + openingHour * 3600000;
     const closingTimeMs = baseDateMs + closingHour * 3600000;
 
@@ -89,8 +84,11 @@ export async function GET(request: Request) {
       const slotStartMs = currentSlotMs;
       const slotEndMs = slotStartMs + treatmentDuration * 60000;
 
-      // Absolute strict check: Slot cannot start at or after 20:00, and cannot end past 20:00
-      if (slotStartMs >= closingTimeMs || slotEndMs > closingTimeMs) {
+      // ABSOLUTE HARD CEILING: 
+      // 1. No slot can start at or after 20:00 (closingHour)
+      // 2. No slot can end past 20:00 (closingTimeMs)
+      const slotHour = new Date(slotStartMs).getUTCHours();
+      if (slotHour >= closingHour || slotEndMs > closingTimeMs) {
         break;
       }
 
