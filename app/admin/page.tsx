@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, Trash2, Send, Plus, RefreshCw, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { Sparkles, Trash2, Send, Plus, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -142,7 +142,7 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; content: string; butt
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'appointments' | 'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('appointments');
+  const [activeTab, setActiveTab] = useState<'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('crm');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -152,14 +152,9 @@ export default function AdminDashboard() {
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>([]);
   const [templates, setTemplates] = useState<SiteTemplate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<{ name: string; email: string; phone: string } | null>(null);
-
-  const [reschedulingBooking, setReschedulingBooking] = useState<Booking | null>(null);
-  const [newDate, setNewDate] = useState('');
-  const [newTime, setNewTime] = useState('');
 
   const [popupConfig, setPopupConfig] = useState<PopupConfig>({
     is_active: false,
@@ -209,7 +204,6 @@ export default function AdminDashboard() {
     fetch('/api/admin/bookings?bookings=true')
       .then((res) => res.json())
       .then((data) => {
-        // Robust marketing opt-in mapping fallback
         const fetchedBookings = (data.bookings || []).map((b: any) => {
           const hasOptInExplicit = b.marketing_opt_in === true || b.marketing_opt_in === 1 || b.marketing_opt_in === 'true';
           const hasOptInNote = typeof b.notes === 'string' && b.notes.toLowerCase().includes('marketing opt-in: yes');
@@ -225,14 +219,19 @@ export default function AdminDashboard() {
         setSocialLinks(data.socialLinks || []);
         setCustomFields(data.customFields || []);
 
-        // Ensure default fields exist in state even if empty from server
         let defaultFields = data.fieldConfigs || [];
         if (defaultFields.length === 0) {
           defaultFields = [
+            // Booking defaults
             { id: 'def-1', form_type: 'booking', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
             { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
             { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
             { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
+            // Consultation defaults
+            { id: 'def-5', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
+            { id: 'def-6', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
+            { id: 'def-7', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
+            { id: 'def-8', form_type: 'consultation', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
           ];
         }
         setFieldConfigs(defaultFields);
@@ -626,52 +625,8 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  const handleCancelBooking = async (id: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment and notify the client?')) return;
-    await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'update_booking_status', id, status: 'cancelled', trigger_email: 'cancellation' }),
-    });
-    setSelectedBooking(null);
-    loadData();
-  };
-
-  const handleRescheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reschedulingBooking || !newDate || !newTime) return;
-
-    const startDateTime = new Date(`${newDate}T${newTime}`);
-    const duration = reschedulingBooking.treatments?.duration_minutes || 60;
-    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-
-    await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'update_booking_details',
-        id: reschedulingBooking.id,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime.toISOString(),
-      }),
-    });
-
-    setReschedulingBooking(null);
-    setNewDate('');
-    setNewTime('');
-    loadData();
-    alert('Appointment rescheduled successfully!');
-  };
-
   const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   const filteredCustomFields = customFields.filter((cf) => cf.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-
-  const groupedBookings = bookings.reduce((acc: Record<string, Booking[]>, booking) => {
-    const day = new Date(booking.start_time).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    if (!acc[day]) acc[day] = [];
-    acc[day].push(booking);
-    return acc;
-  }, {});
 
   const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.treatments?.price_gbp || 0), 0);
   const completedBookingsCount = bookings.filter(b => b.status !== 'cancelled').length;
@@ -691,9 +646,6 @@ export default function AdminDashboard() {
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center">
-              <button onClick={() => setActiveTab('appointments')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'appointments' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
-                Schedule
-              </button>
               <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
                 Calendar ↗
               </Link>
@@ -730,107 +682,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         </header>
-
-        {activeTab === 'appointments' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule Organised by Day</h2>
-              {Object.keys(groupedBookings).length === 0 ? (
-                <p className="text-xs text-[#6B7280]">No bookings found.</p>
-              ) : (
-                Object.entries(groupedBookings).map(([day, dayBookings]) => (
-                  <div key={day} className="space-y-3">
-                    <h3 className="font-serif text-lg text-[#6B8E70] border-b pb-1">{day}</h3>
-                    <div className="space-y-3">
-                      {dayBookings.map((item) => (
-                        <div key={item.id} onClick={() => setSelectedBooking(item)} className={`p-5 rounded-2xl border bg-white cursor-pointer flex justify-between items-center transition ${selectedBooking?.id === item.id ? 'border-[#6B8E70] shadow-sm' : 'border-[#E5E7EB]'}`}>
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-serif text-lg text-[#2C332B]">{item.client_name}</span>
-                              <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full ${item.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.status}</span>
-                            </div>
-                            <p className="text-xs text-[#6B7280]">{item.treatments?.title} • {new Date(item.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          </div>
-                          <span className="text-xs text-[#6B8E70]">View Details &rarr;</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-4">Appointment Actions</h2>
-              {selectedBooking ? (
-                <div className="bg-white p-6 rounded-2xl border space-y-4">
-                  <div>
-                    <h3 className="font-serif text-xl">{selectedBooking.client_name}</h3>
-                    <p className="text-xs text-[#6B7280]">{selectedBooking.client_email} • {selectedBooking.client_phone}</p>
-                    <p className="text-xs font-medium text-[#6B8E70] mt-1">{selectedBooking.treatments?.title} (£{selectedBooking.treatments?.price_gbp})</p>
-                    <p className="text-xs text-[#6B7280] mt-1">Time: {new Date(selectedBooking.start_time).toLocaleString()}</p>
-                    <p className="text-xs text-[#6B7280] mt-1">Marketing Opt-In: {selectedBooking.marketing_opt_in ? `Yes (${selectedBooking.marketing_opt_in_at ? new Date(selectedBooking.marketing_opt_in_at).toLocaleString() : 'Recorded'})` : 'No'}</p>
-                    {selectedBooking.notes && <p className="text-xs text-[#6B7280] mt-2 italic bg-[#FAF9F6] p-2.5 rounded-xl">Note: {selectedBooking.notes}</p>}
-                  </div>
-
-                  <div className="pt-4 border-t space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Form Status</h4>
-                    {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
-                      <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
-                        <p className="text-emerald-700 font-medium">✓ Form Completed</p>
-                        <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
-                        <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
-                        <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
-                        <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
-                        <p className="text-amber-700 italic">No consultation form completed yet.</p>
-                        <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
-                          <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 pt-2 border-t">
-                    <button onClick={() => setReschedulingBooking(selectedBooking)} className="w-full py-2.5 bg-[#FAF9F6] border text-xs uppercase rounded-xl flex items-center justify-center space-x-1.5 hover:bg-gray-50">
-                      <RefreshCw className="w-3.5 h-3.5" /> <span>Reschedule</span>
-                    </button>
-                    <button onClick={() => handleCancelBooking(selectedBooking.id)} className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl flex items-center justify-center space-x-1.5 hover:bg-red-100">
-                      <XCircle className="w-3.5 h-3.5" /> <span>Cancel Appointment</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white p-6 rounded-2xl border text-xs text-[#6B7280]">Select an appointment to view actions.</div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {reschedulingBooking && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
-              <h3 className="font-serif text-xl">Reschedule Appointment</h3>
-              <p className="text-xs text-[#6B7280]">Select a new date and time for {reschedulingBooking.client_name}.</p>
-              <form onSubmit={handleRescheduleSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-xs uppercase mb-1">New Date</label>
-                  <input type="date" required value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-full p-3 border rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase mb-1">New Time</label>
-                  <input type="time" required value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full p-3 border rounded-xl text-sm" />
-                </div>
-                <div className="flex space-x-3 pt-2">
-                  <button type="button" onClick={() => setReschedulingBooking(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
-                  <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Confirm Reschedule</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'crm' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1146,7 +997,7 @@ export default function AdminDashboard() {
           <div className="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Dynamic Form Builder & Field Manager</h2>
-              <p className="text-xs text-[#6B7280]">Edit existing default fields, rearrange order, toggle required priorities, or add custom fields (Text, Dropdown, Checkbox) that map straight into your CRM/CMS.</p>
+              <p className="text-xs text-[#6B7280]">Edit existing default fields for both booking and consultation forms, rearrange order, toggle required priorities, or add custom fields.</p>
             </div>
 
             <div className="flex space-x-2 border-b pb-4">
@@ -1202,7 +1053,7 @@ export default function AdminDashboard() {
             )}
 
             <form onSubmit={handleAddCustomField} className="p-4 bg-[#FAF9F6] border rounded-2xl space-y-4 mt-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Custom Field</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Custom Field ({formTypeTab})</h3>
               <input type="text" required placeholder="Field Label (e.g. Preferred music style, Dietary notes)" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <select value={fieldType} onChange={(e) => setFieldType(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm">
                 <option value="text">Text Input (Short)</option>
