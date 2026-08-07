@@ -55,16 +55,11 @@ export async function GET(request: Request) {
     const dateMidnight = new Date(`${dateStr}T00:00:00Z`).getTime();
     const nextDateMidnight = dateMidnight + 24 * 60 * 60 * 1000;
 
-    // Resilient block matching: safely capture any block touching this day, 
-    // and if it spans most of the day, lock the entire operating window.
     blockedTimes?.forEach(bt => {
       const btStart = new Date(bt.start_time).getTime();
       const btEnd = new Date(bt.end_time).getTime();
 
       if (btStart < nextDateMidnight && btEnd > dateMidnight) {
-        // If someone blocked from 10:00-20:00 (which might be saved with offset shifts),
-        // expand the busy interval to cover the entire operating bracket [10:00 to 20:00 UTC] 
-        // to prevent boundary leaks.
         const operatingStart = dateMidnight + 10 * 3600000;
         const operatingEnd = dateMidnight + 20 * 3600000;
 
@@ -75,23 +70,25 @@ export async function GET(request: Request) {
       }
     });
 
-    // Generate slots strictly between 10:00 and 20:00
+    // Generate slots between 10:00 AM and latest start time of 19:00 (7:00 PM)
     const availableSlots: string[] = [];
     const openingHour = 10;
-    const closingHour = 20;
+    const latestStartHour = 19; // Hard ceiling: Last slot starts at 7:00 PM
+    const absoluteClosingHour = 20;
 
     const baseDateMs = dateMidnight;
     const openingTimeMs = baseDateMs + openingHour * 3600000;
-    const closingTimeMs = baseDateMs + closingHour * 3600000;
+    const latestStartTimeMs = baseDateMs + latestStartHour * 3600000;
+    const absoluteClosingTimeMs = baseDateMs + absoluteClosingHour * 3600000;
 
     let currentSlotMs = openingTimeMs;
 
-    while (currentSlotMs < closingTimeMs) {
+    while (currentSlotMs <= latestStartTimeMs) {
       const slotStartMs = currentSlotMs;
       const slotEndMs = slotStartMs + treatmentDuration * 60000;
 
-      const slotHour = new Date(slotStartMs).getUTCHours();
-      if (slotHour >= closingHour || slotEndMs > closingTimeMs) {
+      // Ensure treatment never runs past 20:00 absolute closing time
+      if (slotEndMs > absoluteClosingTimeMs) {
         break;
       }
 
