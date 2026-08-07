@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, ChevronLeft, ChevronRight, XCircle, Send, Plus, RefreshCw } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, XCircle, Send, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 interface Consultation {
   id: string;
@@ -25,6 +25,8 @@ interface Booking {
   treatment_id?: string;
   marketing_opt_in?: boolean;
   marketing_opt_in_at?: string;
+  price_override?: number;
+  override_reason?: string;
   treatments?: { id: string; title: string; duration_minutes: number; price_gbp: number };
   consultations?: Consultation[];
 }
@@ -63,9 +65,25 @@ export default function AdminCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
+  // Edit appointment state
+  const [isEditingBooking, setIsEditingBooking] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editTreatmentId, setEditTreatmentId] = useState('');
+  const [editPriceOverride, setEditPriceOverride] = useState('');
+  const [editOverrideReason, setEditOverrideReason] = useState('');
+
+  // Selected Blocked Time for Editing/Deleting
+  const [selectedBlockTime, setSelectedBlockTime] = useState<BlockedTime | null>(null);
+  const [editBlockDate, setEditBlockDate] = useState('');
+  const [editBlockStart, setEditBlockStart] = useState('');
+  const [editBlockEnd, setEditBlockEnd] = useState('');
+  const [editBlockReason, setEditBlockReason] = useState('');
+
   // Time blocking state
+  const [blockDate, setBlockDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockStartTime, setBlockStartTime] = useState('09:00');
-  const [blockEndTime, setBlockEndTime] = useState('10:00');
+  const [blockEndTime, setBlockEndTime] = useState('17:00');
   const [blockReason, setBlockReason] = useState('Lunch / Personal');
 
   // Manual Booking Modal state
@@ -104,13 +122,12 @@ export default function AdminCalendarPage() {
           }
         }
 
-        // Aggregate unique clients
         const clientMap = new Map<string, ClientRecord>();
         fetchedBookings.forEach((b: Booking) => {
           if (b.client_email) {
             const emailKey = b.client_email.toLowerCase();
             const existing = clientMap.get(emailKey);
-            const spend = b.status !== 'cancelled' ? (b.treatments?.price_gbp || 0) : 0;
+            const spend = b.status !== 'cancelled' ? (b.price_override ?? b.treatments?.price_gbp ?? 0) : 0;
 
             if (existing) {
               existing.totalSpend += spend;
@@ -171,6 +188,38 @@ export default function AdminCalendarPage() {
     }
   }, [isBookingModalOpen, selectedTreatmentId, bookingDateStr, treatments]);
 
+  useEffect(() => {
+    if (selectedBooking) {
+      const start = new Date(selectedBooking.start_time);
+      const year = start.getFullYear();
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+      const hours = String(start.getHours()).padStart(2, '0');
+      const minutes = String(start.getMinutes()).padStart(2, '0');
+
+      setEditDate(`${year}-${month}-${day}`);
+      setEditTime(`${hours}:${minutes}`);
+      setEditTreatmentId(selectedBooking.treatment_id || selectedBooking.treatments?.id || '');
+      setEditPriceOverride(selectedBooking.price_override !== undefined && selectedBooking.price_override !== null ? String(selectedBooking.price_override) : '');
+      setEditOverrideReason(selectedBooking.override_reason || '');
+    }
+  }, [selectedBooking]);
+
+  useEffect(() => {
+    if (selectedBlockTime) {
+      const start = new Date(selectedBlockTime.start_time);
+      const end = new Date(selectedBlockTime.end_time);
+      const year = start.getFullYear();
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+
+      setEditBlockDate(`${year}-${month}-${day}`);
+      setEditBlockStart(start.toTimeString().slice(0, 5));
+      setEditBlockEnd(end.toTimeString().slice(0, 5));
+      setEditBlockReason(selectedBlockTime.reason);
+    }
+  }, [selectedBlockTime]);
+
   const handlePrev = () => {
     const newDate = new Date(currentDate);
     if (viewMode === 'month') newDate.setMonth(newDate.getMonth() - 1);
@@ -199,11 +248,24 @@ export default function AdminCalendarPage() {
   const firstDayIndex = getFirstDayOfMonth(year, month);
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+  const getWeekDays = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const nextDay = new Date(monday);
+      nextDay.setDate(monday.getDate() + i);
+      week.push(nextDay);
+    }
+    return week;
+  };
+
   const handleBlockTime = async (e: React.FormEvent) => {
     e.preventDefault();
-    const dateStr = currentDate.toISOString().split('T')[0];
-    const startIso = `${dateStr}T${blockStartTime}:00.000Z`;
-    const endIso = `${dateStr}T${blockEndTime}:00.000Z`;
+    const startIso = new Date(`${blockDate}T${blockStartTime}:00`).toISOString();
+    const endIso = new Date(`${blockDate}T${blockEndTime}:00`).toISOString();
 
     const res = await fetch('/api/admin/blocked-times', {
       method: 'POST',
@@ -220,10 +282,35 @@ export default function AdminCalendarPage() {
     }
   };
 
+  const handleUpdateBlockedTime = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBlockTime) return;
+
+    const startIso = new Date(`${editBlockDate}T${editBlockStart}:00`).toISOString();
+    const endIso = new Date(`${editBlockDate}T${editBlockEnd}:00`).toISOString();
+
+    const res = await fetch('/api/admin/blocked-times', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selectedBlockTime.id, startTime: startIso, endTime: endIso, reason: editBlockReason }),
+    });
+
+    if (res.ok) {
+      alert('Blocked time updated successfully!');
+      setSelectedBlockTime(null);
+      loadData();
+    } else {
+      alert('Failed to update blocked time.');
+    }
+  };
+
   const handleRemoveBlock = async (id: string) => {
     if (!confirm('Remove this time block?')) return;
     const res = await fetch(`/api/admin/blocked-times?id=${id}`, { method: 'DELETE' });
-    if (res.ok) loadData();
+    if (res.ok) {
+      setSelectedBlockTime(null);
+      loadData();
+    }
   };
 
   const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
@@ -244,7 +331,41 @@ export default function AdminCalendarPage() {
       body: JSON.stringify({ type: 'update_booking_status', id, status: 'cancelled', trigger_email: 'cancellation' }),
     });
     setSelectedBooking(null);
+    setIsEditingBooking(false);
     loadData();
+  };
+
+  const handleSaveEditedBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBooking || !editDate || !editTime || !editTreatmentId) return;
+
+    const startDateTime = new Date(`${editDate}T${editTime}:00`);
+    const treatment = treatments.find(t => t.id === editTreatmentId);
+    const duration = treatment ? treatment.duration_minutes : 60;
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'update_booking_full',
+        id: selectedBooking.id,
+        treatment_id: editTreatmentId,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        price_override: editPriceOverride ? parseFloat(editPriceOverride) : null,
+        override_reason: editPriceOverride ? editOverrideReason : null,
+      }),
+    });
+
+    if (res.ok) {
+      alert('Appointment updated successfully!');
+      setIsEditingBooking(false);
+      setSelectedBooking(null);
+      loadData();
+    } else {
+      alert('Failed to update appointment.');
+    }
   };
 
   const handleManualBookingSubmit = async (e: React.FormEvent) => {
@@ -364,7 +485,7 @@ export default function AdminCalendarPage() {
             <button onClick={handlePrev} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></button>
             <h2 className="font-serif text-xl text-[#2C332B]">
               {viewMode === 'month' && `${monthNames[month]} ${year}`}
-              {viewMode === 'week' && `Week of ${currentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+              {viewMode === 'week' && `Week of ${getWeekDays(currentDate)[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${getWeekDays(currentDate)[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
               {viewMode === 'day' && currentDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </h2>
             <button onClick={handleNext} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronRight className="w-4 h-4" /></button>
@@ -386,7 +507,7 @@ export default function AdminCalendarPage() {
                 </div>
                 <div className="grid grid-cols-7 gap-2">
                   {Array.from({ length: firstDayIndex }).map((_, i) => (
-                    <div key={`empty-${i}`} className="h-32 bg-[#FAF9F6]/40 rounded-xl border border-transparent"></div>
+                    <div key={`empty-${i}`} className="h-36 bg-[#FAF9F6]/40 rounded-xl border border-transparent"></div>
                   ))}
 
                   {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -397,7 +518,7 @@ export default function AdminCalendarPage() {
                     const isToday = new Date().toISOString().startsWith(dateStr);
 
                     return (
-                      <div key={dayNum} className={`h-32 p-2 rounded-xl border flex flex-col justify-between overflow-y-auto ${isToday ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB] bg-white'}`}>
+                      <div key={dayNum} className={`h-36 p-2 rounded-xl border flex flex-col justify-between overflow-y-auto ${isToday ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB] bg-white'}`}>
                         <div className="flex justify-between items-center">
                           <span className={`text-xs font-bold ${isToday ? 'bg-[#6B8E70] text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-[#2C332B]'}`}>{dayNum}</span>
                           {(dayBookings.length > 0 || dayBlocks.length > 0) && (
@@ -408,19 +529,67 @@ export default function AdminCalendarPage() {
                           {dayBookings.map(b => (
                             <div 
                               key={b.id} 
-                              onClick={() => setSelectedBooking(b)} 
+                              onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} 
                               className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#6B8E70] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
                             >
                               {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {b.client_name}
                             </div>
                           ))}
-                          {dayBlocks.map(bt => (
-                            <div key={bt.id} className="text-[10px] p-1 rounded bg-amber-50 text-amber-800 border border-amber-200 flex justify-between items-center">
-                              <span>Blocked: {bt.reason}</span>
-                              <button onClick={() => handleRemoveBlock(bt.id)} className="text-red-600 font-bold ml-1">&times;</button>
-                            </div>
-                          ))}
+                          {dayBlocks.map(bt => {
+                            const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            return (
+                              <div 
+                                key={bt.id} 
+                                onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }}
+                                className={`text-[10px] p-1 rounded bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer hover:bg-amber-100 transition ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}
+                              >
+                                <p className="font-bold">{startTime} - {endTime}</p>
+                                <p className="truncate italic">{bt.reason}</p>
+                              </div>
+                            );
+                          })}
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : viewMode === 'week' ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-[#6B7280] border-b pb-2">
+                  {getWeekDays(currentDate).map((day, idx) => (
+                    <div key={idx}>
+                      <p>{day.toLocaleDateString('en-GB', { weekday: 'short' })}</p>
+                      <p className="text-sm font-bold text-[#2C332B]">{day.getDate()}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-2 min-h-[450px]">
+                  {getWeekDays(currentDate).map((day, idx) => {
+                    const dateStr = day.toISOString().split('T')[0];
+                    const dayBookings = bookings.filter(b => b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
+                    const dayBlocks = blockedTimes.filter(bt => bt.start_time.startsWith(dateStr));
+
+                    return (
+                      <div key={idx} className="p-2 border rounded-xl bg-[#FAF9F6] space-y-2 overflow-y-auto">
+                        {dayBookings.map(b => (
+                          <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#6B8E70] ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-emerald-50' : ''}`}>
+                            <p className="font-bold text-[#6B8E70]">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className="font-serif text-sm truncate">{b.client_name}</p>
+                            <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title}</p>
+                          </div>
+                        ))}
+                        {dayBlocks.map(bt => {
+                          const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                          const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 cursor-pointer hover:bg-amber-100 ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
+                              <p className="font-bold">{startTime} - {endTime}</p>
+                              <p className="italic text-[10px]">{bt.reason}</p>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
@@ -428,12 +597,28 @@ export default function AdminCalendarPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Bookings for {currentDate.toLocaleDateString()}</h3>
-                {bookings.filter(b => b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 ? (
-                  <p className="text-xs text-gray-400 py-8">No appointments scheduled for this date.</p>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString()}</h3>
+                
+                {/* Blocked Times on Day View */}
+                {blockedTimes.filter(bt => bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
+                  const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
+                      <div>
+                        <p className="font-bold text-amber-900">Blocked Time: {startTime} - {endTime}</p>
+                        <p className="text-xs text-amber-800 italic">{bt.reason}</p>
+                      </div>
+                      <span className="text-xs text-amber-900 font-semibold">Edit &rarr;</span>
+                    </div>
+                  );
+                })}
+
+                {bookings.filter(b => b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 && blockedTimes.filter(bt => bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).length === 0 ? (
+                  <p className="text-xs text-gray-400 py-8">No appointments or blocked times scheduled for this date.</p>
                 ) : (
                   bookings.filter(b => b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => (
-                    <div key={b.id} onClick={() => setSelectedBooking(b)} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
+                    <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
                       <div>
                         <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title})</p>
                         <p className="text-xs text-[#6B7280]">Time: {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -446,7 +631,7 @@ export default function AdminCalendarPage() {
             )}
           </div>
 
-          {/* Right Sidebar: Appointment Details & Time Blocking */}
+          {/* Right Sidebar: Appointment Details, Edit Blocked Time, or Block Out Time */}
           <div className="space-y-6">
             {selectedBooking ? (
               <div className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-4">
@@ -455,50 +640,129 @@ export default function AdminCalendarPage() {
                     <h3 className="font-serif text-xl text-[#2C332B]">{selectedBooking.client_name}</h3>
                     <span className="text-[10px] px-2 py-0.5 uppercase rounded-full bg-emerald-100 text-emerald-700">{selectedBooking.status || 'Confirmed'}</span>
                   </div>
-                  <button onClick={() => setSelectedBooking(null)} className="text-xs text-gray-400 hover:text-black">Close</button>
+                  <button onClick={() => { setSelectedBooking(null); setIsEditingBooking(false); }} className="text-xs text-gray-400 hover:text-black">Close</button>
                 </div>
 
-                <div className="text-xs space-y-1.5 text-[#6B7280]">
-                  <p><strong>Email:</strong> {selectedBooking.client_email}</p>
-                  <p><strong>Phone:</strong> {selectedBooking.client_phone}</p>
-                  <p><strong>Treatment:</strong> {selectedBooking.treatments?.title} (£{selectedBooking.treatments?.price_gbp})</p>
-                  <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString()}</p>
-                  <p className="font-semibold text-[#2C332B]">
-                    Marketing Opt-In: <span className={selectedBooking.marketing_opt_in ? 'text-emerald-700 font-bold' : 'text-gray-500 font-normal'}>{selectedBooking.marketing_opt_in ? 'Yes (Opted In)' : 'No Consent'}</span>
-                  </p>
-                  {selectedBooking.notes && <p className="italic bg-[#FAF9F6] p-2.5 rounded-xl mt-2">Note: {selectedBooking.notes}</p>}
-                </div>
-
-                <div className="pt-4 border-t space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Form Status</h4>
-                  {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
-                    <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-1.5 text-xs">
-                      <p className="text-emerald-700 font-medium">✓ Form Completed</p>
-                      <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
-                      <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
-                      <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
-                      <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                {isEditingBooking ? (
+                  <form onSubmit={handleSaveEditedBooking} className="space-y-3 text-xs pt-2 border-t">
+                    <h4 className="font-semibold uppercase tracking-wider text-[#6B8E70]">Edit Appointment</h4>
+                    <div>
+                      <label className="block uppercase mb-1">Treatment</label>
+                      <select value={editTreatmentId} onChange={(e) => setEditTreatmentId(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white" required>
+                        {treatments.map(t => (
+                          <option key={t.id} value={t.id}>{t.title} (£{t.price_gbp})</option>
+                        ))}
+                      </select>
                     </div>
-                  ) : (
-                    <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
-                      <p className="text-amber-700 italic">No consultation form completed yet.</p>
-                      <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="w-full py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
-                        <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
+                    <div>
+                      <label className="block uppercase mb-1">Date</label>
+                      <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block uppercase mb-1">Time</label>
+                      <input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block uppercase mb-1">Price Override (£)</label>
+                      <input type="number" step="0.01" value={editPriceOverride} onChange={(e) => setEditPriceOverride(e.target.value)} placeholder="Leave blank for standard price" className="w-full p-2.5 border rounded-xl" />
+                    </div>
+                    {editPriceOverride && (
+                      <div>
+                        <label className="block uppercase mb-1">Override Reason</label>
+                        <input type="text" value={editOverrideReason} onChange={(e) => setEditOverrideReason(e.target.value)} placeholder="e.g. Family discount, VIP" className="w-full p-2.5 border rounded-xl" required />
+                      </div>
+                    )}
+                    <div className="flex space-x-2 pt-2">
+                      <button type="button" onClick={() => setIsEditingBooking(false)} className="w-1/2 py-2 border rounded-xl uppercase">Cancel</button>
+                      <button type="submit" className="w-1/2 py-2 bg-[#6B8E70] text-white rounded-xl uppercase">Save Changes</button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="text-xs space-y-1.5 text-[#6B7280]">
+                      <p><strong>Email:</strong> {selectedBooking.client_email}</p>
+                      <p><strong>Phone:</strong> {selectedBooking.client_phone}</p>
+                      <p><strong>Treatment:</strong> {selectedBooking.treatments?.title} (£{selectedBooking.price_override ?? selectedBooking.treatments?.price_gbp})</p>
+                      {selectedBooking.price_override !== undefined && selectedBooking.price_override !== null && (
+                        <p className="text-emerald-700 italic">Price overridden (Reason: {selectedBooking.override_reason})</p>
+                      )}
+                      <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString()}</p>
+                      <p className="font-semibold text-[#2C332B]">
+                        Marketing Opt-In: <span className={selectedBooking.marketing_opt_in ? 'text-emerald-700 font-bold' : 'text-gray-500 font-normal'}>{selectedBooking.marketing_opt_in ? 'Yes (Opted In)' : 'No Consent'}</span>
+                      </p>
+                      {selectedBooking.notes && <p className="italic bg-[#FAF9F6] p-2.5 rounded-xl mt-2">Note: {selectedBooking.notes}</p>}
+                    </div>
+
+                    <div className="pt-4 border-t space-y-3">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Form Status</h4>
+                      {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
+                        <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-1.5 text-xs">
+                          <p className="text-emerald-700 font-medium">✓ Form Completed</p>
+                          <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
+                          <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
+                          <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
+                          <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+                          <p className="text-amber-700 italic">No consultation form completed yet.</p>
+                          <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
+                            <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t">
+                      <button onClick={() => setIsEditingBooking(true)} className="w-full py-2.5 bg-[#FAF9F6] border text-xs uppercase rounded-xl flex items-center justify-center space-x-1.5 hover:bg-gray-50">
+                        <RefreshCw className="w-3.5 h-3.5" /> <span>Edit Appointment</span>
+                      </button>
+                      <button onClick={() => handleCancelBooking(selectedBooking.id)} className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl flex items-center justify-center space-x-1.5 hover:bg-red-100">
+                        <XCircle className="w-3.5 h-3.5" /> <span>Cancel Appointment</span>
                       </button>
                     </div>
-                  )}
+                  </>
+                )}
+              </div>
+            ) : selectedBlockTime ? (
+              <div className="bg-white p-6 rounded-2xl border border-amber-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-serif text-xl text-amber-900">Edit Blocked Time</h3>
+                  <button onClick={() => setSelectedBlockTime(null)} className="text-xs text-gray-400 hover:text-black">Close</button>
                 </div>
-
-                <div className="pt-2 border-t">
-                  <button onClick={() => handleCancelBooking(selectedBooking.id)} className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl flex items-center justify-center space-x-1.5 hover:bg-red-100">
-                    <XCircle className="w-3.5 h-3.5" /> <span>Cancel Appointment</span>
-                  </button>
-                </div>
+                <form onSubmit={handleUpdateBlockedTime} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block uppercase mb-1 font-semibold">Date</label>
+                    <input type="date" value={editBlockDate} onChange={(e) => setEditBlockDate(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                  </div>
+                  <div>
+                    <label className="block uppercase mb-1 font-semibold">Start Time</label>
+                    <input type="time" value={editBlockStart} onChange={(e) => setEditBlockStart(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                  </div>
+                  <div>
+                    <label className="block uppercase mb-1 font-semibold">End Time</label>
+                    <input type="time" value={editBlockEnd} onChange={(e) => setEditBlockEnd(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                  </div>
+                  <div>
+                    <label className="block uppercase mb-1 font-semibold">Reason</label>
+                    <input type="text" value={editBlockReason} onChange={(e) => setEditBlockReason(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                  </div>
+                  <div className="flex space-x-2 pt-2">
+                    <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white uppercase rounded-xl">Save</button>
+                    <button type="button" onClick={() => handleRemoveBlock(selectedBlockTime.id)} className="w-1/2 py-2.5 bg-red-50 text-red-600 border border-red-200 uppercase rounded-xl flex items-center justify-center space-x-1">
+                      <Trash2 className="w-3.5 h-3.5" /> <span>Remove</span>
+                    </button>
+                  </div>
+                </form>
               </div>
             ) : (
               <div className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-4">
                 <h3 className="font-serif text-xl text-[#2C332B]">Block Out Time</h3>
                 <form onSubmit={handleBlockTime} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block uppercase mb-1 font-semibold">Date</label>
+                    <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
+                  </div>
                   <div>
                     <label className="block uppercase mb-1 font-semibold">Start Time</label>
                     <input type="time" value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
