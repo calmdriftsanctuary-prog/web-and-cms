@@ -209,6 +209,7 @@ export default function AdminDashboard() {
     fetch('/api/admin/bookings?bookings=true')
       .then((res) => res.json())
       .then((data) => {
+        // Robust marketing opt-in mapping fallback
         const fetchedBookings = (data.bookings || []).map((b: any) => {
           const hasOptInExplicit = b.marketing_opt_in === true || b.marketing_opt_in === 1 || b.marketing_opt_in === 'true';
           const hasOptInNote = typeof b.notes === 'string' && b.notes.toLowerCase().includes('marketing opt-in: yes');
@@ -223,7 +224,18 @@ export default function AdminDashboard() {
         setGallery(data.gallery || []);
         setSocialLinks(data.socialLinks || []);
         setCustomFields(data.customFields || []);
-        setFieldConfigs(data.fieldConfigs || []);
+
+        // Ensure default fields exist in state even if empty from server
+        let defaultFields = data.fieldConfigs || [];
+        if (defaultFields.length === 0) {
+          defaultFields = [
+            { id: 'def-1', form_type: 'booking', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
+            { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
+            { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
+            { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
+          ];
+        }
+        setFieldConfigs(defaultFields);
         
         const loadedTemplates = data.templates || [];
         setTemplates(loadedTemplates);
@@ -354,6 +366,23 @@ export default function AdminDashboard() {
     setEditingClient(null);
     loadData();
     alert('Client profile updated successfully!');
+  };
+
+  const handleDeleteClient = async (clientEmail: string, clientName: string) => {
+    if (!confirm(`Are you sure you want to delete client record "${clientName}" (${clientEmail}) and all associated bookings?`)) return;
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'delete_client', email: clientEmail }),
+    });
+
+    if (res.ok) {
+      setSelectedClientEmail(null);
+      loadData();
+      alert('Client record successfully deleted.');
+    } else {
+      alert('Failed to delete client record.');
+    }
   };
 
   const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
@@ -847,8 +876,9 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button onClick={() => setEditingClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone })} className="w-full py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit Client Details</button>
+                <div className="flex space-x-2 pt-2">
+                  <button onClick={() => setEditingClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone })} className="w-1/2 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit Details</button>
+                  <button onClick={() => handleDeleteClient(selectedClient.email, selectedClient.name)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete Client</button>
                 </div>
 
                 <div className="pt-4 border-t space-y-3">
@@ -1292,7 +1322,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Reviews Section Subtext</label>
-                <input type="text" value={reviewsSubtext} onChange={(e) => setReviewsSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+                <textarea rows={2} value={reviewsSubtext} onChange={(e) => setReviewsSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
               <button type="submit" disabled={savingContent} className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#5B7B60] transition shadow-sm">
                 {savingContent ? 'Updating...' : 'Save Website Copy'}
