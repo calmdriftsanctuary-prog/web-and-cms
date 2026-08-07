@@ -42,7 +42,7 @@ export default function HomePage() {
   const [clientNotes, setClientNotes] = useState('');
   const [marketingConsent, setMarketingConsent] = useState(false);
 
-  const [loadingTreatments, setLoadingTreatments] = useState(true);
+  const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -50,44 +50,35 @@ export default function HomePage() {
 
   // Fetch treatments, page content, gallery images, and reviews on mount
   useEffect(() => {
-    fetch('/api/admin/bookings?bookings=true')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.treatments && data.treatments.length > 0) {
-          setTreatments(data.treatments);
-          setSelectedTreatmentId(data.treatments[0].id);
+    Promise.all([
+      fetch('/api/admin/bookings?bookings=true').then((res) => res.json()),
+      fetch('/api/gallery').then((res) => res.json()).catch(() => ({ images: [] })),
+      fetch('/api/reviews').then((res) => res.json()).catch(() => ({ reviews: [] }))
+    ])
+      .then(([bookingData, galleryData, reviewData]) => {
+        if (bookingData.treatments && bookingData.treatments.length > 0) {
+          setTreatments(bookingData.treatments);
+          setSelectedTreatmentId(bookingData.treatments[0].id);
         }
-        if (data.pageContent) {
+        if (bookingData.pageContent) {
           const contentMap: Record<string, string> = {};
-          data.pageContent.forEach((item: any) => {
+          bookingData.pageContent.forEach((item: any) => {
             contentMap[item.key] = item.value;
           });
           setContent(contentMap);
         }
-        setLoadingTreatments(false);
+        if (galleryData.images) {
+          setGalleryImages(galleryData.images);
+        }
+        if (reviewData.reviews) {
+          setReviews(reviewData.reviews.filter((r: Review) => r.is_visible));
+        }
+        setLoadingInitial(false);
       })
       .catch((err) => {
         console.error('Failed to load initial data', err);
-        setLoadingTreatments(false);
+        setLoadingInitial(false);
       });
-
-    // Fetch Gallery Images
-    fetch('/api/gallery')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.images) setGalleryImages(data.images);
-      })
-      .catch(() => {});
-
-    // Fetch Reviews (Only visible ones)
-    fetch('/api/reviews')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.reviews) {
-          setReviews(data.reviews.filter((r: Review) => r.is_visible));
-        }
-      })
-      .catch(() => {});
   }, []);
 
   // Fetch available slots when treatment or date changes
@@ -153,6 +144,14 @@ export default function HomePage() {
       setSubmitting(false);
     }
   };
+
+  if (loadingInitial) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
+        <div className="text-xs uppercase tracking-widest text-gray-400">Loading Sanctuary...</div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -222,160 +221,156 @@ export default function HomePage() {
             </div>
           )}
 
-          {loadingTreatments ? (
-            <div className="text-center py-12 text-gray-500 text-sm">Loading treatments...</div>
-          ) : (
-            <form onSubmit={handleBookingSubmit} className="space-y-6">
-              {/* Treatment Selector */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-2">Select Treatment</label>
-                <div className="grid gap-3">
-                  {treatments.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelectedTreatmentId(t.id)}
-                      className={`p-4 border rounded-xl cursor-pointer transition flex justify-between items-center ${
-                        selectedTreatmentId === t.id ? 'border-[#6B8E70] bg-emerald-50/40 ring-1 ring-[#6B8E70]' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div>
-                        <h3 className="font-serif text-lg font-medium text-gray-900">{t.title}</h3>
-                        <p className="text-xs text-gray-500">{t.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm font-semibold text-[#6B8E70]">£{t.price_gbp}</span>
-                        <p className="text-[11px] text-gray-400">{t.duration_minutes} mins</p>
-                      </div>
+          <form onSubmit={handleBookingSubmit} className="space-y-6">
+            {/* Treatment Selector */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-2">Select Treatment</label>
+              <div className="grid gap-3">
+                {treatments.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => setSelectedTreatmentId(t.id)}
+                    className={`p-4 border rounded-xl cursor-pointer transition flex justify-between items-center ${
+                      selectedTreatmentId === t.id ? 'border-[#6B8E70] bg-emerald-50/40 ring-1 ring-[#6B8E70]' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div>
+                      <h3 className="font-serif text-lg font-medium text-gray-900">{t.title}</h3>
+                      <p className="text-xs text-gray-500">{t.description}</p>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-[#6B8E70]">£{t.price_gbp}</span>
+                      <p className="text-[11px] text-gray-400">{t.duration_minutes} mins</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Date & Slot Picker */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Booking Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full p-3 border rounded-xl text-sm bg-white"
+                  required
+                />
               </div>
 
-              {/* Date & Slot Picker */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Available Slot</label>
+                {loadingSlots ? (
+                  <div className="p-3 border rounded-xl text-sm text-gray-400">Loading slots...</div>
+                ) : availableSlots.length === 0 ? (
+                  <div className="p-3 border rounded-xl text-sm text-red-500 bg-red-50">No slots available</div>
+                ) : (
+                  <select
+                    value={selectedSlot}
+                    onChange={(e) => setSelectedSlot(e.target.value)}
+                    className="w-full p-3 border rounded-xl text-sm bg-white font-mono"
+                    required
+                  >
+                    {availableSlots.map((slot) => {
+                      const d = new Date(slot);
+                      const hours = String(d.getUTCHours()).padStart(2, '0');
+                      const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+                      return (
+                        <option key={slot} value={slot}>
+                          {hours}:{minutes}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {/* Client Details */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">Your Details</h3>
+              
+              <div>
+                <label className="block text-xs uppercase mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className="w-full p-3 border rounded-xl text-sm"
+                  placeholder="Jane Doe"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Booking Date</label>
+                  <label className="block text-xs uppercase mb-1">Email Address</label>
                   <input
-                    type="date"
-                    value={selectedDate}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full p-3 border rounded-xl text-sm bg-white"
+                    type="email"
                     required
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="w-full p-3 border rounded-xl text-sm"
+                    placeholder="jane@example.com"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Available Slot</label>
-                  {loadingSlots ? (
-                    <div className="p-3 border rounded-xl text-sm text-gray-400">Loading slots...</div>
-                  ) : availableSlots.length === 0 ? (
-                    <div className="p-3 border rounded-xl text-sm text-red-500 bg-red-50">No slots available</div>
-                  ) : (
-                    <select
-                      value={selectedSlot}
-                      onChange={(e) => setSelectedSlot(e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm bg-white font-mono"
-                      required
-                    >
-                      {availableSlots.map((slot) => {
-                        const d = new Date(slot);
-                        const hours = String(d.getUTCHours()).padStart(2, '0');
-                        const minutes = String(d.getUTCMinutes()).padStart(2, '0');
-                        return (
-                          <option key={slot} value={slot}>
-                            {hours}:{minutes}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
+                  <label className="block text-xs uppercase mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full p-3 border rounded-xl text-sm"
+                    placeholder="07123 456789"
+                  />
                 </div>
               </div>
 
-              {/* Client Details */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">Your Details</h3>
-                
-                <div>
-                  <label className="block text-xs uppercase mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className="w-full p-3 border rounded-xl text-sm"
-                    placeholder="Jane Doe"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs uppercase mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm"
-                      placeholder="jane@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs uppercase mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      required
-                      value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm"
-                      placeholder="07123 456789"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase mb-1">Notes or Special Requests (Optional)</label>
-                  <textarea
-                    rows={2}
-                    value={clientNotes}
-                    onChange={(e) => setClientNotes(e.target.value)}
-                    className="w-full p-3 border rounded-xl text-sm"
-                    placeholder="Any specific areas of tension..."
-                  />
-                </div>
-
-                {/* GDPR COMPLIANCE SECTION */}
-                <div className="pt-2 space-y-3 bg-gray-50 p-4 rounded-xl border">
-                  <div className="flex items-start space-x-2.5">
-                    <input
-                      type="checkbox"
-                      id="marketingConsent"
-                      checked={marketingConsent}
-                      onChange={(e) => setMarketingConsent(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 text-[#6B8E70] rounded border-gray-300 focus:ring-[#6B8E70]"
-                    />
-                    <label htmlFor="marketingConsent" className="text-xs text-gray-600 leading-tight cursor-pointer">
-                      Yes, I would like to receive exclusive wellness offers and updates via email (Optional).
-                    </label>
-                  </div>
-
-                  <p className="text-[11px] text-gray-500 leading-tight">
-                    By booking, you agree to our processing of your personal data to fulfill your appointment. 
-                    Read our <a href="/privacy" target="_blank" className="underline hover:text-gray-700 font-medium">Privacy Policy</a>.
-                  </p>
-                </div>
+              <div>
+                <label className="block text-xs uppercase mb-1">Notes or Special Requests (Optional)</label>
+                <textarea
+                  rows={2}
+                  value={clientNotes}
+                  onChange={(e) => setClientNotes(e.target.value)}
+                  className="w-full p-3 border rounded-xl text-sm"
+                  placeholder="Any specific areas of tension..."
+                />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting || availableSlots.length === 0}
-                className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#5B7B60] transition shadow-sm disabled:opacity-50"
-              >
-                {submitting ? 'Confirming Reservation...' : 'Confirm & Book Session'}
-              </button>
-            </form>
-          )}
+              {/* GDPR COMPLIANCE SECTION */}
+              <div className="pt-2 space-y-3 bg-gray-50 p-4 rounded-xl border">
+                <div className="flex items-start space-x-2.5">
+                  <input
+                    type="checkbox"
+                    id="marketingConsent"
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 text-[#6B8E70] rounded border-gray-300 focus:ring-[#6B8E70]"
+                  />
+                  <label htmlFor="marketingConsent" className="text-xs text-gray-600 leading-tight cursor-pointer">
+                    Yes, I would like to receive exclusive wellness offers and updates via email (Optional).
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  By booking, you agree to our processing of your personal data to fulfill your appointment. 
+                  Read our <a href="/privacy" target="_blank" className="underline hover:text-gray-700 font-medium">Privacy Policy</a>.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting || availableSlots.length === 0}
+              className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#5B7B60] transition shadow-sm disabled:opacity-50"
+            >
+              {submitting ? 'Confirming Reservation...' : 'Confirm & Book Session'}
+            </button>
+          </form>
         </div>
       </div>
 
