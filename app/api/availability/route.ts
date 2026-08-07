@@ -20,6 +20,18 @@ export async function GET(request: Request) {
     const now = new Date();
     const minBookingTime = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12-hour notice rule
 
+    // 1-Month (31 days) Advance Booking Window Restriction
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(maxBookingDate.getDate() + 31);
+    maxBookingDate.setHours(23, 59, 59, 999);
+
+    const requestedDate = new Date(dateStr + 'T00:00:00');
+
+    // If requested date is further than 31 days out, return no slots
+    if (requestedDate > maxBookingDate) {
+      return NextResponse.json({ slots: [] });
+    }
+
     // Fetch existing bookings for this date
     const dayStart = `${dateStr}T00:00:00.000Z`;
     const dayEnd = `${dateStr}T23:59:59.999Z`;
@@ -35,8 +47,8 @@ export async function GET(request: Request) {
     const { data: blockedTimes } = await supabase
       .from('blocked_times')
       .select('start_time, end_time')
-      .gte('start_time', dayStart)
-      .lte('start_time', dayEnd);
+      .lte('start_time', dayEnd)
+      .gte('end_time', dayStart);
 
     // Build busy intervals array including the mandatory 30-min post-treatment buffer
     const busyIntervals: { start: number; end: number }[] = [];
@@ -44,7 +56,6 @@ export async function GET(request: Request) {
     bookings?.forEach(b => {
       const start = new Date(b.start_time).getTime();
       const originalEnd = new Date(b.end_time).getTime();
-      // No back-to-back rule: extend busy window by an extra 30 mins buffer
       const bufferedEnd = originalEnd + 30 * 60000; 
       busyIntervals.push({ start, end: bufferedEnd });
     });
@@ -56,10 +67,10 @@ export async function GET(request: Request) {
       });
     });
 
-    // Generate 30-minute increment slots between 09:00 and 18:00
+    // Generate 30-minute increment slots strictly between 10:00 and 20:00 (10am - 8pm)
     const availableSlots: string[] = [];
     const openingHour = 10;
-    const closingHour = 21;
+    const closingHour = 20;
 
     const baseDate = new Date(dateStr);
     for (let hour = openingHour; hour < closingHour; hour++) {
