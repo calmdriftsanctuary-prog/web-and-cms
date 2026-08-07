@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const now = new Date();
     const minBookingTime = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12-hour notice rule
 
-    // 1-Month (31 days) Advance Booking Window Restriction (using UTC comparison)
+    // 1-Month (31 days) Advance Booking Window Restriction
     const nowUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     const maxBookingTime = nowUtc + 31 * 24 * 60 * 60 * 1000;
     const requestedTimeUtc = new Date(dateStr + 'T00:00:00Z').getTime();
@@ -29,22 +29,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [] });
     }
 
-    // Strict UTC day bounds to prevent timezone leakage
-    const dayStart = `${dateStr}T00:00:00.000Z`;
-    const dayEnd = `${dateStr}T23:59:59.999Z`;
+    // Expand day range query slightly to catch any timezone-offset blocked times
+    const queryStart = `${dateStr}T00:00:00`;
+    const queryEnd = `${dateStr}T23:59:59`;
 
     const { data: bookings } = await supabase
       .from('bookings')
       .select('start_time, end_time')
-      .gte('start_time', dayStart)
-      .lte('start_time', dayEnd)
+      .gte('start_time', `${queryStart}.000Z`)
+      .lte('start_time', `${queryEnd}.999Z`)
       .not('status', 'eq', 'cancelled');
 
     const { data: blockedTimes } = await supabase
       .from('blocked_times')
-      .select('start_time, end_time')
-      .lte('start_time', dayEnd)
-      .gte('end_time', dayStart);
+      .select('start_time, end_time');
 
     const busyIntervals: { start: number; end: number }[] = [];
 
@@ -55,17 +53,23 @@ export async function GET(request: Request) {
       busyIntervals.push({ start, end: bufferedEnd });
     });
 
+    // Filter blocked times that overlap with this specific calendar date
+    const dateMidnight = new Date(`${dateStr}T00:00:00Z`).getTime();
+    const nextDateMidnight = dateMidnight + 24 * 60 * 60 * 1000;
+
     blockedTimes?.forEach(bt => {
-      busyIntervals.push({
-        start: new Date(bt.start_time).getTime(),
-        end: new Date(bt.end_time).getTime(),
-      });
+      const btStart = new Date(bt.start_time).getTime();
+      const btEnd = new Date(bt.end_time).getTime();
+      // If block overlaps with this day
+      if (btStart < nextDateMidnight && btEnd > dateMidnight) {
+        busyIntervals.push({ start: btStart, end: btEnd });
+      }
     });
 
-    // Generate slots strictly between 10:00 and 20:00 UTC
+    // Generate slots strictly between 10:00 and 20:00
     const availableSlots: string[] = [];
-    const openingHourUtc = 10;
-    const closingHourUtc = 20; // Hard ceiling: 8:00 PM
+    const openingHour = 10;
+    const closingHour = 20; // Hard ceiling: 8:00 PM absolute
 
     const dateParts = dateStr.split('-');
     const baseDateMs = Date.UTC(
@@ -74,8 +78,10 @@ export async function GET(request: Request) {
       parseInt(dateParts[2], 10)
     );
 
-    const openingTimeMs = baseDateMs + openingHourUtc * 3600000;
-    const closingTimeMs = baseDateMs + closingHourUtc * 3600000;
+    // Convert local 10am and 8pm to epoch ms for this date
+    // (Using UTC base since operating hours are fixed sanctuary hours)
+    const openingTimeMs = baseDateMs + openingHour * 3600000;
+    const closingTimeMs = baseDateMs + closingHour * 3600000;
 
     let currentSlotMs = openingTimeMs;
 
@@ -85,8 +91,7 @@ export async function GET(request: Request) {
 
       // Absolute strict check: Slot cannot start at or after 20:00, and cannot end past 20:00
       if (slotStartMs >= closingTimeMs || slotEndMs > closingTimeMs) {
-        currentSlotMs += 30 * 60000;
-        continue;
+        break;
       }
 
       let isConflict = false;
