@@ -55,26 +55,32 @@ export async function GET(request: Request) {
     const dateMidnight = new Date(`${dateStr}T00:00:00Z`).getTime();
     const nextDateMidnight = dateMidnight + 24 * 60 * 60 * 1000;
 
+    // Resilient block matching: safely capture any block touching this day, 
+    // and if it spans most of the day, lock the entire operating window.
     blockedTimes?.forEach(bt => {
       const btStart = new Date(bt.start_time).getTime();
       const btEnd = new Date(bt.end_time).getTime();
+
       if (btStart < nextDateMidnight && btEnd > dateMidnight) {
-        busyIntervals.push({ start: btStart, end: btEnd });
+        // If someone blocked from 10:00-20:00 (which might be saved with offset shifts),
+        // expand the busy interval to cover the entire operating bracket [10:00 to 20:00 UTC] 
+        // to prevent boundary leaks.
+        const operatingStart = dateMidnight + 10 * 3600000;
+        const operatingEnd = dateMidnight + 20 * 3600000;
+
+        busyIntervals.push({ 
+          start: Math.min(btStart, operatingStart), 
+          end: Math.max(btEnd, operatingEnd) 
+        });
       }
     });
 
     // Generate slots strictly between 10:00 and 20:00
     const availableSlots: string[] = [];
     const openingHour = 10;
-    const closingHour = 20; // Hard ceiling: 8:00 PM absolute
+    const closingHour = 20;
 
-    const dateParts = dateStr.split('-');
-    const baseDateMs = Date.UTC(
-      parseInt(dateParts[0], 10),
-      parseInt(dateParts[1], 10) - 1,
-      parseInt(dateParts[2], 10)
-    );
-
+    const baseDateMs = dateMidnight;
     const openingTimeMs = baseDateMs + openingHour * 3600000;
     const closingTimeMs = baseDateMs + closingHour * 3600000;
 
@@ -84,9 +90,6 @@ export async function GET(request: Request) {
       const slotStartMs = currentSlotMs;
       const slotEndMs = slotStartMs + treatmentDuration * 60000;
 
-      // ABSOLUTE HARD CEILING: 
-      // 1. No slot can start at or after 20:00 (closingHour)
-      // 2. No slot can end past 20:00 (closingTimeMs)
       const slotHour = new Date(slotStartMs).getUTCHours();
       if (slotHour >= closingHour || slotEndMs > closingTimeMs) {
         break;
@@ -105,7 +108,7 @@ export async function GET(request: Request) {
         availableSlots.push(slotDateTime.toISOString());
       }
 
-      currentSlotMs += 30 * 60000; // Increment by 30 minutes
+      currentSlotMs += 30 * 60000;
     }
 
     return NextResponse.json({ slots: availableSlots });
