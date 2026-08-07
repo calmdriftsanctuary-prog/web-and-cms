@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar as CalendarIcon, User, Phone, Mail, FileText, Clock, Sparkles, CheckCircle, AlertCircle, Plus, Edit, Users, Layers, Tag, Megaphone, Globe, Image as ImageIcon, Trash2, Share2, MailCheck, FormInput, XCircle, RefreshCw, Send, Star, BarChart3, PoundSterling } from 'lucide-react';
+import { Sparkles, Trash2, Send, Plus, RefreshCw, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -13,6 +13,8 @@ interface Booking {
   end_time: string;
   notes: string;
   status: string;
+  marketing_opt_in?: boolean;
+  marketing_opt_in_at?: string;
   treatments?: {
     id: string;
     title: string;
@@ -79,6 +81,7 @@ interface CustomField {
   field_type: string;
   options: string;
   is_required: boolean;
+  display_order?: number;
 }
 
 interface FieldConfig {
@@ -88,6 +91,7 @@ interface FieldConfig {
   field_label: string;
   is_required: boolean;
   is_active: boolean;
+  display_order?: number;
 }
 
 interface SiteTemplate {
@@ -186,6 +190,7 @@ export default function AdminDashboard() {
   const [newIconUrl, setNewIconUrl] = useState('');
   const [savingSocial, setSavingSocial] = useState(false);
 
+  // Form Builder State
   const [formTypeTab, setFormTypeTab] = useState<'booking' | 'consultation'>('booking');
   const [fieldLabel, setFieldLabel] = useState('');
   const [fieldType, setFieldType] = useState('text');
@@ -284,16 +289,6 @@ export default function AdminDashboard() {
     });
 
     if (res.ok) {
-      setTemplates((prev) => {
-        const existingIndex = prev.findIndex((t) => t.key === editingTemplateKey);
-        if (existingIndex >= 0) {
-          const updated = [...prev];
-          updated[existingIndex] = { ...updated[existingIndex], subject: templateSubject, content: templateContent, button_text: templateButtonText, button_url: templateButtonUrl };
-          return updated;
-        } else {
-          return [...prev, { key: editingTemplateKey, subject: templateSubject, content: templateContent, button_text: templateButtonText, button_url: templateButtonUrl }];
-        }
-      });
       alert('Email template updated successfully!');
     } else {
       alert('Failed to update email template.');
@@ -307,6 +302,8 @@ export default function AdminDashboard() {
         name: booking.client_name,
         email: booking.client_email,
         phone: booking.client_phone,
+        marketingOptIn: !!booking.marketing_opt_in,
+        marketingOptInAt: booking.marketing_opt_in_at,
         bookings: [],
         consultations: [],
         totalSpend: 0,
@@ -316,11 +313,15 @@ export default function AdminDashboard() {
     if (booking.status !== 'cancelled') {
       acc[email].totalSpend += booking.treatments?.price_gbp || 0;
     }
+    if (booking.marketing_opt_in) {
+      acc[email].marketingOptIn = true;
+      acc[email].marketingOptInAt = booking.marketing_opt_in_at || acc[email].marketingOptInAt;
+    }
     if (booking.consultations && booking.consultations.length > 0) {
       acc[email].consultations.push(...booking.consultations);
     }
     return acc;
-  }, {} as Record<string, { name: string; email: string; phone: string; bookings: Booking[]; consultations: any[]; totalSpend: number }>);
+  }, {} as Record<string, { name: string; email: string; phone: string; marketingOptIn: boolean; marketingOptInAt?: string; bookings: Booking[]; consultations: any[]; totalSpend: number }>);
 
   const clientsList = Object.values(clientsMap);
   const selectedClient = selectedClientEmail ? clientsMap[selectedClientEmail.toLowerCase()] : null;
@@ -361,37 +362,29 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!editingTreatment) return;
 
-    try {
-      const res = await fetch('/api/admin/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingTreatment),
-      });
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingTreatment),
+    });
 
-      if (res.ok) {
-        setEditingTreatment(null);
-        loadData();
-      } else {
-        alert('Failed to save treatment.');
-      }
-    } catch (err) {
-      alert('Error saving treatment.');
+    if (res.ok) {
+      setEditingTreatment(null);
+      loadData();
+    } else {
+      alert('Failed to save treatment.');
     }
   };
 
   const handleSavePopup = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await fetch('/api/admin/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'site_popup', ...popupConfig }),
-      });
-      alert('Promotional Popup settings updated!');
-      loadData();
-    } catch (err) {
-      alert('Failed to update popup');
-    }
+    await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'site_popup', ...popupConfig }),
+    });
+    alert('Promotional Popup settings updated!');
+    loadData();
   };
 
   const handleSaveContent = async (e: React.FormEvent) => {
@@ -419,8 +412,6 @@ export default function AdminDashboard() {
 
       alert('Website copy updated successfully!');
       loadData();
-    } catch (err) {
-      alert(`Failed to save content: ${err}`);
     } finally {
       setSavingContent(false);
     }
@@ -446,7 +437,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteGalleryImage = async (id: string) => {
-    if (!confirm('Remove this image from the gallery?')) return;
+    if (!confirm('Remove this image?')) return;
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -494,13 +485,22 @@ export default function AdminDashboard() {
     loadData();
   };
 
+  // Form Builder Handlers
   const handleAddCustomField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fieldLabel) return;
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'custom_field', form_type: formTypeTab, field_label: fieldLabel, field_type: fieldType, options: fieldOptions, is_required: isRequired }),
+      body: JSON.stringify({ 
+        type: 'custom_field', 
+        form_type: formTypeTab, 
+        field_label: fieldLabel, 
+        field_type: fieldType, 
+        options: fieldOptions, 
+        is_required: isRequired,
+        display_order: customFields.length + 10
+      }),
     });
     setFieldLabel('');
     setFieldOptions('');
@@ -531,6 +531,50 @@ export default function AdminDashboard() {
     alert('Field configuration updated successfully!');
   };
 
+  const handleMoveField = async (id: string, type: 'default' | 'custom', direction: 'up' | 'down') => {
+    const list = type === 'default' ? [...filteredDefaultFields] : [...filteredCustomFields];
+    const index = list.findIndex((item) => item.id === id);
+    if (index < 0) return;
+
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === list.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+
+    // Reassign order
+    const updated = list.map((item, idx) => ({ ...item, display_order: idx }));
+
+    if (type === 'default') {
+      setFieldConfigs(prev => prev.map(fc => {
+        const found = updated.find(u => u.id === fc.id);
+        return found ? { ...fc, display_order: found.display_order } : fc;
+      }));
+      for (const item of updated) {
+        await fetch('/api/admin/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'field_config', ...item }),
+        });
+      }
+    } else {
+      setCustomFields(prev => prev.map(cf => {
+        const found = updated.find(u => u.id === cf.id);
+        return found ? { ...cf, display_order: found.display_order } : cf;
+      }));
+      for (const item of updated) {
+        await fetch('/api/admin/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'update_custom_field_order', id: item.id, display_order: item.display_order }),
+        });
+      }
+    }
+    loadData();
+  };
+
   const handleCancelBooking = async (id: string) => {
     if (!confirm('Are you sure you want to cancel this appointment and notify the client?')) return;
     await fetch('/api/admin/bookings', {
@@ -540,7 +584,6 @@ export default function AdminDashboard() {
     });
     setSelectedBooking(null);
     loadData();
-    alert('Appointment cancelled successfully!');
   };
 
   const handleRescheduleSubmit = async (e: React.FormEvent) => {
@@ -569,8 +612,8 @@ export default function AdminDashboard() {
     alert('Appointment rescheduled successfully!');
   };
 
-  const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab);
-  const filteredCustomFields = customFields.filter((cf) => cf.form_type === formTypeTab);
+  const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  const filteredCustomFields = customFields.filter((cf) => cf.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
   const groupedBookings = bookings.reduce((acc: Record<string, Booking[]>, booking) => {
     const day = new Date(booking.start_time).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -579,7 +622,6 @@ export default function AdminDashboard() {
     return acc;
   }, {});
 
-  // Reports calculations
   const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.treatments?.price_gbp || 0), 0);
   const completedBookingsCount = bookings.filter(b => b.status !== 'cancelled').length;
   const averageBookingValue = completedBookingsCount > 0 ? Math.round(totalRevenue / completedBookingsCount) : 0;
@@ -588,14 +630,12 @@ export default function AdminDashboard() {
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans p-4 sm:p-8 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#E5E7EB] pb-6 gap-4">
-          <div className="flex items-center justify-between w-full md:w-auto">
-            <div>
-              <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Sanctuary Operating Hub</span>
-              </span>
-              <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
-            </div>
+          <div>
+            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Sanctuary Operating Hub</span>
+            </span>
+            <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -678,6 +718,7 @@ export default function AdminDashboard() {
                     <p className="text-xs text-[#6B7280]">{selectedBooking.client_email} • {selectedBooking.client_phone}</p>
                     <p className="text-xs font-medium text-[#6B8E70] mt-1">{selectedBooking.treatments?.title} (£{selectedBooking.treatments?.price_gbp})</p>
                     <p className="text-xs text-[#6B7280] mt-1">Time: {new Date(selectedBooking.start_time).toLocaleString()}</p>
+                    <p className="text-xs text-[#6B7280] mt-1">Marketing Opt-In: {selectedBooking.marketing_opt_in ? `Yes (${selectedBooking.marketing_opt_in_at ? new Date(selectedBooking.marketing_opt_in_at).toLocaleString() : 'Recorded'})` : 'No'}</p>
                     {selectedBooking.notes && <p className="text-xs text-[#6B7280] mt-2 italic bg-[#FAF9F6] p-2.5 rounded-xl">Note: {selectedBooking.notes}</p>}
                   </div>
 
@@ -748,7 +789,12 @@ export default function AdminDashboard() {
                 {clientsList.map((client) => (
                   <div key={client.email} onClick={() => setSelectedClientEmail(client.email)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientEmail === client.email ? 'border-[#6B8E70] shadow-sm' : 'border-[#E5E7EB]'}`}>
                     <div>
-                      <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
+                        <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${client.marketingOptIn ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+                          {client.marketingOptIn ? 'Opted In' : 'No Consent'}
+                        </span>
+                      </div>
                       <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend</p>
                     </div>
                     <span className="text-xs text-[#6B8E70]">View Profile &rarr;</span>
@@ -767,18 +813,15 @@ export default function AdminDashboard() {
                   <button onClick={() => setSelectedClientEmail(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
                 </div>
 
-                <div className="space-y-3 pt-2 border-t">
+                <div className="space-y-3 pt-2 border-t text-xs">
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Email:</span><span className="font-medium">{selectedClient.email}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Phone:</span><span className="font-medium">{selectedClient.phone}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Total Spend:</span><span className="font-medium text-[#6B8E70]">£{selectedClient.totalSpend}</span></div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-[#6B7280]">Email:</span>
-                    <span className="text-xs font-medium text-[#2C332B]">{selectedClient.email}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-[#6B7280]">Phone:</span>
-                    <span className="text-xs font-medium text-[#2C332B]">{selectedClient.phone}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-[#6B7280]">Total Spend:</span>
-                    <span className="text-xs font-medium text-[#6B8E70]">£{selectedClient.totalSpend}</span>
+                    <span className="text-[#6B7280]">Marketing Opt-In:</span>
+                    <span className={`font-medium ${selectedClient.marketingOptIn ? 'text-emerald-700' : 'text-gray-500'}`}>
+                      {selectedClient.marketingOptIn ? `Yes (${selectedClient.marketingOptInAt ? new Date(selectedClient.marketingOptInAt).toLocaleDateString() : 'Recorded'})` : 'No'}
+                    </span>
                   </div>
                 </div>
 
@@ -1048,7 +1091,7 @@ export default function AdminDashboard() {
           <div className="max-w-3xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Dynamic Form Builder & Field Manager</h2>
-              <p className="text-xs text-[#6B7280]">Manage fields for both your Booking Form and your Consultation Form.</p>
+              <p className="text-xs text-[#6B7280]">Edit existing default fields, rearrange order, toggle required priorities, or add custom fields (Text, Dropdown, Checkbox) that map straight into your CRM/CMS.</p>
             </div>
 
             <div className="flex space-x-2 border-b pb-4">
@@ -1056,21 +1099,23 @@ export default function AdminDashboard() {
               <button onClick={() => setFormTypeTab('consultation')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'consultation' ? 'bg-[#6B8E70] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Consultation Form Fields</button>
             </div>
 
+            {/* Standard Fields with Reordering & Editing */}
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Standard Fields ({formTypeTab})</h3>
               <div className="grid gap-3">
-                {filteredDefaultFields.map((fc) => (
+                {filteredDefaultFields.map((fc, idx) => (
                   <div key={fc.id} className="flex items-center justify-between p-4 border rounded-xl bg-[#FAF9F6]">
                     <div>
                       <p className="text-sm font-medium text-[#2C332B]">{fc.field_label} <span className="text-xs text-[#6B8E70]">({fc.field_name})</span></p>
-                      <p className="text-xs text-[#6B7280]">{fc.is_required ? 'Required' : 'Optional'} • {fc.is_active ? 'Active' : 'Hidden'}</p>
+                      <p className="text-xs text-[#6B7280]">{fc.is_required ? 'Required (Priority)' : 'Optional'} • {fc.is_active ? 'Active' : 'Hidden'}</p>
                     </div>
-                    <button 
-                      onClick={() => setEditingDefaultField(fc)} 
-                      className="px-3 py-1.5 bg-white border text-xs uppercase rounded-lg hover:bg-gray-50 transition"
-                    >
-                      Edit Field
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex flex-col">
+                        <button onClick={() => handleMoveField(fc.id, 'default', 'up')} disabled={idx === 0} className="p-1 text-gray-500 hover:text-black disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleMoveField(fc.id, 'default', 'down')} disabled={idx === filteredDefaultFields.length - 1} className="p-1 text-gray-500 hover:text-black disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <button onClick={() => setEditingDefaultField(fc)} className="px-3 py-1.5 bg-white border text-xs uppercase rounded-lg hover:bg-gray-50 transition">Edit</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1083,32 +1128,14 @@ export default function AdminDashboard() {
                   <form onSubmit={handleSaveDefaultFieldConfig} className="space-y-3">
                     <div>
                       <label className="block text-xs uppercase mb-1">Field Label</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={editingDefaultField.field_label} 
-                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, field_label: e.target.value })} 
-                        className="w-full p-3 border rounded-xl text-sm" 
-                      />
+                      <input type="text" required value={editingDefaultField.field_label} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, field_label: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
                     </div>
                     <div className="flex items-center space-x-2 pt-2">
-                      <input 
-                        type="checkbox" 
-                        id="editIsReq"
-                        checked={editingDefaultField.is_required} 
-                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} 
-                        className="h-4 w-4 text-[#6B8E70]"
-                      />
-                      <label htmlFor="editIsReq" className="text-xs text-gray-700 cursor-pointer">Required Field</label>
+                      <input type="checkbox" id="editIsReq" checked={editingDefaultField.is_required} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} className="h-4 w-4 text-[#6B8E70]" />
+                      <label htmlFor="editIsReq" className="text-xs text-gray-700 cursor-pointer">Required / High Priority Field</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <input 
-                        type="checkbox" 
-                        id="editIsActive"
-                        checked={editingDefaultField.is_active} 
-                        onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} 
-                        className="h-4 w-4 text-[#6B8E70]"
-                      />
+                      <input type="checkbox" id="editIsActive" checked={editingDefaultField.is_active} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} className="h-4 w-4 text-[#6B8E70]" />
                       <label htmlFor="editIsActive" className="text-xs text-gray-700 cursor-pointer">Active (Visible on Form)</label>
                     </div>
                     <div className="flex space-x-3 pt-4">
@@ -1120,9 +1147,10 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Custom Fields (Text, Dropdown, Checkbox) */}
             <form onSubmit={handleAddCustomField} className="p-4 bg-[#FAF9F6] border rounded-2xl space-y-4 mt-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add Custom Field</h3>
-              <input type="text" required placeholder="Field Label (e.g. Any specific areas of tension?)" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Custom Field</h3>
+              <input type="text" required placeholder="Field Label (e.g. Preferred music style, Dietary notes)" value={fieldLabel} onChange={(e) => setFieldLabel(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <select value={fieldType} onChange={(e) => setFieldType(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm">
                 <option value="text">Text Input (Short)</option>
                 <option value="textarea">Textarea (Long)</option>
@@ -1130,25 +1158,31 @@ export default function AdminDashboard() {
                 <option value="checkbox">Checkbox (True/False)</option>
               </select>
               {fieldType === 'select' && (
-                <input type="text" required placeholder="Comma separated options (e.g. Shoulders, Lower Back, Neck)" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+                <input type="text" required placeholder="Comma separated options (e.g. Ambient, Classical, Nature Sounds)" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               )}
               <div className="flex items-center space-x-2 pt-1">
                 <input type="checkbox" id="isReq" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="h-4 w-4 text-[#6B8E70]" />
-                <label htmlFor="isReq" className="text-sm">Make this field required</label>
+                <label htmlFor="isReq" className="text-sm">Make this custom field required / priority</label>
               </div>
-              <button type="submit" className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Add Field</button>
+              <button type="submit" className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Add Custom Field</button>
             </form>
 
             <div className="space-y-3 pt-6 border-t">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Custom Fields ({formTypeTab})</h3>
               <div className="grid gap-3">
-                {filteredCustomFields.map((cf) => (
+                {filteredCustomFields.map((cf, idx) => (
                   <div key={cf.id} className="flex items-center justify-between p-4 border rounded-xl bg-white">
                     <div>
                       <p className="text-sm font-medium text-[#2C332B]">{cf.field_label} <span className="text-xs text-[#6B7280]">({cf.field_type})</span></p>
-                      <p className="text-xs text-[#6B7280]">{cf.is_required ? 'Required' : 'Optional'}</p>
+                      <p className="text-xs text-[#6B7280]">{cf.is_required ? 'Required (Priority)' : 'Optional'}</p>
                     </div>
-                    <button onClick={() => handleDeleteCustomField(cf.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex flex-col">
+                        <button onClick={() => handleMoveField(cf.id, 'custom', 'up')} disabled={idx === 0} className="p-1 text-gray-500 hover:text-black disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleMoveField(cf.id, 'custom', 'down')} disabled={idx === filteredCustomFields.length - 1} className="p-1 text-gray-500 hover:text-black disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <button onClick={() => handleDeleteCustomField(cf.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1165,11 +1199,7 @@ export default function AdminDashboard() {
             <form onSubmit={handleSaveTemplate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Select Email Template</label>
-                <select 
-                  value={editingTemplateKey} 
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full p-3 border rounded-xl text-sm bg-white"
-                >
+                <select value={editingTemplateKey} onChange={(e) => handleTemplateChange(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white">
                   <option value="confirmation_email">Booking Confirmation Email</option>
                   <option value="reschedule_email">Appointment Reschedule Notification Email</option>
                   <option value="cancellation_email">Appointment Cancellation Notification Email</option>
