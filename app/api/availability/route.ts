@@ -20,19 +20,16 @@ export async function GET(request: Request) {
     const now = new Date();
     const minBookingTime = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12-hour notice rule
 
-    // 1-Month (31 days) Advance Booking Window Restriction
-    const maxBookingDate = new Date();
-    maxBookingDate.setDate(maxBookingDate.getDate() + 31);
-    maxBookingDate.setHours(23, 59, 59, 999);
+    // 1-Month (31 days) Advance Booking Window Restriction (using UTC comparison)
+    const nowUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const maxBookingTime = nowUtc + 31 * 24 * 60 * 60 * 1000;
+    const requestedTimeUtc = new Date(dateStr + 'T00:00:00Z').getTime();
 
-    const requestedDate = new Date(dateStr + 'T00:00:00');
-
-    // If requested date is further than 31 days out, return no slots
-    if (requestedDate > maxBookingDate) {
+    if (requestedTimeUtc > maxBookingTime) {
       return NextResponse.json({ slots: [] });
     }
 
-    // Fetch existing bookings for this date
+    // Strict UTC day bounds to prevent timezone leakage
     const dayStart = `${dateStr}T00:00:00.000Z`;
     const dayEnd = `${dateStr}T23:59:59.999Z`;
 
@@ -43,14 +40,12 @@ export async function GET(request: Request) {
       .lte('start_time', dayEnd)
       .not('status', 'eq', 'cancelled');
 
-    // Fetch manual blocked times for this date
     const { data: blockedTimes } = await supabase
       .from('blocked_times')
       .select('start_time, end_time')
       .lte('start_time', dayEnd)
       .gte('end_time', dayStart);
 
-    // Build busy intervals array including the mandatory 30-min post-treatment buffer
     const busyIntervals: { start: number; end: number }[] = [];
 
     bookings?.forEach(b => {
@@ -67,37 +62,38 @@ export async function GET(request: Request) {
       });
     });
 
-    // Generate 30-minute increment slots strictly between 10:00 and 20:00 (10am - 8pm)
+    // Generate slots using absolute UTC hours to prevent local offset bleeding
     const availableSlots: string[] = [];
-    const openingHour = 10;
-    const closingHour = 20;
+    const openingHourUtc = 10;
+    const closingHourUtc = 20; // Absolute max limit: 8:00 PM UTC/BST
 
-    const baseDate = new Date(dateStr);
-    for (let hour = openingHour; hour < closingHour; hour++) {
+    const dateParts = dateStr.split('-');
+    const baseDateMs = Date.UTC(
+      parseInt(dateParts[0], 10),
+      parseInt(dateParts[1], 10) - 1,
+      parseInt(dateParts[2], 10)
+    );
+
+    const closingTimeMs = baseDateMs + closingHourUtc * 3600000;
+
+    for (let hour = openingHourUtc; hour < closingHourUtc; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        const slotDate = new Date(baseDate);
-        slotDate.setHours(hour, minute, 0, 0);
+        const slotStartMs = baseDateMs + hour * 3600000 + minute * 60000;
+        const slotEndMs = slotStartMs + treatmentDuration * 60000;
 
-        const slotStart = slotDate.getTime();
-        const slotEnd = slotStart + treatmentDuration * 60000;
+        // Strictly block slots ending past 20:00
+        if (slotEndMs > closingTimeMs) continue;
 
-        // Ensure treatment does not run past closing time
-        const closingTime = new Date(baseDate);
-        closingTime.setHours(closingHour, 0, 0, 0);
-        if (slotEnd > closingTime.getTime()) continue;
-
-        // Check conflicts against bookings, buffers, and blocked times
         let isConflict = false;
         for (const busy of busyIntervals) {
-          if (slotStart < busy.end && slotEnd > busy.start) {
+          if (slotStartMs < busy.end && slotEndMs > busy.start) {
             isConflict = true;
             break;
           }
         }
 
-        // Must respect 12-hour notice rule and no conflicts
-        const slotDateTime = new Date(slotStart);
-        if (!isConflict && slotDateTime >= minBookingTime) {
+        const slotDateTime = new Date(slotStartMs);
+        if (!isConflict && slotDateTime.getTime() >= minBookingTime.getTime()) {
           availableSlots.push(slotDateTime.toISOString());
         }
       }
