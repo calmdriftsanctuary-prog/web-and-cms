@@ -62,10 +62,10 @@ export async function GET(request: Request) {
       });
     });
 
-    // Generate slots using absolute UTC hours to prevent local offset bleeding
+    // Generate slots strictly between 10:00 and 20:00 UTC
     const availableSlots: string[] = [];
     const openingHourUtc = 10;
-    const closingHourUtc = 20; // Absolute max limit: 8:00 PM UTC/BST
+    const closingHourUtc = 20; // Hard ceiling: 8:00 PM
 
     const dateParts = dateStr.split('-');
     const baseDateMs = Date.UTC(
@@ -74,29 +74,35 @@ export async function GET(request: Request) {
       parseInt(dateParts[2], 10)
     );
 
+    const openingTimeMs = baseDateMs + openingHourUtc * 3600000;
     const closingTimeMs = baseDateMs + closingHourUtc * 3600000;
 
-    for (let hour = openingHourUtc; hour < closingHourUtc; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const slotStartMs = baseDateMs + hour * 3600000 + minute * 60000;
-        const slotEndMs = slotStartMs + treatmentDuration * 60000;
+    let currentSlotMs = openingTimeMs;
 
-        // Strictly block slots ending past 20:00
-        if (slotEndMs > closingTimeMs) continue;
+    while (currentSlotMs < closingTimeMs) {
+      const slotStartMs = currentSlotMs;
+      const slotEndMs = slotStartMs + treatmentDuration * 60000;
 
-        let isConflict = false;
-        for (const busy of busyIntervals) {
-          if (slotStartMs < busy.end && slotEndMs > busy.start) {
-            isConflict = true;
-            break;
-          }
-        }
+      // Absolute strict check: Slot cannot start at or after 20:00, and cannot end past 20:00
+      if (slotStartMs >= closingTimeMs || slotEndMs > closingTimeMs) {
+        currentSlotMs += 30 * 60000;
+        continue;
+      }
 
-        const slotDateTime = new Date(slotStartMs);
-        if (!isConflict && slotDateTime.getTime() >= minBookingTime.getTime()) {
-          availableSlots.push(slotDateTime.toISOString());
+      let isConflict = false;
+      for (const busy of busyIntervals) {
+        if (slotStartMs < busy.end && slotEndMs > busy.start) {
+          isConflict = true;
+          break;
         }
       }
+
+      const slotDateTime = new Date(slotStartMs);
+      if (!isConflict && slotDateTime.getTime() >= minBookingTime.getTime()) {
+        availableSlots.push(slotDateTime.toISOString());
+      }
+
+      currentSlotMs += 30 * 60000; // Increment by 30 minutes
     }
 
     return NextResponse.json({ slots: availableSlots });
