@@ -7,11 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const resend = new Resend(process.env.RESND_API_KEY || process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET() {
   try {
-    // 1. Fetch template from your site_templates CMS
     const { data: template } = await supabase
       .from('site_templates')
       .select('*')
@@ -40,20 +39,19 @@ export async function GET() {
         const appointmentTime = new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const treatmentTitle = b.treatments?.title || 'Treatment';
 
-        // Use template content or fallback
         let htmlContent = template?.content || '<p>Reminder for your appointment tomorrow.</p>';
         htmlContent = htmlContent
           .replace(/{{client_name}}/g, b.client_name)
           .replace(/{{treatment_title}}/g, treatmentTitle)
           .replace(/{{appointment_time}}/g, appointmentTime);
 
-        const subject = template?.title || 'Reminder: Your Sanctuary Appointment Tomorrow';
+        const subject = template?.title || 'Reminder: Your Calm Drift Sanctuary Appointment Tomorrow';
 
         await resend.emails.send({
-          from: 'Sanctuary <onboarding@resend.dev>',
+          from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
           to: [b.client_email],
           subject: subject,
-          html: htmlContent,
+          html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">${htmlContent}</div>`,
         });
 
         await supabase.from('bookings').update({ reminder_sent: true }).eq('id', b.id);
