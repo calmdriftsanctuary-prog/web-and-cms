@@ -153,8 +153,9 @@ export default function AdminDashboard() {
   const [templates, setTemplates] = useState<SiteTemplate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
+  const [selectedClientKey, setSelectedClientKey] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [mergingTargetKey, setMergingTargetKey] = useState<string>('');
 
   const [popupConfig, setPopupConfig] = useState<PopupConfig>({
     is_active: false,
@@ -222,12 +223,10 @@ export default function AdminDashboard() {
         let defaultFields = data.fieldConfigs || [];
         if (defaultFields.length === 0) {
           defaultFields = [
-            // Booking defaults
             { id: 'def-1', form_type: 'booking', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
             { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
             { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
             { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
-            // Consultation defaults
             { id: 'def-5', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
             { id: 'def-6', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
             { id: 'def-7', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
@@ -314,10 +313,15 @@ export default function AdminDashboard() {
     }
   };
 
+  // Group client records strictly by matching both name and email
   const clientsMap = bookings.reduce((acc, booking) => {
-    const email = booking.client_email.toLowerCase();
-    if (!acc[email]) {
-      acc[email] = {
+    const cleanName = (booking.client_name || '').trim().toLowerCase();
+    const cleanEmail = (booking.client_email || '').trim().toLowerCase();
+    const uniqueKey = `${cleanName}_${cleanEmail}`;
+
+    if (!acc[uniqueKey]) {
+      acc[uniqueKey] = {
+        key: uniqueKey,
         name: booking.client_name,
         email: booking.client_email,
         phone: booking.client_phone,
@@ -328,43 +332,77 @@ export default function AdminDashboard() {
         totalSpend: 0,
       };
     }
-    acc[email].bookings.push(booking);
+    acc[uniqueKey].bookings.push(booking);
     if (booking.status !== 'cancelled') {
-      acc[email].totalSpend += booking.treatments?.price_gbp || 0;
+      acc[uniqueKey].totalSpend += booking.treatments?.price_gbp || 0;
     }
     if (booking.marketing_opt_in) {
-      acc[email].marketingOptIn = true;
-      acc[email].marketingOptInAt = booking.marketing_opt_in_at || acc[email].marketingOptInAt;
+      acc[uniqueKey].marketingOptIn = true;
+      acc[uniqueKey].marketingOptInAt = booking.marketing_opt_in_at || acc[uniqueKey].marketingOptInAt;
     }
     if (booking.consultations && booking.consultations.length > 0) {
-      acc[email].consultations.push(...booking.consultations);
+      acc[uniqueKey].consultations.push(...booking.consultations);
     }
     return acc;
-  }, {} as Record<string, { name: string; email: string; phone: string; marketingOptIn: boolean; marketingOptInAt?: string; bookings: Booking[]; consultations: any[]; totalSpend: number }>);
+  }, {} as Record<string, { key: string; name: string; email: string; phone: string; marketingOptIn: boolean; marketingOptInAt?: string; bookings: Booking[]; consultations: any[]; totalSpend: number }>);
 
   const clientsList = Object.values(clientsMap);
-  const selectedClient = selectedClientEmail ? clientsMap[selectedClientEmail.toLowerCase()] : null;
+  const selectedClient = selectedClientKey ? clientsMap[selectedClientKey] : null;
 
   const handleSaveClientDetails = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingClient || !selectedClientEmail) return;
+    if (!editingClient || !selectedClient) return;
 
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'update_client_profile',
-        old_email: selectedClientEmail,
+        old_email: selectedClient.email,
+        old_name: selectedClient.name,
         new_name: editingClient.name,
         new_email: editingClient.email,
         new_phone: editingClient.phone,
       }),
     });
 
-    setSelectedClientEmail(editingClient.email);
+    const newKey = `${editingClient.name.trim().toLowerCase()}_${editingClient.email.trim().toLowerCase()}`;
+    setSelectedClientKey(newKey);
     setEditingClient(null);
     loadData();
     alert('Client profile updated successfully!');
+  };
+
+  const handleMergeProfiles = async (targetKey: string) => {
+    if (!selectedClient || !targetKey) return;
+    const targetClient = clientsMap[targetKey];
+    if (!targetClient) return;
+
+    if (selectedClient.key === targetKey) {
+      alert('Cannot merge a profile into itself.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to merge bookings from "${selectedClient.name}" (${selectedClient.email}) into "${targetClient.name}" (${targetClient.email})?`)) return;
+
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'merge_client_profiles',
+        source_email: selectedClient.email,
+        source_name: selectedClient.name,
+        target_email: targetClient.email,
+      }),
+    });
+
+    if (res.ok) {
+      setSelectedClientKey(targetKey);
+      setMergingTargetKey('');
+      loadData();
+      alert('Profiles successfully merged!');
+    } else {
+      alert('Failed to merge profiles.');
+    }
   };
 
   const handleDeleteClient = async (clientEmail: string, clientName: string) => {
@@ -376,7 +414,7 @@ export default function AdminDashboard() {
     });
 
     if (res.ok) {
-      setSelectedClientEmail(null);
+      setSelectedClientKey(null);
       loadData();
       alert('Client record successfully deleted.');
     } else {
@@ -384,12 +422,12 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
+  const handleSendConsultationEmail = async (clientEmail: string, clientName: string, bookingId?: string) => {
     if (!confirm(`Send consultation intake form request email to ${clientName} (${clientEmail})?`)) return;
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'send_consultation_email', email: clientEmail, name: clientName }),
+      body: JSON.stringify({ type: 'send_consultation_email', email: clientEmail, name: clientName, bookingId }),
     });
     alert('Consultation form email sent successfully!');
   };
@@ -689,7 +727,7 @@ export default function AdminDashboard() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Client Records ({clientsList.length})</h2>
               <div className="grid gap-3">
                 {clientsList.map((client) => (
-                  <div key={client.email} onClick={() => setSelectedClientEmail(client.email)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientEmail === client.email ? 'border-[#6B8E70] shadow-sm' : 'border-[#E5E7EB]'}`}>
+                  <div key={client.key} onClick={() => setSelectedClientKey(client.key)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientKey === client.key ? 'border-[#6B8E70] shadow-sm' : 'border-[#E5E7EB]'}`}>
                     <div>
                       <div className="flex items-center space-x-2">
                         <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
@@ -697,7 +735,7 @@ export default function AdminDashboard() {
                           {client.marketingOptIn ? 'Opted In' : 'No Consent'}
                         </span>
                       </div>
-                      <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend</p>
+                      <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend ({client.bookings.length} bookings)</p>
                     </div>
                     <span className="text-xs text-[#6B8E70]">View Profile &rarr;</span>
                   </div>
@@ -712,7 +750,7 @@ export default function AdminDashboard() {
                     <span className="text-[10px] uppercase font-semibold text-[#6B8E70]">Client Profile</span>
                     <h3 className="font-serif text-2xl text-[#2C332B] mt-0.5">{selectedClient.name}</h3>
                   </div>
-                  <button onClick={() => setSelectedClientEmail(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
+                  <button onClick={() => setSelectedClientKey(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
                 </div>
 
                 <div className="space-y-3 pt-2 border-t text-xs">
@@ -732,13 +770,48 @@ export default function AdminDashboard() {
                   <button onClick={() => handleDeleteClient(selectedClient.email, selectedClient.name)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete Client</button>
                 </div>
 
+                {/* MERGE PROFILE SECTION */}
+                <div className="pt-4 border-t space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Merge into Another Profile</h4>
+                  <div className="flex space-x-2">
+                    <select
+                      value={mergingTargetKey}
+                      onChange={(e) => setMergingTargetKey(e.target.value)}
+                      className="w-full p-2 border rounded-xl text-xs bg-white"
+                    >
+                      <option value="">Select target client profile...</option>
+                      {clientsList.filter(c => c.key !== selectedClient.key).map(c => (
+                        <option key={c.key} value={c.key}>{c.name} ({c.email})</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleMergeProfiles(mergingTargetKey)}
+                      className="px-3 py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-xl font-semibold whitespace-nowrap"
+                    >
+                      Merge
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t space-y-3">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Latest Consultation Form</h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
                     <button onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name)} className="px-2.5 py-1 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1">
                       <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
                     </button>
                   </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedClient.bookings.map((b) => (
+                      <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
+                        <p><strong>{b.treatments?.title || 'Treatment'}</strong> (£{b.treatments?.price_gbp || 0})</p>
+                        <p className="text-gray-500">{new Date(b.start_time).toLocaleString()} • <span className="capitalize">{b.status}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Forms</h4>
                   {selectedClient.consultations.length > 0 ? (
                     <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
                       <p><strong>Medical:</strong> {selectedClient.consultations[0].medical_conditions || 'None'}</p>
