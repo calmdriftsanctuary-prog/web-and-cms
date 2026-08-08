@@ -796,14 +796,25 @@ export default function AdminDashboard() {
                 <div className="pt-4 border-t space-y-3">
                   <div className="flex justify-between items-center">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
-                    <button onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name)} className="px-2.5 py-1 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1">
+                    <button 
+                      onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, selectedClient.bookings[0]?.id)} 
+                      className="px-2.5 py-1 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1"
+                    >
                       <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
                     </button>
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {selectedClient.bookings.map((b) => (
                       <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
-                        <p><strong>{b.treatments?.title || 'Treatment'}</strong> (£{b.treatments?.price_gbp || 0})</p>
+                        <div className="flex justify-between items-center">
+                          <strong>{b.treatments?.title || 'Treatment'}</strong> (£{b.treatments?.price_gbp || 0})
+                          <button 
+                            onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
+                            className="text-[10px] text-[#6B8E70] underline hover:text-black"
+                          >
+                            Email for this booking
+                          </button>
+                        </div>
                         <p className="text-gray-500">{new Date(b.start_time).toLocaleString()} • <span className="capitalize">{b.status}</span></p>
                       </div>
                     ))}
