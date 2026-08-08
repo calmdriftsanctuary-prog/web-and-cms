@@ -128,18 +128,67 @@ export async function POST(request: Request) {
     }
 
     if (type === 'update_client_profile') {
-      const { old_email, new_name, new_email, new_phone } = body;
-      const { error } = await supabase
+      const { old_email, old_name, new_name, new_email, new_phone } = body;
+      let query = supabase
         .from('bookings')
         .update({ client_name: new_name, client_email: new_email, client_phone: new_phone })
         .eq('client_email', old_email);
 
+      if (old_name) {
+        query = query.ilike('client_name', old_name);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (type === 'merge_client_profiles') {
+      const { source_email, source_name, target_email } = body;
+      if (!source_email || !target_email) {
+        return NextResponse.json({ error: 'Source and target emails are required' }, { status: 400 });
+      }
+
+      let query = supabase
+        .from('bookings')
+        .update({ client_email: target_email.toLowerCase().trim() })
+        .eq('client_email', source_email.toLowerCase().trim());
+
+      if (source_name) {
+        query = query.ilike('client_name', source_name.trim());
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      return NextResponse.json({ success: true, message: 'Client profiles successfully merged' });
+    }
+
+    if (type === 'delete_client') {
+      const { email } = body;
+      if (!email) {
+        return NextResponse.json({ error: 'Client email is required for deletion' }, { status: 400 });
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('client_email', email.toLowerCase().trim());
+
+      if (error) throw error;
+      return NextResponse.json({ success: true, message: 'Client record and associated bookings deleted successfully' });
+    }
+
+    if (type === 'delete_booking') {
+      const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) throw error;
       return NextResponse.json({ success: true });
     }
 
     if (type === 'send_consultation_email') {
-      const { email, name } = body;
+      const { email, name, bookingId } = body;
+      const consultationUrl = bookingId ? `https://calmdriftsanctuary.co.uk/consultation/${bookingId}` : 'https://calmdriftsanctuary.co.uk';
+
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
         to: [email],
@@ -149,7 +198,16 @@ export async function POST(request: Request) {
             <h2 style="color: #6B8E70;">Consultation Form Request</h2>
             <p>Dear ${name},</p>
             <p>As part of your preparation for your upcoming visit, please complete your intake consultation form.</p>
-            <p>You can fill it out securely online prior to your arrival.</p>
+            <p>You can fill it out securely online prior to your arrival by clicking below:</p>
+            <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
+              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
+                    <a href="${consultationUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600; background-color: #6B8E70;">Complete Digital Consultation</a>
+                  </td>
+                </tr>
+              </table>
+            </div>
             <br/>
             <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
           </div>
