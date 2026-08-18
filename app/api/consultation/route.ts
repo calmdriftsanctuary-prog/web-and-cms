@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
     }
 
-    // Prepare the record payload containing core fields and any dynamic form inputs
+    // Prepare the payload
     const consultationRecord: any = {
       booking_id: bookingId,
       medical_conditions: medicalConditions || 'None',
@@ -31,19 +31,37 @@ export async function POST(request: Request) {
       emergency_contact: emergencyContact || 'None',
     };
 
-    // Bundle any extra custom fields into the responses jsonb column
     if (Object.keys(dynamicFields).length > 0) {
       consultationRecord.responses = dynamicFields;
     }
 
-    // Use upsert to handle both new submissions and updates smoothly without conflicts
-    const { error: insertError } = await supabase
+    // 1. Check if a consultation record already exists for this booking
+    const { data: existing } = await supabase
       .from('consultations')
-      .upsert(consultationRecord, { onConflict: 'booking_id' });
+      .select('id')
+      .eq('booking_id', bookingId)
+      .single();
 
-    if (insertError) {
-      console.error('Consultation Insert Error:', insertError);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    let queryError = null;
+
+    if (existing) {
+      // 2. If it exists, update it safely by ID
+      const { error } = await supabase
+        .from('consultations')
+        .update(consultationRecord)
+        .eq('id', existing.id);
+      queryError = error;
+    } else {
+      // 3. Otherwise, insert a new record
+      const { error } = await supabase
+        .from('consultations')
+        .insert(consultationRecord);
+      queryError = error;
+    }
+
+    if (queryError) {
+      console.error('Consultation Save Error:', queryError);
+      return NextResponse.json({ error: queryError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
