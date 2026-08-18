@@ -48,7 +48,6 @@ export default function HomePage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch treatments, page content, gallery images, and reviews on mount
   useEffect(() => {
     Promise.all([
       fetch('/api/admin/bookings?bookings=true').then((res) => res.json()),
@@ -81,7 +80,6 @@ export default function HomePage() {
       });
   }, []);
 
-  // Fetch available slots when treatment or date changes
   useEffect(() => {
     if (!selectedTreatmentId || !selectedDate) return;
 
@@ -186,7 +184,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#FAF9F6] py-12 px-4 sm:px-6 lg:px-8 font-sans text-[#2C332B] space-y-16">
       <div className="max-w-2xl mx-auto space-y-8">
         
-        {/* LOGO & HEADER SECTION */}
         <header className="text-center space-y-4">
           <div className="flex justify-center">
             <img 
@@ -205,11 +202,10 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* BOOKING FORM CARD */}
         <div className="bg-white p-6 sm:p-10 rounded-2xl border space-y-8 shadow-sm">
           
           <div className="flex items-center justify-between border-b pb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-700">Online Sanctuary Booking</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-700">Online Booking - Calm Drift Sanctuary</span>
             <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Secure Reservation</span>
@@ -223,7 +219,6 @@ export default function HomePage() {
           )}
 
           <form onSubmit={handleBookingSubmit} className="space-y-6">
-            {/* Treatment Selector */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider mb-2">Select Treatment</label>
               <div className="grid gap-3">
@@ -248,7 +243,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Date & Slot Picker */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Booking Date</label>
@@ -287,10 +281,12 @@ export default function HomePage() {
                     })}
                   </select>
                 )}
+                <p className="text-[11px] text-gray-500 italic mt-2 leading-relaxed">
+                  Appointments not booked more than 24 hours in advance will need to be confirmed by getting in touch with us via our Instagram account, @calmdriftsanctuary.
+                </p>
               </div>
             </div>
 
-            {/* Client Details */}
             <div className="space-y-4 pt-4 border-t">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">Your Details</h3>
               
@@ -342,7 +338,6 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* GDPR COMPLIANCE SECTION */}
               <div className="pt-2 space-y-3 bg-gray-50 p-4 rounded-xl border">
                 <div className="flex items-start space-x-2.5">
                   <input
@@ -356,11 +351,6 @@ export default function HomePage() {
                     Yes, I would like to receive exclusive wellness offers and updates via email (Optional).
                   </label>
                 </div>
-
-                <p className="text-[11px] text-gray-500 leading-tight">
-                  By booking, you agree to our processing of your personal data to fulfill your appointment. 
-                  Read our <a href="/privacy" target="_blank" className="underline hover:text-gray-700 font-medium">Privacy Policy</a>.
-                </p>
               </div>
             </div>
 
@@ -375,17 +365,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* GALLERY SECTION */}
       {galleryImages.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 space-y-6">
           <div className="text-center space-y-1">
-            <h2 className="font-serif text-2xl sm:text-3xl">{content.gallery_heading || 'Sanctuary Gallery'}</h2>
+            <h2 className="font-serif text-2xl sm:text-3xl">{content.gallery_heading || 'Calm Drift Gallery'}</h2>
             <p className="text-xs text-gray-500">{content.gallery_subtext || 'A glimpse into our restorative space'}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {galleryImages.map((img) => (
               <div key={img.id} className="overflow-hidden rounded-2xl border shadow-sm bg-white">
-                <img src={img.image_url} alt={img.caption || 'Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
+                <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
                 {img.caption && <div className="p-3 text-xs text-center text-gray-600">{img.caption}</div>}
               </div>
             ))}
@@ -393,12 +382,11 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* REVIEWS SECTION */}
       {reviews.length > 0 && (
         <section className="max-w-4xl mx-auto px-4 space-y-6 pb-12">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl">{content.reviews_heading || 'Client Experiences'}</h2>
-            <p className="text-xs text-gray-500">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
+            <p className="text-xs text-gray-500">{content.reviews_subtext || 'Words from those who have visited Calm Drift'}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {reviews.map((rev) => (

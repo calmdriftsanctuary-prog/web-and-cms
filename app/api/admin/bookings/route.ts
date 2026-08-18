@@ -192,7 +192,7 @@ export async function POST(request: Request) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
         to: [email],
-        subject: 'Please Complete Your Sanctuary Consultation Form',
+        subject: 'Please Complete Your Calm Drift Sanctuary Consultation Form',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
             <h2 style="color: #6B8E70;">Consultation Form Request</h2>
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
               </table>
             </div>
             <br/>
-            <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
+            <p>Warm regards,<br/><strong>Calm Drift Sanctuary Team</strong></p>
           </div>
         `,
       });
@@ -306,15 +306,15 @@ export async function POST(request: Request) {
           await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: [booking.client_email],
-            subject: 'Appointment Cancelled - Sanctuary',
+            subject: 'Appointment Cancelled - Calm Drift Sanctuary',
             html: `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
                 <h2 style="color: #991B1B;">Appointment Cancelled</h2>
                 <p>Dear ${booking.client_name},</p>
                 <p>We are writing to confirm that your appointment for <strong>${booking.treatments?.title || 'Treatment'}</strong> scheduled for ${new Date(booking.start_time).toLocaleString()} has been cancelled.</p>
-                <p>If you have any questions or would like to arrange an alternative time, please visit our sanctuary booking page.</p>
+                <p>If you have any questions or would like to arrange an alternative time, please visit calmdriftsanctuary.co.uk.</p>
                 <br/>
-                <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
+                <p>Warm regards,<br/><strong>Calm Drift Sanctuary Team</strong></p>
               </div>
             `,
           });
@@ -433,7 +433,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [booking.client_email],
-          subject: 'Appointment Rescheduled - Sanctuary',
+          subject: 'Appointment Rescheduled - Calm Drift Sanctuary',
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
               <h2 style="color: #6B8E70;">Appointment Rescheduled</h2>
@@ -448,7 +448,7 @@ export async function POST(request: Request) {
               </div>
               <p>If you need to make any further adjustments, please feel free to contact us.</p>
               <br/>
-              <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
+              <p>Warm regards,<br/><strong>Calm Drift Sanctuary Team</strong></p>
             </div>
           `,
         });

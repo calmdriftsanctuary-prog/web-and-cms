@@ -105,22 +105,22 @@ interface SiteTemplate {
 
 const DEFAULT_TEMPLATES: Record<string, { subject: string; content: string; button_text: string }> = {
   confirmation_email: {
-    subject: 'Your Sanctuary Appointment Confirmed',
+    subject: 'Your Calm Drift Sanctuary Appointment Confirmed',
     content: 'Dear [Client Name],\n\nYour appointment for [Treatment Title] on [Date & Time] has been officially confirmed. We look forward to welcoming you.',
     button_text: 'Complete Digital Consultation'
   },
   reschedule_email: {
-    subject: 'Appointment Rescheduled - Sanctuary',
+    subject: 'Appointment Rescheduled - Calm Drift Sanctuary',
     content: 'Dear [Client Name],\n\nYour appointment has been successfully rescheduled to a new time slot.',
     button_text: 'View Booking Details'
   },
   cancellation_email: {
-    subject: 'Appointment Cancelled - Sanctuary',
+    subject: 'Appointment Cancelled - Calm Drift Sanctuary',
     content: 'Dear [Client Name],\n\nWe are writing to confirm that your appointment has been cancelled.',
     button_text: 'Book New Session'
   },
   consultation_email: {
-    subject: 'Please Complete Your Sanctuary Consultation Form',
+    subject: 'Please Complete Your Calm Drift Sanctuary Consultation Form',
     content: 'Dear [Client Name],\n\nAs part of your preparation for your upcoming visit, please complete your intake consultation form securely online prior to arrival.',
     button_text: 'Complete Consultation Form'
   },
@@ -169,10 +169,10 @@ export default function AdminDashboard() {
   const [heroSubtext, setHeroSubtext] = useState('Tailored massages and holistic rituals designed to ease tension.');
   const [bookingTitle, setBookingTitle] = useState('reserve your session');
   const [bookingSubtext, setBookingSubtext] = useState('Select a holistic treatment below to begin your reservation.');
-  const [galleryHeading, setGalleryHeading] = useState('Sanctuary Gallery');
+  const [galleryHeading, setGalleryHeading] = useState('Calm Drift Sanctuary Gallery');
   const [gallerySubtext, setGallerySubtext] = useState('A glimpse into our restorative space');
   const [reviewsHeading, setReviewsHeading] = useState('Client Experiences');
-  const [reviewsSubtext, setReviewsSubtext] = useState('Words from those who have visited our sanctuary');
+  const [reviewsSubtext, setReviewsSubtext] = useState('Words from those who have visited Calm Drift sanctuary');
   const [savingContent, setSavingContent] = useState(false);
 
   const [editingTreatment, setEditingTreatment] = useState<Partial<Treatment> | null>(null);
@@ -515,7 +515,7 @@ export default function AdminDashboard() {
       await fetch('/api/admin/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'gallery_image', title: newImageTitle || 'Sanctuary Space', image_url: newImageUrl }),
+        body: JSON.stringify({ type: 'gallery_image', title: newImageTitle || 'Calm Drift Sanctuary Space', image_url: newImageUrl }),
       });
       setNewImageTitle('');
       setNewImageUrl('');
@@ -677,7 +677,7 @@ export default function AdminDashboard() {
           <div>
             <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Sanctuary Operating Hub</span>
+              <span>Calm Drift Sanctuary Operating Hub</span>
             </span>
             <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
           </div>
@@ -915,7 +915,7 @@ export default function AdminDashboard() {
           <div className="max-w-4xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
             <div>
               <h2 className="font-serif text-2xl text-[#2C332B]">Financial & Performance Reports</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">Overview of revenue, booking volumes, and sanctuary performance metrics.</p>
+              <p className="text-xs text-[#6B7280] mt-0.5">Overview of revenue, booking volumes, and performance metrics.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -1199,7 +1199,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email Subject Line</label>
-                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Your Sanctuary Appointment Confirmed" />
+                <input type="text" value={templateSubject} onChange={(e) => setTemplateSubject(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="e.g. Your Calm Drift Sanctuary Appointment Confirmed" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Email / Message Body Content</label>
