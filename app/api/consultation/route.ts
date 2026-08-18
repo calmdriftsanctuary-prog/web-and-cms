@@ -9,36 +9,21 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      bookingId, 
-      medicalConditions, 
-      allergies, 
-      pressurePreference, 
-      emergencyContact, 
-      ...dynamicFields 
-    } = body;
+    const { bookingId, medicalConditions, allergies, pressurePreference, emergencyContact } = body;
 
     if (!bookingId) {
       return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
     }
 
-    // Prepare core database payload
-    const consultationPayload: any = {
-      booking_id: bookingId,
-      medical_conditions: medicalConditions || 'None',
-      allergies: allergies || 'None',
-      pressure_preference: pressurePreference || 'Standard',
-      emergency_contact: emergencyContact || 'None',
-    };
-
-    // Safely bundle any dynamic CMS questions or extra fields into the responses column
-    if (Object.keys(dynamicFields).length > 0) {
-      consultationPayload.responses = dynamicFields;
-    }
-
     const { error: insertError } = await supabase
       .from('consultations')
-      .upsert(consultationPayload, { onConflict: 'booking_id' });
+      .upsert({
+        booking_id: bookingId,
+        medical_conditions: medicalConditions || 'None',
+        allergies: allergies || 'None',
+        pressure_preference: pressurePreference || 'Standard',
+        emergency_contact: emergencyContact || 'None',
+      }, { onConflict: 'booking_id' });
 
     if (insertError) {
       console.error('Consultation Insert Error:', insertError);
