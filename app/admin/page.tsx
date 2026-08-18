@@ -15,6 +15,8 @@ interface Booking {
   status: string;
   marketing_opt_in?: boolean;
   marketing_opt_in_at?: string;
+  price_override?: number;
+  override_reason?: string;
   treatments?: {
     id: string;
     title: string;
@@ -334,7 +336,10 @@ export default function AdminDashboard() {
     }
     acc[uniqueKey].bookings.push(booking);
     if (booking.status !== 'cancelled') {
-      acc[uniqueKey].totalSpend += booking.treatments?.price_gbp || 0;
+      const effectivePrice = booking.price_override !== null && booking.price_override !== undefined 
+        ? Number(booking.price_override) 
+        : (booking.treatments?.price_gbp || 0);
+      acc[uniqueKey].totalSpend += effectivePrice;
     }
     if (booking.marketing_opt_in) {
       acc[uniqueKey].marketingOptIn = true;
@@ -666,7 +671,15 @@ export default function AdminDashboard() {
   const filteredDefaultFields = fieldConfigs.filter((fc) => fc.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   const filteredCustomFields = customFields.filter((cf) => cf.form_type === formTypeTab).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
-  const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.treatments?.price_gbp || 0), 0);
+  const totalRevenue = bookings
+    .filter(b => b.status !== 'cancelled')
+    .reduce((acc, b) => {
+      const effectivePrice = b.price_override !== null && b.price_override !== undefined 
+        ? Number(b.price_override) 
+        : (b.treatments?.price_gbp || 0);
+      return acc + effectivePrice;
+    }, 0);
+
   const completedBookingsCount = bookings.filter(b => b.status !== 'cancelled').length;
   const averageBookingValue = completedBookingsCount > 0 ? Math.round(totalRevenue / completedBookingsCount) : 0;
 
@@ -804,20 +817,23 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedClient.bookings.map((b) => (
-                      <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
-                        <div className="flex justify-between items-center">
-                          <strong>{b.treatments?.title || 'Treatment'}</strong> (£{b.treatments?.price_gbp || 0})
-                          <button 
-                            onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
-                            className="text-[10px] text-[#6B8E70] underline hover:text-black"
-                          >
-                            Email for this booking
-                          </button>
+                    {selectedClient.bookings.map((b) => {
+                      const effectivePrice = b.price_override !== null && b.price_override !== undefined ? Number(b.price_override) : (b.treatments?.price_gbp || 0);
+                      return (
+                        <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
+                          <div className="flex justify-between items-center">
+                            <strong>{b.treatments?.title || 'Treatment'}</strong> (£{effectivePrice} {b.price_override !== null && b.price_override !== undefined ? '(Overridden)' : ''})
+                            <button 
+                              onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
+                              className="text-[10px] text-[#6B8E70] underline hover:text-black"
+                            >
+                              Email for this booking
+                            </button>
+                          </div>
+                          <p className="text-gray-500">{new Date(b.start_time).toLocaleString()} • <span className="capitalize">{b.status}</span></p>
                         </div>
-                        <p className="text-gray-500">{new Date(b.start_time).toLocaleString()} • <span className="capitalize">{b.status}</span></p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

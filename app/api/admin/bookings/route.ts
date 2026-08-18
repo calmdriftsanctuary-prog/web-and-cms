@@ -9,6 +9,25 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Helper function to format dates correctly in British local time (BST/GMT)
+function formatUKDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  const formattedDate = date.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/London'
+  });
+  const formattedTime = date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/London'
+  });
+  return `${formattedDate} at ${formattedTime}`;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -79,7 +98,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email } = body;
+    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason } = body;
 
     if (type === 'page_content') {
       const { key, value } = body;
@@ -192,7 +211,7 @@ export async function POST(request: Request) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
         to: [email],
-        subject: 'Please Complete Your Calm Drift Sanctuary Consultation Form',
+        subject: 'Please Complete Your Sanctuary Consultation Form',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
             <h2 style="color: #6B8E70;">Consultation Form Request</h2>
@@ -302,6 +321,8 @@ export async function POST(request: Request) {
       if (updateErr) throw updateErr;
 
       if (booking.client_email) {
+        const startTimeFormatted = formatUKDateTime(booking.start_time);
+
         if (status === 'cancelled' || trigger_email === 'cancellation') {
           await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
@@ -311,8 +332,8 @@ export async function POST(request: Request) {
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
                 <h2 style="color: #991B1B;">Appointment Cancelled</h2>
                 <p>Dear ${booking.client_name},</p>
-                <p>We are writing to confirm that your appointment for <strong>${booking.treatments?.title || 'Treatment'}</strong> scheduled for ${new Date(booking.start_time).toLocaleString()} has been cancelled.</p>
-                <p>If you have any questions or would like to arrange an alternative time, please visit calmdriftsanctuary.co.uk.</p>
+                <p>We are writing to confirm that your appointment for <strong>${booking.treatments?.title || 'Treatment'}</strong> scheduled for ${startTimeFormatted} has been cancelled.</p>
+                <p>If you have any questions or would like to arrange an alternative time, please visit our booking page.</p>
                 <br/>
                 <p>Warm regards,<br/><strong>Calm Drift Sanctuary Team</strong></p>
               </div>
@@ -329,7 +350,6 @@ export async function POST(request: Request) {
 
           const clientName = booking.client_name || 'Client';
           const treatmentTitle = booking.treatments?.title || 'Treatment';
-          const startTimeFormatted = new Date(booking.start_time).toLocaleString();
 
           let emailSubject = dbTemplate?.subject || 'Your [Treatment Title] at Calm Drift Sanctuary Confirmed';
           emailSubject = emailSubject
@@ -403,6 +423,8 @@ export async function POST(request: Request) {
       if (start_time) updateData.start_time = start_time;
       if (end_time) updateData.end_time = end_time;
       if (notes !== undefined) updateData.notes = notes;
+      if (price_override !== undefined) updateData.price_override = price_override;
+      if (override_reason !== undefined) updateData.override_reason = override_reason;
 
       const { data: booking, error: fetchErr } = await supabase
         .from('bookings')
@@ -428,7 +450,9 @@ export async function POST(request: Request) {
       }
 
       if (booking.client_email) {
-        const newTimeFormatted = start_time ? new Date(start_time).toLocaleString() : new Date(booking.start_time).toLocaleString();
+        // Use the newly set start_time if provided, otherwise fall back to the existing booking start time, formatted strictly for UK local time
+        const targetStartTime = start_time || booking.start_time;
+        const newTimeFormatted = formatUKDateTime(targetStartTime);
         
         await resend.emails.send({
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
