@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email } = body;
+    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason } = body;
 
     if (type === 'page_content') {
       const { key, value } = body;
@@ -199,6 +199,9 @@ export async function POST(request: Request) {
             <p>Dear ${name},</p>
             <p>As part of your preparation for your upcoming visit, please complete your intake consultation form.</p>
             <p>You can fill it out securely online prior to your arrival by clicking below:</p>
+            <div style="margin: 15px 0; padding: 15px; background: #FAF9F6; border-radius: 8px; border: 1px solid #E5E7EB;">
+              <p style="margin: 0; font-size: 13px;"><strong>Location / what3words:</strong> ///converged.archives.downturn</p>
+            </div>
             <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
               <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                 <tr>
@@ -348,6 +351,12 @@ export async function POST(request: Request) {
             .replace(/\[Date & Time\]/g, startTimeFormatted)
             .replace(/\n/g, '<br/>');
 
+          emailHtml += `
+            <div style="margin: 20px 0; padding: 15px; background: #FAF9F6; border-radius: 8px; border: 1px solid #E5E7EB;">
+              <p style="margin: 0; font-size: 13px;"><strong>Location / what3words:</strong> ///converged.archives.downturn</p>
+            </div>
+          `;
+
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
           
           const rawDbUrl = dbTemplate?.button_url;
@@ -388,12 +397,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: 'Booking status updated and email processed successfully' });
     }
 
-    if (type === 'update_booking_details') {
+    if (type === 'update_booking_full' || type === 'update_booking_details') {
       const updateData: any = {};
       if (treatment_id) updateData.treatment_id = treatment_id;
       if (start_time) updateData.start_time = start_time;
       if (end_time) updateData.end_time = end_time;
       if (notes !== undefined) updateData.notes = notes;
+      if (price_override !== undefined) updateData.price_override = price_override;
+      if (override_reason !== undefined) updateData.override_reason = override_reason;
 
       const { data: booking, error: fetchErr } = await supabase
         .from('bookings')
@@ -434,6 +445,9 @@ export async function POST(request: Request) {
                 <strong>New Date & Time:</strong> ${newTimeFormatted}<br/>
                 <strong>Treatment:</strong> ${treatmentTitle || 'Treatment'}
               </p>
+              <div style="margin: 15px 0; padding: 15px; background: #FAF9F6; border-radius: 8px; border: 1px solid #E5E7EB;">
+                <p style="margin: 0; font-size: 13px;"><strong>Location / what3words:</strong> ///converged.archives.downturn</p>
+              </div>
               <p>If you need to make any further adjustments, please feel free to contact us.</p>
               <br/>
               <p>Warm regards,<br/><strong>Sanctuary Team</strong></p>
@@ -442,7 +456,7 @@ export async function POST(request: Request) {
         });
       }
 
-      return NextResponse.json({ success: true, message: 'Booking successfully rescheduled and email sent' });
+      return NextResponse.json({ success: true, message: 'Booking successfully updated and email sent' });
     }
 
     return NextResponse.json({ error: 'Invalid operation type specified in request payload' }, { status: 400 });
