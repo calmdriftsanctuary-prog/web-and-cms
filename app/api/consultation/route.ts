@@ -22,20 +22,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
     }
 
-    // Prepare the payload
-    const consultationRecord: any = {
+    // Package all standard and dynamic fields neatly into the jsonb responses column
+    const consultationRecord = {
       booking_id: bookingId,
-      medical_conditions: medicalConditions || 'None',
-      allergies: allergies || 'None',
-      pressure_preference: pressurePreference || 'Standard',
-      emergency_contact: emergencyContact || 'None',
+      responses: {
+        medicalConditions: medicalConditions || 'None',
+        allergies: allergies || 'None',
+        pressurePreference: pressurePreference || 'Standard',
+        emergencyContact: emergencyContact || 'None',
+        ...dynamicFields
+      }
     };
 
-    if (Object.keys(dynamicFields).length > 0) {
-      consultationRecord.responses = dynamicFields;
-    }
-
-    // 1. Check if a consultation record already exists for this booking
+    // Check if a consultation record already exists for this booking
     const { data: existing } = await supabase
       .from('consultations')
       .select('id')
@@ -45,14 +44,14 @@ export async function POST(request: Request) {
     let queryError = null;
 
     if (existing) {
-      // 2. If it exists, update it safely by ID
+      // Update existing record
       const { error } = await supabase
         .from('consultations')
         .update(consultationRecord)
         .eq('id', existing.id);
       queryError = error;
     } else {
-      // 3. Otherwise, insert a new record
+      // Insert new record
       const { error } = await supabase
         .from('consultations')
         .insert(consultationRecord);
