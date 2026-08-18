@@ -9,7 +9,14 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { bookingId, medicalConditions, allergies, pressurePreference, emergencyContact, customFields, ...rest } = body;
+    const { 
+      bookingId, 
+      medicalConditions, 
+      allergies, 
+      pressurePreference, 
+      emergencyContact, 
+      ...dynamicFields 
+    } = body;
 
     if (!bookingId) {
       return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
@@ -24,13 +31,9 @@ export async function POST(request: Request) {
       emergency_contact: emergencyContact || 'None',
     };
 
-    // If dynamic custom fields or extra parameters are passed from the CMS form,
-    // store them safely so nothing gets dropped or blocked by missing columns
-    if (customFields || Object.keys(rest).length > 0) {
-      consultationPayload.responses = {
-        ...(customFields || {}),
-        ...rest,
-      };
+    // Safely bundle any dynamic CMS questions or extra fields into the responses column
+    if (Object.keys(dynamicFields).length > 0) {
+      consultationPayload.responses = dynamicFields;
     }
 
     const { error: insertError } = await supabase
