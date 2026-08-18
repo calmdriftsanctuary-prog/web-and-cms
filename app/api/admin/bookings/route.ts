@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason } = body;
+    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email } = body;
 
     if (type === 'page_content') {
       const { key, value } = body;
@@ -403,8 +403,6 @@ export async function POST(request: Request) {
       if (start_time) updateData.start_time = start_time;
       if (end_time) updateData.end_time = end_time;
       if (notes !== undefined) updateData.notes = notes;
-      if (price_override !== undefined) updateData.price_override = price_override;
-      if (override_reason !== undefined) updateData.override_reason = override_reason;
 
       const { data: booking, error: fetchErr } = await supabase
         .from('bookings')
