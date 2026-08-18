@@ -17,13 +17,13 @@ export async function POST(request: Request) {
 
     const { error: insertError } = await supabase
       .from('consultations')
-      .upsert({
+      .insert({
         booking_id: bookingId,
         medical_conditions: medicalConditions || 'None',
         allergies: allergies || 'None',
         pressure_preference: pressurePreference || 'Standard',
         emergency_contact: emergencyContact || 'None',
-      }, { onConflict: 'booking_id' });
+      });
 
     if (insertError) {
       console.error('Consultation Insert Error:', insertError);

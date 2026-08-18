@@ -9,7 +9,6 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Helper function to format dates correctly in British local time (BST/GMT)
 function formatUKDateTime(dateString: string): string {
   const date = new Date(dateString);
   const formattedDate = date.toLocaleDateString('en-GB', {
@@ -64,7 +63,25 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      bookings = bookingData || [];
+      // Dynamically normalize consultations so any JSON key in 'responses' maps cleanly for the frontend UI
+      bookings = (bookingData || []).map((booking: any) => {
+        if (booking.consultations && Array.isArray(booking.consultations)) {
+          booking.consultations = booking.consultations.map((c: any) => {
+            if (c.responses && typeof c.responses === 'object') {
+              return {
+                ...c,
+                // Fallback / dynamic mapping for flat UI access
+                medical_conditions: c.medical_conditions || c.responses.medicalConditions || c.responses.medical_conditions || 'None',
+                allergies: c.allergies || c.responses.allergies || 'None',
+                pressure_preference: c.pressure_preference || c.responses.pressurePreference || c.responses.pressure_preference || 'Standard',
+                emergency_contact: c.emergency_contact || c.responses.emergencyContact || c.responses.emergency_contact || 'None',
+              };
+            }
+            return c;
+          });
+        }
+        return booking;
+      });
 
       if (searchQuery) {
         const queryLower = searchQuery.toLowerCase();
@@ -450,7 +467,6 @@ export async function POST(request: Request) {
       }
 
       if (booking.client_email) {
-        // Use the newly set start_time if provided, otherwise fall back to the existing booking start time, formatted strictly for UK local time
         const targetStartTime = start_time || booking.start_time;
         const newTimeFormatted = formatUKDateTime(targetStartTime);
         
