@@ -26,6 +26,7 @@ export async function POST(request: Request) {
 
     const startDateTime = new Date(startTime);
     const endDateTime = new Date(startDateTime.getTime() + (durationMinutes || 60) * 60000);
+    const hasConsented = Boolean(marketingOptIn);
 
     // 1. Insert booking into Supabase database
     const { data: bookingData, error: bookingError } = await supabase
@@ -39,12 +40,12 @@ export async function POST(request: Request) {
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString(),
           notes: notes || '',
-          marketing_opt_in: !!marketingOptIn,
-          marketing_opt_in_at: marketingOptIn ? new Date().toISOString() : null,
+          marketing_opt_in: hasConsented,
+          marketing_opt_in_at: hasConsented ? new Date().toISOString() : null,
           status: 'confirmed',
         },
       ])
-      .select('id, client_name, client_email, client_phone, start_time')
+      .select('id, client_name, client_email, client_phone, start_time, marketing_opt_in')
       .single();
 
     if (bookingError) throw bookingError;
@@ -57,14 +58,17 @@ export async function POST(request: Request) {
       .single();
 
     const treatment = treatmentData || { title: 'Sanctuary Treatment', price_gbp: 0 };
+    const resendApiKey = process.env.RESEND_API_KEY;
 
-    // 3. Send automated notification email to admin via Resend API
-    try {
-      const resendApiKey = process.env.RESEND_API_KEY;
-      if (!resendApiKey) {
-        console.error('RESEND_API_KEY is missing from environment variables.');
-      } else {
-        const emailPayload = {
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is missing from environment variables.');
+    } else {
+      const consultationUrl = `https://calmdriftsanctuary.co.uk/consultation/${bookingData.id}`;
+      const formattedDate = startDateTime.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }) + ' BST';
+
+      // 3. Send Admin Notification Email to calmdriftsanctuary@gmail.com
+      try {
+        const adminEmailPayload = {
           from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
           to: ['calmdriftsanctuary@gmail.com'],
           subject: `New Booking: ${clientName} - ${treatment.title}`,
@@ -77,31 +81,60 @@ export async function POST(request: Request) {
               <p><strong>Email:</strong> ${clientEmail}</p>
               <p><strong>Phone:</strong> ${clientPhone || 'Not provided'}</p>
               <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
-              <p><strong>Date & Time:</strong> ${startDateTime.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }) + ' BST'}</p>
-              <p><strong>Marketing Opt-In:</strong> <span style="color: ${marketingOptIn ? '#047857' : '#6b7280'}; font-weight:bold;">${marketingOptIn ? 'Yes (Consented)' : 'No Consent'}</span></p>
+              <p><strong>Date & Time:</strong> ${formattedDate}</p>
+              <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#047857' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
               ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
             </div>
           `,
         };
 
-        const emailRes = await fetch('https://api.resend.com/emails', {
+        await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${resendApiKey}`,
-          },
-          body: JSON.stringify(emailPayload),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+          body: JSON.stringify(adminEmailPayload),
         });
-
-        const emailResultText = await emailRes.text();
-        if (!emailRes.ok) {
-          console.error('Resend API Error Response:', emailResultText);
-        } else {
-          console.log('Admin notification email sent successfully:', emailResultText);
-        }
+      } catch (adminErr) {
+        console.error('Failed to send admin notification email:', adminErr);
       }
-    } catch (emailErr) {
-      console.error('Failed to dispatch admin notification email exception:', emailErr);
+
+      // 4. Send Client Confirmation Email (With what3words and Consultation Button)
+      try {
+        const clientEmailPayload = {
+          from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
+          to: [clientEmail],
+          subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
+          html: `
+            <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
+              <h2 style="color:#6B8E70; margin-top:0;">Your Session is Confirmed</h2>
+              <p>Dear ${clientName},</p>
+              <p>Thank you for booking with Calm Drift Sanctuary. We look forward to welcoming you.</p>
+              
+              <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #E5E7EB; margin:20px 0;">
+                <p style="margin:5px 0;"><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
+                <p style="margin:5px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
+                <p style="margin:5px 0;"><strong>Location:</strong> Calm Drift Sanctuary</p>
+                <p style="margin:5px 0;"><strong>what3words:</strong> ///converged.archives.downturn</p>
+              </div>
+
+              <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>
+              
+              <div style="text-align:center; margin:30px 0;">
+                <a href="${consultationUrl}" style="background-color:#6B8E70; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
+              </div>
+
+              <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; pt-15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
+            </div>
+          `,
+        };
+
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+          body: JSON.stringify(clientEmailPayload),
+        });
+      } catch (clientErr) {
+        console.error('Failed to send client confirmation email:', clientErr);
+      }
     }
 
     return NextResponse.json({ success: true, booking: bookingData }, { status: 200 });

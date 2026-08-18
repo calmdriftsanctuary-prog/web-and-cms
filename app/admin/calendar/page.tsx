@@ -96,8 +96,9 @@ export default function AdminCalendarPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newMarketingOptIn, setNewMarketingOptIn] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState('');
+  
+  // Unrestricted manual time input for admin
+  const [manualTime, setManualTime] = useState('10:00');
   const [bookingNotes, setBookingNotes] = useState('');
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
 
@@ -168,25 +169,6 @@ export default function AdminCalendarPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (isBookingModalOpen && selectedTreatmentId && bookingDateStr) {
-      const treatment = treatments.find(t => t.id === selectedTreatmentId);
-      const duration = treatment ? treatment.duration_minutes : 60;
-
-      fetch(`/api/availability?date=${bookingDateStr}&duration=${duration}`)
-        .then(res => res.json())
-        .then(data => {
-          setAvailableSlots(data.slots || []);
-          if (data.slots && data.slots.length > 0) {
-            setSelectedSlot(data.slots[0]);
-          } else {
-            setSelectedSlot('');
-          }
-        })
-        .catch(err => console.error('Failed to fetch availability slots', err));
-    }
-  }, [isBookingModalOpen, selectedTreatmentId, bookingDateStr, treatments]);
 
   useEffect(() => {
     if (selectedBooking) {
@@ -370,8 +352,8 @@ export default function AdminCalendarPage() {
 
   const handleManualBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSlot || !selectedTreatmentId) {
-      alert('Please select a valid treatment and time slot.');
+    if (!manualTime || !selectedTreatmentId) {
+      alert('Please select a valid treatment and time.');
       return;
     }
 
@@ -403,6 +385,7 @@ export default function AdminCalendarPage() {
 
     const treatment = treatments.find(t => t.id === selectedTreatmentId);
     const duration = treatment ? treatment.duration_minutes : 60;
+    const startDateTime = new Date(`${bookingDateStr}T${manualTime}:00`);
 
     setIsSubmittingBooking(true);
     try {
@@ -414,10 +397,11 @@ export default function AdminCalendarPage() {
           clientName: finalName,
           clientEmail: finalEmail,
           clientPhone: finalPhone,
-          startTime: selectedSlot,
+          startTime: startDateTime.toISOString(),
           durationMinutes: duration,
           notes: bookingNotes,
           marketingOptIn: finalOptIn,
+          isAdminBypass: true,
         }),
       });
 
@@ -807,34 +791,27 @@ export default function AdminCalendarPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block font-medium text-gray-700 mb-1">Booking Date</label>
-                  <input
-                    type="date"
-                    value={bookingDateStr}
-                    onChange={(e) => setBookingDateStr(e.target.value)}
-                    className="w-full border p-2.5 rounded-xl"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-gray-700 mb-1">Available Slot</label>
-                  {availableSlots.length === 0 ? (
-                    <p className="text-red-500 text-xs italic">No available slots for this date/duration.</p>
-                  ) : (
-                    <select
-                      value={selectedSlot}
-                      onChange={(e) => setSelectedSlot(e.target.value)}
-                      className="w-full border p-2.5 rounded-xl bg-white font-mono"
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Booking Date</label>
+                    <input
+                      type="date"
+                      value={bookingDateStr}
+                      onChange={(e) => setBookingDateStr(e.target.value)}
+                      className="w-full border p-2.5 rounded-xl text-xs"
                       required
-                    >
-                      {availableSlots.map((slot) => {
-                        const timeString = new Date(slot).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        return <option key={slot} value={slot}>{timeString}</option>;
-                      })}
-                    </select>
-                  )}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Time (Anytime)</label>
+                    <input
+                      type="time"
+                      value={manualTime}
+                      onChange={(e) => setManualTime(e.target.value)}
+                      className="w-full border p-2.5 rounded-xl text-xs font-mono"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t">
@@ -864,7 +841,7 @@ export default function AdminCalendarPage() {
                         <select
                           value={selectedExistingClientEmail}
                           onChange={(e) => setSelectedExistingClientEmail(e.target.value)}
-                          className="w-full border p-2.5 rounded-xl bg-white"
+                          className="w-full border p-2.5 rounded-xl bg-white text-xs"
                           required
                         >
                           <option value="">-- Choose client --</option>
@@ -876,9 +853,9 @@ export default function AdminCalendarPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <input type="text" placeholder="Full Name" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full border p-2.5 rounded-xl" required={clientMode === 'new'} />
-                      <input type="email" placeholder="Email Address" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full border p-2.5 rounded-xl" required={clientMode === 'new'} />
-                      <input type="tel" placeholder="Phone Number" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className="w-full border p-2.5 rounded-xl" />
+                      <input type="text" placeholder="Full Name" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs" required={clientMode === 'new'} />
+                      <input type="email" placeholder="Email Address" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs" required={clientMode === 'new'} />
+                      <input type="tel" placeholder="Phone Number" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs" />
                       <div className="flex items-center space-x-2 pt-1">
                         <input
                           type="checkbox"
@@ -895,12 +872,12 @@ export default function AdminCalendarPage() {
 
                 <div>
                   <label className="block font-medium text-gray-700 mb-1">Notes (Optional)</label>
-                  <textarea rows={2} value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} placeholder="Notes..." className="w-full border p-2.5 rounded-xl" />
+                  <textarea rows={2} value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} placeholder="Notes..." className="w-full border p-2.5 rounded-xl text-xs" />
                 </div>
 
                 <div className="flex space-x-3 pt-4 border-t">
                   <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-1/2 py-2.5 border rounded-xl text-xs uppercase font-semibold">Cancel</button>
-                  <button type="submit" disabled={isSubmittingBooking || availableSlots.length === 0} className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-xl text-xs uppercase font-semibold hover:bg-[#5B7B60] transition disabled:opacity-50">
+                  <button type="submit" disabled={isSubmittingBooking} className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-xl text-xs uppercase font-semibold hover:bg-[#5B7B60] transition disabled:opacity-50">
                     {isSubmittingBooking ? 'Booking...' : 'Confirm Booking'}
                   </button>
                 </div>

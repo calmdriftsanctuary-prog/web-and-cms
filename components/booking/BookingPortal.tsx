@@ -175,6 +175,11 @@ export default function BookingPortal() {
                     ))
                   )}
                 </div>
+                
+                {/* Advance notice & Instagram contact helper text */}
+                <p className="text-[11px] text-[#6B7280] italic mt-3 leading-relaxed">
+                  Appointments not booked more than 24 hours in advance will need to be confirmed by getting in touch with us via our Instagram account, @calmdriftsanctuary.
+                </p>
               </div>
             )}
             <div className="flex gap-3 pt-4">
