@@ -30,14 +30,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Date is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    // Check if a rule for this date already exists
+    const { data: existing } = await supabase
       .from('availability_rules')
-      .upsert({
-        date,
-        is_full_day: isFullDay,
-        start_time: isFullDay ? null : startTime,
-        end_time: isFullDay ? null : endTime,
-    }, { onConflict: 'date' });
+      .select('id')
+      .eq('date', date)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      // Update existing rule
+      const res = await supabase
+        .from('availability_rules')
+        .update({
+          is_full_day: isFullDay,
+          start_time: isFullDay ? null : startTime,
+          end_time: isFullDay ? null : endTime,
+        })
+        .eq('id', existing.id);
+      error = res.error;
+    } else {
+      // Insert new rule
+      const res = await supabase
+        .from('availability_rules')
+        .insert({
+          date,
+          is_full_day: isFullDay,
+          start_time: isFullDay ? null : startTime,
+          end_time: isFullDay ? null : endTime,
+        });
+      error = res.error;
+    }
 
     if (error) throw error;
 
