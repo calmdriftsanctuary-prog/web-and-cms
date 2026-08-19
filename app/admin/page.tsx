@@ -715,7 +715,7 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#E5E7EB] pb-6 gap-4">
           <div>
-            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
+            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#693F00]">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Calm Drift Sanctuary Operating Hub</span>
             </span>
@@ -727,34 +727,34 @@ export default function AdminDashboard() {
               <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
                 Calendar ↗
               </Link>
-              <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 CRM
               </button>
-              <button onClick={() => setActiveTab('cms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'cms' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('cms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'cms' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Treatments
               </button>
-              <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reports' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reports' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Reports
               </button>
-              <button onClick={() => setActiveTab('reviews')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reviews' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('reviews')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reviews' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Reviews
               </button>
-              <button onClick={() => setActiveTab('popup')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'popup' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('popup')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'popup' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Popup
               </button>
-              <button onClick={() => setActiveTab('gallery')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'gallery' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('gallery')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'gallery' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Gallery
               </button>
-              <button onClick={() => setActiveTab('social')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'social' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('social')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'social' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Socials
               </button>
-              <button onClick={() => setActiveTab('forms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'forms' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('forms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'forms' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Form Builder
               </button>
-              <button onClick={() => setActiveTab('templates')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'templates' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('templates')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'templates' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Emails & Thanks
               </button>
-              <button onClick={() => setActiveTab('content')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'content' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setActiveTab('content')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'content' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Copy CMS
               </button>
             </div>
@@ -767,7 +767,7 @@ export default function AdminDashboard() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Client Records ({clientsList.length})</h2>
               <div className="grid gap-3">
                 {clientsList.map((client) => (
-                  <div key={client.key} onClick={() => setSelectedClientKey(client.key)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientKey === client.key ? 'border-[#6B8E70] shadow-sm' : 'border-[#E5E7EB]'}`}>
+                  <div key={client.key} onClick={() => setSelectedClientKey(client.key)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientKey === client.key ? 'border-[#693F00] shadow-sm' : 'border-[#E5E7EB]'}`}>
                     <div>
                       <div className="flex items-center space-x-2">
                         <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
@@ -777,7 +777,7 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend ({client.bookings.length} bookings)</p>
                     </div>
-                    <span className="text-xs text-[#6B8E70]">View Profile &rarr;</span>
+                    <span className="text-xs text-[#693F00]">View Profile &rarr;</span>
                   </div>
                 ))}
               </div>
@@ -787,7 +787,7 @@ export default function AdminDashboard() {
               <div className="bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] uppercase font-semibold text-[#6B8E70]">Client Profile</span>
+                    <span className="text-[10px] uppercase font-semibold text-[#693F00]">Client Profile</span>
                     <h3 className="font-serif text-2xl text-[#2C332B] mt-0.5">{selectedClient.name}</h3>
                   </div>
                   <button onClick={() => setSelectedClientKey(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
@@ -796,7 +796,7 @@ export default function AdminDashboard() {
                 <div className="space-y-3 pt-2 border-t text-xs">
                   <div className="flex justify-between items-center"><span className="text-[#6B7280]">Email:</span><span className="font-medium">{selectedClient.email}</span></div>
                   <div className="flex justify-between items-center"><span className="text-[#6B7280]">Phone:</span><span className="font-medium">{selectedClient.phone}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Total Spend:</span><span className="font-medium text-[#6B8E70]">£{selectedClient.totalSpend}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Total Spend:</span><span className="font-medium text-[#693F00]">£{selectedClient.totalSpend}</span></div>
                   <div className="flex justify-between items-center">
                     <span className="text-[#6B7280]">Marketing Opt-In:</span>
                     <span className={`font-medium ${selectedClient.marketingOptIn ? 'text-emerald-700' : 'text-gray-500'}`}>
@@ -826,7 +826,7 @@ export default function AdminDashboard() {
                     </select>
                     <button
                       onClick={() => handleMergeProfiles(mergingTargetKey)}
-                      className="px-3 py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-xl font-semibold whitespace-nowrap"
+                      className="px-3 py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-xl font-semibold whitespace-nowrap"
                     >
                       Merge
                     </button>
@@ -838,7 +838,7 @@ export default function AdminDashboard() {
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
                     <button 
                       onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, selectedClient.bookings[0]?.id)} 
-                      className="px-2.5 py-1 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#693F00] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1"
                     >
                       <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
                     </button>
@@ -852,7 +852,7 @@ export default function AdminDashboard() {
                             <strong>{b.treatments?.title || 'Treatment'}</strong> (£{effectivePrice} {b.price_override !== null && b.price_override !== undefined ? '(Overridden)' : ''})
                             <button 
                               onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
-                              className="text-[10px] text-[#6B8E70] underline hover:text-black"
+                              className="text-[10px] text-[#693F00] underline hover:text-black"
                             >
                               Email for this booking
                             </button>
@@ -899,7 +899,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex space-x-3 pt-2">
                       <button type="button" onClick={() => setEditingClient(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
-                      <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Save Profile</button>
+                      <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-full text-xs uppercase">Save Profile</button>
                     </div>
                   </form>
                 </div>
@@ -912,7 +912,7 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Treatments & Discounts</h2>
-              <button onClick={() => setEditingTreatment({ title: '', description: '', duration_minutes: 60, price_gbp: 85 })} className="px-4 py-2 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full">
+              <button onClick={() => setEditingTreatment({ title: '', description: '', duration_minutes: 60, price_gbp: 85 })} className="px-4 py-2 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-wider rounded-full">
                 <Plus className="w-3.5 h-3.5 inline mr-1" /> Add Treatment
               </button>
             </div>
@@ -922,7 +922,7 @@ export default function AdminDashboard() {
                   <div>
                     <h3 className="font-serif text-xl">{t.title}</h3>
                     <p className="text-xs text-[#6B7280] mt-1">{t.description}</p>
-                    <p className="text-xs font-semibold text-[#6B8E70] mt-2">£{t.price_gbp} ({t.duration_minutes} mins)</p>
+                    <p className="text-xs font-semibold text-[#693F00] mt-2">£{t.price_gbp} ({t.duration_minutes} mins)</p>
                   </div>
                   <div className="flex space-x-2 pt-2">
                     <button onClick={() => setEditingTreatment(t)} className="w-1/2 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit</button>
@@ -945,7 +945,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex space-x-3 pt-2">
                       <button type="button" onClick={() => setEditingTreatment(null)} className="w-1/2 py-3 border rounded-full text-xs uppercase">Cancel</button>
-                      <button type="submit" className="w-1/2 py-3 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Save</button>
+                      <button type="submit" className="w-1/2 py-3 bg-[#693F00] text-white rounded-full text-xs uppercase">Save</button>
                     </div>
                   </form>
                 </div>
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="p-6 bg-[#FAF9F6] border rounded-2xl space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Total Revenue</span>
-                <p className="font-serif text-3xl text-[#6B8E70]">£{totalRevenue}</p>
+                <p className="font-serif text-3xl text-[#693F00]">£{totalRevenue}</p>
                 <p className="text-[11px] text-gray-500">From all confirmed appointments</p>
               </div>
 
@@ -976,7 +976,7 @@ export default function AdminDashboard() {
 
               <div className="p-6 bg-[#FAF9F6] border rounded-2xl space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Avg. Booking Value</span>
-                <p className="font-serif text-3xl text-[#6B8E70]">£{averageBookingValue}</p>
+                <p className="font-serif text-3xl text-[#693F00]">£{averageBookingValue}</p>
                 <p className="text-[11px] text-gray-500">Per treatment session</p>
               </div>
             </div>
@@ -1039,11 +1039,11 @@ export default function AdminDashboard() {
             <form onSubmit={handleSavePopup} className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-[#FAF9F6] border rounded-xl">
                 <span>Popup Active</span>
-                <input type="checkbox" checked={popupConfig.is_active} onChange={(e) => setPopupConfig({ ...popupConfig, is_active: e.target.checked })} className="h-5 w-5 text-[#6B8E70]" />
+                <input type="checkbox" checked={popupConfig.is_active} onChange={(e) => setPopupConfig({ ...popupConfig, is_active: e.target.checked })} className="h-5 w-5 text-[#693F00]" />
               </div>
               <input type="text" value={popupConfig.title} onChange={(e) => setPopupConfig({ ...popupConfig, title: e.target.value })} className="w-full p-3 border rounded-xl text-sm" placeholder="Title" />
               <textarea rows={3} value={popupConfig.description} onChange={(e) => setPopupConfig({ ...popupConfig, description: e.target.value })} className="w-full p-3 border rounded-xl text-sm" placeholder="Description" />
-              <button type="submit" className="w-full py-4 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Save Settings</button>
+              <button type="submit" className="w-full py-4 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">Save Settings</button>
             </form>
           </div>
         )}
@@ -1061,12 +1061,12 @@ export default function AdminDashboard() {
               
               <div className="space-y-1">
                 <label className="block text-xs text-[#6B7280]">Upload Image File from Computer</label>
-                <input type="file" accept="image/*" onChange={handleFileUpload} className="w-full text-xs text-[#6B7280] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#6B8E70] file:text-white hover:file:bg-[#5a785e]" />
+                <input type="file" accept="image/*" onChange={handleFileUpload} className="w-full text-xs text-[#6B7280] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#693F00] file:text-white hover:file:bg-[#523100]" />
               </div>
 
               <input type="url" required placeholder="Or Image URL" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               
-              <button type="submit" disabled={savingGallery} className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">
+              <button type="submit" disabled={savingGallery} className="w-full py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">
                 {savingGallery ? 'Processing...' : 'Add Image to Gallery'}
               </button>
             </form>
@@ -1099,7 +1099,7 @@ export default function AdminDashboard() {
               <input type="text" required placeholder="Platform Name" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <input type="url" required placeholder="Profile URL" value={newSocialUrl} onChange={(e) => setNewSocialUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <input type="url" placeholder="Custom Icon Image URL" value={newIconUrl} onChange={(e) => setNewIconUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <button type="submit" disabled={savingSocial} className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">
+              <button type="submit" disabled={savingSocial} className="w-full py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">
                 {savingSocial ? 'Adding...' : 'Add Social Link'}
               </button>
             </form>
@@ -1110,7 +1110,7 @@ export default function AdminDashboard() {
                 {socialLinks.map((link) => (
                   <div key={link.id} className="flex items-center justify-between p-4 border rounded-xl bg-white">
                     <div className="flex items-center space-x-4">
-                      <input type="checkbox" checked={link.is_active} onChange={() => handleToggleSocial(link)} className="h-4 w-4 text-[#6B8E70] rounded" />
+                      <input type="checkbox" checked={link.is_active} onChange={() => handleToggleSocial(link)} className="h-4 w-4 text-[#693F00] rounded" />
                       <div className="flex items-center space-x-3">
                         {link.icon_url && <img src={link.icon_url} alt={link.platform} className="w-5 h-5 object-contain rounded-full" />}
                         <div>
@@ -1135,8 +1135,8 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex space-x-2 border-b pb-4">
-              <button onClick={() => setFormTypeTab('booking')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'booking' ? 'bg-[#6B8E70] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Booking Form Fields</button>
-              <button onClick={() => setFormTypeTab('consultation')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'consultation' ? 'bg-[#6B8E70] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Consultation Form Fields</button>
+              <button onClick={() => setFormTypeTab('booking')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'booking' ? 'bg-[#693F00] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Booking Form Fields</button>
+              <button onClick={() => setFormTypeTab('consultation')} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition ${formTypeTab === 'consultation' ? 'bg-[#693F00] text-white' : 'bg-[#FAF9F6] text-[#2C332B] border'}`}>Consultation Form Fields</button>
             </div>
 
             <div className="space-y-3">
@@ -1145,7 +1145,7 @@ export default function AdminDashboard() {
                 {filteredDefaultFields.map((fc, idx) => (
                   <div key={fc.id} className="flex items-center justify-between p-4 border rounded-xl bg-[#FAF9F6]">
                     <div>
-                      <p className="text-sm font-medium text-[#2C332B]">{fc.field_label} <span className="text-xs text-[#6B8E70]">({fc.field_name})</span></p>
+                      <p className="text-sm font-medium text-[#2C332B]">{fc.field_label} <span className="text-xs text-[#693F00]">({fc.field_name})</span></p>
                       <p className="text-xs text-[#6B7280]">{fc.is_required ? 'Required (Priority)' : 'Optional'} • {fc.is_active ? 'Active' : 'Hidden'}</p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -1170,16 +1170,16 @@ export default function AdminDashboard() {
                       <input type="text" required value={editingDefaultField.field_label} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, field_label: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
                     </div>
                     <div className="flex items-center space-x-2 pt-2">
-                      <input type="checkbox" id="editIsReq" checked={editingDefaultField.is_required} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} className="h-4 w-4 text-[#6B8E70]" />
+                      <input type="checkbox" id="editIsReq" checked={editingDefaultField.is_required} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_required: e.target.checked })} className="h-4 w-4 text-[#693F00]" />
                       <label htmlFor="editIsReq" className="text-xs text-gray-700 cursor-pointer">Required / High Priority Field</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="editIsActive" checked={editingDefaultField.is_active} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} className="h-4 w-4 text-[#6B8E70]" />
+                      <input type="checkbox" id="editIsActive" checked={editingDefaultField.is_active} onChange={(e) => setEditingDefaultField({ ...editingDefaultField, is_active: e.target.checked })} className="h-4 w-4 text-[#693F00]" />
                       <label htmlFor="editIsActive" className="text-xs text-gray-700 cursor-pointer">Active (Visible on Form)</label>
                     </div>
                     <div className="flex space-x-3 pt-4">
                       <button type="button" onClick={() => setEditingDefaultField(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
-                      <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-full text-xs uppercase">Save Changes</button>
+                      <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-full text-xs uppercase">Save Changes</button>
                     </div>
                   </form>
                 </div>
@@ -1199,10 +1199,10 @@ export default function AdminDashboard() {
                 <input type="text" required placeholder="Comma separated options (e.g. Ambient, Classical, Nature Sounds)" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               )}
               <div className="flex items-center space-x-2 pt-1">
-                <input type="checkbox" id="isReq" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="h-4 w-4 text-[#6B8E70]" />
+                <input type="checkbox" id="isReq" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="h-4 w-4 text-[#693F00]" />
                 <label htmlFor="isReq" className="text-sm">Make this custom field required / priority</label>
               </div>
-              <button type="submit" className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Add Custom Field</button>
+              <button type="submit" className="w-full py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">Add Custom Field</button>
             </form>
 
             <div className="space-y-3 pt-6 border-t">
@@ -1234,6 +1234,19 @@ export default function AdminDashboard() {
               <h2 className="font-serif text-2xl text-[#2C332B]">Confirmation & Notification Emails</h2>
               <p className="text-xs text-[#6B7280]">Edit subject lines, email copy, and button configurations for client notifications.</p>
             </div>
+
+            {/* Dynamic Keys Reference Box */}
+            <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-[#693F00]">Available Dynamic Keys:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600">
+                <div><code className="bg-white px-1.5 py-0.5 rounded border text-[#693F00] font-mono">[Client Name]</code> — Client's name</div>
+                <div><code className="bg-white px-1.5 py-0.5 rounded border text-[#693F00] font-mono">[Treatment Title]</code> — Treatment name</div>
+                <div><code className="bg-white px-1.5 py-0.5 rounded border text-[#693F00] font-mono">[Date & Time]</code> — Appointment slot</div>
+                <div><code className="bg-white px-1.5 py-0.5 rounded border text-[#693F00] font-mono">[Duration]</code> — Session length</div>
+                <div><code className="bg-white px-1.5 py-0.5 rounded border text-[#693F00] font-mono">[Price]</code> — Total price</div>
+              </div>
+            </div>
+
             <form onSubmit={handleSaveTemplate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase mb-1">Select Email Template</label>
@@ -1265,7 +1278,7 @@ export default function AdminDashboard() {
                   <input type="text" value={templateButtonUrl} onChange={(e) => setTemplateButtonUrl(e.target.value)} className="w-full p-3 border rounded-xl text-sm" placeholder="Leave blank for automatic booking/form link" />
                 </div>
               </div>
-              <button type="submit" className="w-full py-4 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">Save Email Template</button>
+              <button type="submit" className="w-full py-4 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">Save Email Template</button>
             </form>
           </div>
         )}
@@ -1309,7 +1322,7 @@ export default function AdminDashboard() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Reviews Section Subtext</label>
                 <textarea rows={2} value={reviewsSubtext} onChange={(e) => setReviewsSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
-              <button type="submit" disabled={savingContent} className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#5B7B60] transition shadow-sm">
+              <button type="submit" disabled={savingContent} className="w-full py-4 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#523100] transition shadow-sm">
                 {savingContent ? 'Updating...' : 'Save Website Copy'}
               </button>
             </form>
