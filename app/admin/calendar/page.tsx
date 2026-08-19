@@ -166,16 +166,18 @@ export default function AdminCalendarPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedBooking) {
+    if (selectedBooking && selectedBooking.start_time) {
       const start = new Date(selectedBooking.start_time);
-      const year = start.getFullYear();
-      const month = String(start.getMonth() + 1).padStart(2, '0');
-      const day = String(start.getDate()).padStart(2, '0');
-      const hours = String(start.getHours()).padStart(2, '0');
-      const minutes = String(start.getMinutes()).padStart(2, '0');
+      if (!isNaN(start.getTime())) {
+        const year = start.getFullYear();
+        const month = String(start.getMonth() + 1).padStart(2, '0');
+        const day = String(start.getDate()).padStart(2, '0');
+        const hours = String(start.getHours()).padStart(2, '0');
+        const minutes = String(start.getMinutes()).padStart(2, '0');
 
-      setEditDate(`${year}-${month}-${day}`);
-      setEditTime(`${hours}:${minutes}`);
+        setEditDate(`${year}-${month}-${day}`);
+        setEditTime(`${hours}:${minutes}`);
+      }
       setEditTreatmentId(selectedBooking.treatment_id || selectedBooking.treatments?.id || '');
       setEditPriceOverride(selectedBooking.price_override !== undefined && selectedBooking.price_override !== null ? String(selectedBooking.price_override) : '');
       setEditOverrideReason(selectedBooking.override_reason || '');
@@ -654,7 +656,7 @@ export default function AdminCalendarPage() {
 
                   <div className="pt-4 border-t space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Form Status</h4>
-                    {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
+                    {selectedBooking?.consultations?.[0] ? (
                       <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-1.5 text-xs">
                         <p className="text-emerald-700 font-medium">✓ Form Completed</p>
                         <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
