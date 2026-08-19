@@ -25,10 +25,61 @@ export async function POST(request: Request) {
     }
 
     const startDateTime = new Date(startTime);
+    const dateString = startDateTime.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeString = startDateTime.toTimeString().split(' ')[0]; // HH:MM:SS
+
+    // 1. Check if this date is explicitly opened by the admin (Closed by default)
+    const { data: rules, error: ruleError } = await supabase
+      .from('availability_rules')
+      .select('*')
+      .eq('date', dateString);
+
+    if (ruleError) {
+      console.error('Availability Check Error:', ruleError);
+      return NextResponse.json({ error: 'Failed to verify availability.' }, { status: 500 });
+    }
+
+    // If no rules exist for this date, the calendar is closed!
+    if (!rules || rules.length === 0) {
+      return NextResponse.json({ error: 'Selected date is closed for bookings.' }, { status: 400 });
+    }
+
+    // 2. Validate if the requested time falls within an open window or full day
+    let isAllowed = false;
+    for (const rule of rules) {
+      if (rule.is_full_day) {
+        isAllowed = true;
+        break;
+      } else if (rule.start_time && rule.end_time) {
+        if (timeString >= rule.start_time && timeString <= rule.end_time) {
+          isAllowed = true;
+          break;
+        }
+      }
+    }
+
+    if (!isAllowed) {
+      return NextResponse.json({ error: 'The selected time slot is outside your open working hours.' }, { status: 400 });
+    }
+
     const endDateTime = new Date(startDateTime.getTime() + (durationMinutes || 60) * 60000);
     const hasConsented = Boolean(marketingOptIn);
 
-    // 1. Insert booking into Supabase database
+    // 3. Check for double bookings / overlaps
+    const { data: existingBookings, error: overlapError } = await supabase
+      .from('bookings')
+      .select('id')
+      .neq('status', 'cancelled')
+      .lt('start_time', endDateTime.toISOString())
+      .gt('end_time', startDateTime.toISOString());
+
+    if (overlapError) throw overlapError;
+
+    if (existingBookings && existingBookings.length > 0) {
+      return NextResponse.json({ error: 'This time slot is already booked.' }, { status: 400 });
+    }
+
+    // 4. Insert booking into Supabase database
     const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
       .insert([
@@ -50,7 +101,7 @@ export async function POST(request: Request) {
 
     if (bookingError) throw bookingError;
 
-    // 2. Fetch treatment details for email & confirmation
+    // 5. Fetch treatment details for email & confirmation
     const { data: treatmentData } = await supabase
       .from('treatments')
       .select('title, price_gbp')
@@ -66,7 +117,7 @@ export async function POST(request: Request) {
       const consultationUrl = `https://calmdriftsanctuary.co.uk/consultation/${bookingData.id}`;
       const formattedDate = startDateTime.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }) + ' BST';
 
-      // 3. Send Admin Notification Email to calmdriftsanctuary@gmail.com
+      // 6. Send Admin Notification Email to calmdriftsanctuary@gmail.com
       try {
         const adminEmailPayload = {
           from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
@@ -97,7 +148,7 @@ export async function POST(request: Request) {
         console.error('Failed to send admin notification email:', adminErr);
       }
 
-      // 4. Send Client Confirmation Email (With what3words and Consultation Button)
+      // 7. Send Client Confirmation Email (With what3words and Consultation Button)
       try {
         const clientEmailPayload = {
           from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',

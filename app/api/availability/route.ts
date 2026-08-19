@@ -29,6 +29,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [] });
     }
 
+    // 1. CHECK AVAILABILITY RULES (Closed by default!)
+    const { data: rules, error: ruleError } = await supabase
+      .from('availability_rules')
+      .select('*')
+      .eq('date', dateStr);
+
+    if (ruleError || !rules || rules.length === 0) {
+      return NextResponse.json({ slots: [] }); // Day is closed
+    }
+
     const queryStart = `${dateStr}T00:00:00`;
     const queryEnd = `${dateStr}T23:59:59`;
 
@@ -70,43 +80,58 @@ export async function GET(request: Request) {
       }
     });
 
-    // Generate slots between 10:00 AM and latest start time of 19:00 (7:00 PM)
     const availableSlots: string[] = [];
-    const openingHour = 10;
-    const latestStartHour = 19; // Hard ceiling: Last slot starts at 7:00 PM
-    const absoluteClosingHour = 20;
-
     const baseDateMs = dateMidnight;
-    const openingTimeMs = baseDateMs + openingHour * 3600000;
-    const latestStartTimeMs = baseDateMs + latestStartHour * 3600000;
-    const absoluteClosingTimeMs = baseDateMs + absoluteClosingHour * 3600000;
 
-    let currentSlotMs = openingTimeMs;
+    // Loop through each active availability rule for this date
+    for (const rule of rules) {
+      let openHour = 10;
+      let closeHour = 20;
 
-    while (currentSlotMs <= latestStartTimeMs) {
-      const slotStartMs = currentSlotMs;
-      const slotEndMs = slotStartMs + treatmentDuration * 60000;
-
-      // Ensure treatment never runs past 20:00 absolute closing time
-      if (slotEndMs > absoluteClosingTimeMs) {
-        break;
+      if (!rule.is_full_day && rule.start_time && rule.end_time) {
+        // Parse custom hours if specific time window was opened
+        openHour = parseInt(rule.start_time.split(':')[0], 10);
+        closeHour = parseInt(rule.end_time.split(':')[0], 10);
       }
 
-      let isConflict = false;
-      for (const busy of busyIntervals) {
-        if (slotStartMs < busy.end && slotEndMs > busy.start) {
-          isConflict = true;
+      const openingTimeMs = baseDateMs + openHour * 3600000;
+      const latestStartHour = closeHour - (treatmentDuration / 60);
+      const latestStartTimeMs = baseDateMs + latestStartHour * 3600000;
+      const absoluteClosingTimeMs = baseDateMs + closeHour * 3600000;
+
+      let currentSlotMs = openingTimeMs;
+
+      while (currentSlotMs <= latestStartTimeMs) {
+        const slotStartMs = currentSlotMs;
+        const slotEndMs = slotStartMs + treatmentDuration * 60000;
+
+        if (slotEndMs > absoluteClosingTimeMs) {
           break;
         }
-      }
 
-      const slotDateTime = new Date(slotStartMs);
-      if (!isConflict && slotDateTime.getTime() >= minBookingTime.getTime()) {
-        availableSlots.push(slotDateTime.toISOString());
-      }
+        let isConflict = false;
+        for (const busy of busyIntervals) {
+          if (slotStartMs < busy.end && slotEndMs > busy.start) {
+            isConflict = true;
+            break;
+          }
+        }
 
-      currentSlotMs += 30 * 60000;
+        const slotDateTime = new Date(slotStartMs);
+        if (!isConflict && slotDateTime.getTime() >= minBookingTime.getTime()) {
+          // Prevent duplicate slots if overlapping rules exist
+          const isoString = slotDateTime.toISOString();
+          if (!availableSlots.includes(isoString)) {
+            availableSlots.push(isoString);
+          }
+        }
+
+        currentSlotMs += 30 * 60000;
+      }
     }
+
+    // Sort slots chronologically
+    availableSlots.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     return NextResponse.json({ slots: availableSlots });
   } catch (error: any) {
