@@ -309,6 +309,16 @@ export default function AdminDashboard() {
     });
 
     if (res.ok) {
+      setTemplates(prev => {
+        const index = prev.findIndex(t => t.key === editingTemplateKey);
+        if (index >= 0) {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], ...payload };
+          return updated;
+        } else {
+          return [...prev, payload];
+        }
+      });
       alert('Email template updated successfully!');
     } else {
       alert('Failed to update email template.');
