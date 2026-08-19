@@ -511,6 +511,33 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSavingGallery(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success && data.url) {
+        setNewImageUrl(data.url);
+      } else {
+        alert(data.error || 'Upload failed');
+      }
+    } catch (err) {
+      alert('Failed to upload image');
+    } finally {
+      setSavingGallery(false);
+    }
+  };
+
   const handleAddGalleryImage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImageUrl) return;
@@ -1031,9 +1058,16 @@ export default function AdminDashboard() {
             <form onSubmit={handleAddGalleryImage} className="space-y-4 p-4 bg-[#FAF9F6] border rounded-2xl">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add New Gallery Image</h3>
               <input type="text" placeholder="Image Title" value={newImageTitle} onChange={(e) => setNewImageTitle(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <input type="url" required placeholder="Image URL" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              
+              <div className="space-y-1">
+                <label className="block text-xs text-[#6B7280]">Upload Image File from Computer</label>
+                <input type="file" accept="image/*" onChange={handleFileUpload} className="w-full text-xs text-[#6B7280] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#6B8E70] file:text-white hover:file:bg-[#5a785e]" />
+              </div>
+
+              <input type="url" required placeholder="Or Image URL" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              
               <button type="submit" disabled={savingGallery} className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-widest rounded-full">
-                {savingGallery ? 'Adding...' : 'Add Image to Gallery'}
+                {savingGallery ? 'Processing...' : 'Add Image to Gallery'}
               </button>
             </form>
 
