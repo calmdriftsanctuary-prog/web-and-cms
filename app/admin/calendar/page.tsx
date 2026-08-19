@@ -57,7 +57,7 @@ interface ClientRecord {
 }
 
 export default function AdminCalendarPage() {
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('day');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
