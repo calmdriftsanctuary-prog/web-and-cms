@@ -156,7 +156,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center p-4 font-sans text-[#2C332B]">
         <div className="max-w-md w-full bg-white p-8 rounded-2xl border text-center space-y-4 shadow-sm">
-          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 bg-amber-50 text-[#693F00] rounded-full flex items-center justify-center mx-auto">
             <CheckCircle className="w-6 h-6" />
           </div>
           <h1 className="font-serif text-2xl font-bold">Booking Confirmed</h1>
@@ -171,7 +171,7 @@ export default function HomePage() {
               setClientPhone('');
               setClientNotes('');
             }}
-            className="w-full py-3 bg-[#6B8E70] text-white text-xs uppercase tracking-wider rounded-full hover:bg-[#5B7B60] transition"
+            className="w-full py-3 bg-[#693F00] text-white text-xs uppercase tracking-wider rounded-full hover:bg-[#523100] transition"
           >
             Book Another Session
           </button>
@@ -180,8 +180,11 @@ export default function HomePage() {
     );
   }
 
+  const displayedGallery = galleryImages.length > 3 ? [...galleryImages, ...galleryImages] : galleryImages;
+  const displayedReviews = reviews.length > 3 ? [...reviews, ...reviews] : reviews;
+
   return (
-    <div className="min-h-screen bg-[#FAF9F6] py-12 px-4 sm:px-6 lg:px-8 font-sans text-[#2C332B] space-y-16">
+    <div className="min-h-screen bg-[#FAF9F6] py-12 px-4 sm:px-6 lg:px-8 font-sans text-[#2C332B] space-y-16 overflow-hidden">
       <div className="max-w-2xl mx-auto space-y-8">
         
         <header className="text-center space-y-4">
@@ -206,7 +209,7 @@ export default function HomePage() {
           
           <div className="flex items-center justify-between border-b pb-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-700">Online Booking - Calm Drift Sanctuary</span>
-            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
+            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#693F00]">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Secure Reservation</span>
             </span>
@@ -227,7 +230,7 @@ export default function HomePage() {
                     key={t.id}
                     onClick={() => setSelectedTreatmentId(t.id)}
                     className={`p-4 border rounded-xl cursor-pointer transition flex justify-between items-center ${
-                      selectedTreatmentId === t.id ? 'border-[#6B8E70] bg-emerald-50/40 ring-1 ring-[#6B8E70]' : 'border-gray-200 hover:border-gray-300'
+                      selectedTreatmentId === t.id ? 'border-[#693F00] bg-[#693F00]/5 ring-1 ring-[#693F00]' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div>
@@ -235,7 +238,7 @@ export default function HomePage() {
                       <p className="text-xs text-gray-500">{t.description}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-semibold text-[#6B8E70]">£{t.price_gbp}</span>
+                      <span className="text-sm font-semibold text-[#693F00]">£{t.price_gbp}</span>
                       <p className="text-[11px] text-gray-400">{t.duration_minutes} mins</p>
                     </div>
                   </div>
@@ -345,7 +348,7 @@ export default function HomePage() {
                     id="marketingConsent"
                     checked={marketingConsent}
                     onChange={(e) => setMarketingConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 text-[#6B8E70] rounded border-gray-300 focus:ring-[#6B8E70]"
+                    className="mt-0.5 h-4 w-4 text-[#693F00] rounded border-gray-300 focus:ring-[#693F00]"
                   />
                   <label htmlFor="marketingConsent" className="text-xs text-gray-600 leading-tight cursor-pointer">
                     Yes, I would like to receive exclusive wellness offers and updates via email (Optional).
@@ -357,7 +360,7 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={submitting || availableSlots.length === 0}
-              className="w-full py-4 bg-[#6B8E70] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#5B7B60] transition shadow-sm disabled:opacity-50"
+              className="w-full py-4 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
             >
               {submitting ? 'Confirming Reservation...' : 'Confirm & Book Session'}
             </button>
@@ -371,42 +374,63 @@ export default function HomePage() {
             <h2 className="font-serif text-2xl sm:text-3xl">{content.gallery_heading || 'Calm Drift Gallery'}</h2>
             <p className="text-xs text-gray-500">{content.gallery_subtext || 'A glimpse into our restorative space'}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {galleryImages.map((img) => (
-              <div key={img.id} className="overflow-hidden rounded-2xl border shadow-sm bg-white">
-                <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
-                {img.caption && <div className="p-3 text-xs text-center text-gray-600">{img.caption}</div>}
-              </div>
-            ))}
+          
+          <div className="relative w-full overflow-hidden">
+            <div className={`flex gap-6 ${galleryImages.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
+              {displayedGallery.map((img, idx) => (
+                <div key={`${img.id}-${idx}`} className="w-[340px] flex-shrink-0 overflow-hidden rounded-2xl border shadow-sm bg-white">
+                  <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
+                  {img.caption && <div className="p-3 text-xs text-center text-gray-600">{img.caption}</div>}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       {reviews.length > 0 && (
-        <section className="max-w-4xl mx-auto px-4 space-y-6 pb-12">
+        <section className="max-w-5xl mx-auto px-4 space-y-6 pb-12">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl">{content.reviews_heading || 'Client Experiences'}</h2>
             <p className="text-xs text-gray-500">{content.reviews_subtext || 'Words from those who have visited Calm Drift'}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {reviews.map((rev) => (
-              <div key={rev.id} className="bg-white p-6 rounded-2xl border shadow-sm space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex text-amber-500">
-                    {[...Array(rev.rating || 5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-current" />
-                    ))}
+
+          <div className="relative w-full overflow-hidden">
+            <div className={`flex gap-6 ${reviews.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
+              {displayedReviews.map((rev, idx) => (
+                <div key={`${rev.id}-${idx}`} className="w-[340px] flex-shrink-0 bg-white p-6 rounded-2xl border shadow-sm space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex text-amber-500">
+                      {[...Array(rev.rating || 5)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-current" />
+                      ))}
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-700 italic">"{rev.comment}"</p>
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-700 italic">"{rev.comment}"</p>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">
+                    — {rev.client_name}
+                  </div>
                 </div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#6B8E70]">
-                  — {rev.client_name}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
       )}
+
+      <style jsx global>{`
+        @keyframes marquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: flex;
+          width: max-content;
+          animation: marquee 35s linear infinite;
+        }
+        .animate-marquee:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
     </div>
   );
 }
