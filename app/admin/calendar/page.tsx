@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Sparkles, ChevronLeft, ChevronRight, XCircle, Send, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import AvailabilityManager from './AvailabilityManager';
 
 interface Consultation {
   id: string;
@@ -439,9 +438,6 @@ export default function AdminCalendarPage() {
             </div>
           </div>
         </header>
-
-        {/* Availability Manager Widget */}
-        <AvailabilityManager />
 
         {/* Calendar Navigation Bar */}
         <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm">

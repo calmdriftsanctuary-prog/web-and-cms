@@ -191,6 +191,7 @@ export default function AdminDashboard() {
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [newIconUrl, setNewIconUrl] = useState('');
   const [savingSocial, setSavingSocial] = useState(false);
+  const [editingSocial, setEditingSocial] = useState<SocialLinkItem | null>(null);
 
   // Form Builder State
   const [formTypeTab, setFormTypeTab] = useState<'booking' | 'consultation'>('booking');
@@ -612,6 +613,20 @@ export default function AdminDashboard() {
     } finally {
       setSavingSocial(false);
     }
+  };
+
+  const handleSaveEditedSocial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSocial) return;
+
+    await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'social_link', ...editingSocial }),
+    });
+    setEditingSocial(null);
+    loadData();
+    alert('Social link updated successfully!');
   };
 
   const handleToggleSocial = async (link: SocialLinkItem) => {
@@ -1151,11 +1166,40 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => handleDeleteSocialLink(link.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => setEditingSocial(link)} className="px-3 py-1.5 border bg-gray-50 text-xs uppercase rounded-lg hover:bg-gray-100 transition">Edit</button>
+                      <button onClick={() => handleDeleteSocialLink(link.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {editingSocial && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
+                  <h3 className="font-serif text-xl">Edit Social Link</h3>
+                  <form onSubmit={handleSaveEditedSocial} className="space-y-3">
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Platform Name</label>
+                      <input type="text" required value={editingSocial.platform} onChange={(e) => setEditingSocial({ ...editingSocial, platform: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Profile URL</label>
+                      <input type="url" required value={editingSocial.url} onChange={(e) => setEditingSocial({ ...editingSocial, url: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Custom Icon Image URL (Optional)</label>
+                      <input type="url" value={editingSocial.icon_url} onChange={(e) => setEditingSocial({ ...editingSocial, icon_url: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div className="flex space-x-3 pt-2">
+                      <button type="button" onClick={() => setEditingSocial(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
+                      <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-full text-xs uppercase">Save Changes</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
