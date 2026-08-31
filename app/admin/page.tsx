@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Sparkles, Trash2, Send, Plus, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { formatUKDateTime } from '@/lib/formatDate';
+import LinkGenerator from './components/LinkGenerator';
 
 interface Booking {
   id: string;
@@ -144,7 +146,7 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; content: string; butt
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'crm' | 'cms' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('crm');
+  const [activeTab, setActiveTab] = useState<'crm' | 'cms' | 'links' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('crm');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -325,7 +327,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Group client records strictly by matching both name and email
   const clientsMap = bookings.reduce((acc, booking) => {
     const cleanName = (booking.client_name || '').trim().toLowerCase();
     const cleanEmail = (booking.client_email || '').trim().toLowerCase();
@@ -616,7 +617,6 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  // Form Builder Handlers
   const handleAddCustomField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fieldLabel) return;
@@ -733,7 +733,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center">
+            <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center gap-1">
               <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
                 Calendar ↗
               </Link>
@@ -742,6 +742,9 @@ export default function AdminDashboard() {
               </button>
               <button onClick={() => setActiveTab('cms')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'cms' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Treatments
+              </button>
+              <button onClick={() => setActiveTab('links')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'links' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
+                Link Generator
               </button>
               <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'reports' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Reports
@@ -810,7 +813,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between items-center">
                     <span className="text-[#6B7280]">Marketing Opt-In:</span>
                     <span className={`font-medium ${selectedClient.marketingOptIn ? 'text-emerald-700' : 'text-gray-500'}`}>
-                      {selectedClient.marketingOptIn ? `Yes (${selectedClient.marketingOptInAt ? new Date(selectedClient.marketingOptInAt).toLocaleDateString() : 'Recorded'})` : 'No'}
+                      {selectedClient.marketingOptIn ? `Yes (${selectedClient.marketingOptInAt ? formatUKDateTime(selectedClient.marketingOptInAt) : 'Recorded'})` : 'No'}
                     </span>
                   </div>
                 </div>
@@ -820,7 +823,6 @@ export default function AdminDashboard() {
                   <button onClick={() => handleDeleteClient(selectedClient.email, selectedClient.name)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete Client</button>
                 </div>
 
-                {/* MERGE PROFILE SECTION */}
                 <div className="pt-4 border-t space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Merge into Another Profile</h4>
                   <div className="flex space-x-2">
@@ -867,7 +869,7 @@ export default function AdminDashboard() {
                               Email for this booking
                             </button>
                           </div>
-                          <p className="text-gray-500">{new Date(b.start_time).toLocaleString()} • <span className="capitalize">{b.status}</span></p>
+                          <p className="text-gray-500">{formatUKDateTime(b.start_time)} • <span className="capitalize">{b.status}</span></p>
                         </div>
                       );
                     })}
@@ -963,6 +965,8 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
+
+        {activeTab === 'links' && <LinkGenerator />}
 
         {activeTab === 'reports' && (
           <div className="max-w-4xl bg-white p-6 sm:p-8 rounded-2xl border space-y-8">
@@ -1245,7 +1249,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-[#6B7280]">Edit subject lines, email copy, and button configurations for client notifications.</p>
             </div>
 
-            {/* Dynamic Keys Reference Box */}
             <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
               <span className="font-semibold uppercase tracking-wider text-[#693F00]">Available Dynamic Keys:</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600">

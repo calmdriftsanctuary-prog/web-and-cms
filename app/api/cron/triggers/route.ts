@@ -19,19 +19,17 @@ export async function GET(request: Request) {
 
     // 1. Check for Consultation Reminders (Appointments starting in ~1 hour)
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-    const windowStart = new Date(oneHourFromNow.getTime() - 10 * 60 * 1000).toISOString();
-    const windowEnd = new Date(oneHourFromNow.getTime() + 10 * 60 * 1000).toISOString();
+    const windowStart = new Date(oneHourFromNow.getTime() - 15 * 60 * 1000).toISOString();
+    const windowEnd = new Date(oneHourFromNow.getTime() + 15 * 60 * 1000).toISOString();
 
     const { data: upcomingBookings } = await supabase
       .from('bookings')
       .select('*, treatments(*), consultations(*)')
       .gte('start_time', windowStart)
-      .lte('start_time', windowEnd)
-      .eq('status', 'confirmed');
+      .lte('start_time', windowEnd);
 
     if (upcomingBookings) {
       for (const booking of upcomingBookings) {
-        // Only send if consultation form is missing
         if (!booking.consultations || booking.consultations.length === 0) {
           const tmpl = templatesMap['consultation_email'] || {
             subject: 'Please Complete Your Calm Drift Sanctuary Consultation Form',
@@ -50,7 +48,6 @@ export async function GET(request: Request) {
             .replace(/\[Duration\]/g, `${booking.treatments?.duration_minutes || 60} mins`)
             .replace(/\[Price\]/g, `£${booking.price_override ?? booking.treatments?.price_gbp ?? 0}`);
 
-          // Insert email notification record or dispatch logic here
           console.log(`Sending Consultation Reminder to ${booking.client_email}`);
         }
       }
@@ -58,15 +55,14 @@ export async function GET(request: Request) {
 
     // 2. Check for Review Requests (Appointments that ended ~24 hours ago)
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const reviewWindowStart = new Date(twentyFourHoursAgo.getTime() - 15 * 60 * 1000).toISOString();
-    const reviewWindowEnd = new Date(twentyFourHoursAgo.getTime() + 15 * 60 * 1000).toISOString();
+    const reviewWindowStart = new Date(twentyFourHoursAgo.getTime() - 30 * 60 * 1000).toISOString();
+    const reviewWindowEnd = new Date(twentyFourHoursAgo.getTime() + 30 * 60 * 1000).toISOString();
 
     const { data: pastBookings } = await supabase
       .from('bookings')
       .select('*, treatments(*)')
       .gte('end_time', reviewWindowStart)
-      .lte('end_time', reviewWindowEnd)
-      .eq('status', 'confirmed');
+      .lte('end_time', reviewWindowEnd);
 
     if (pastBookings) {
       for (const booking of pastBookings) {
