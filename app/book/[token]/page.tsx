@@ -56,13 +56,23 @@ export default function CustomBookingPage() {
     }
 
     try {
-      // Ensure target_date is clean YYYY-MM-DD
-      const rawDate = linkData.target_date.split('T')[0];
-      const startDateTimeStr = `${rawDate}T${selectedTime}:00`;
+      // Robust date extraction: parses any date string format safely
+      const parsedDateObj = new Date(linkData.target_date);
+      if (isNaN(parsedDateObj.getTime())) {
+        setErrorMessage('Generated link contains an invalid date format.');
+        return;
+      }
+
+      const year = parsedDateObj.getFullYear();
+      const month = String(parsedDateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(parsedDateObj.getDate()).padStart(2, '0');
+      const dateStringOnly = `${year}-${month}-${day}`;
+
+      const startDateTimeStr = `${dateStringOnly}T${selectedTime}:00`;
       const startDate = new Date(startDateTimeStr);
 
       if (isNaN(startDate.getTime())) {
-        setErrorMessage('Generated link contains an invalid date format.');
+        setErrorMessage('Failed to construct valid start timestamp.');
         return;
       }
 
