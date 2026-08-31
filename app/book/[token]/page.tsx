@@ -39,21 +39,27 @@ export default function CustomBookingPage() {
     e.preventDefault();
     if (!selectedTime) return;
 
-    const appointmentDateTime = `${linkData.target_date}T${selectedTime}:00`;
+    const startDateTime = `${linkData.target_date}T${selectedTime}:00`;
+    const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60000).toISOString();
 
-    const { error } = await supabase.from('bookings').insert([
-      {
-        client_name: linkData.client_name,
-        client_email: clientEmail,
-        client_phone: clientPhone,
-        appointment_date: appointmentDateTime,
-        consultation_sent: false,
-        review_sent: false,
-      },
-    ]);
+    // Call the backend API route so emails, calendar sync, and CRM tracking execute
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName: linkData.client_name,
+        clientEmail: clientEmail,
+        clientPhone: clientPhone,
+        startTime: new Date(startDateTime).toISOString(),
+        endTime: endDateTime,
+        isAdminBypass: true,
+      }),
+    });
 
-    if (error) {
-      alert('Error confirming booking: ' + error.message);
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert('Error confirming booking: ' + (data.error || 'Unknown error'));
       return;
     }
 
@@ -105,44 +111,41 @@ export default function CustomBookingPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Email Address</label>
+              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-2">Email Address</label>
               <input
                 type="email"
                 required
                 value={clientEmail}
                 onChange={(e) => setClientEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full p-3 rounded-lg border border-stone-300 text-sm focus:outline-none focus:border-stone-900"
+                className="w-full p-3 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-stone-900"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Phone Number</label>
+              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-2">Phone Number</label>
               <input
                 type="tel"
                 required
                 value={clientPhone}
                 onChange={(e) => setClientPhone(e.target.value)}
                 placeholder="07123 456789"
-                className="w-full p-3 rounded-lg border border-stone-300 text-sm focus:outline-none focus:border-stone-900"
+                className="w-full p-3 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-stone-900"
               />
             </div>
 
             <button
               type="submit"
-              disabled={!selectedTime}
-              className={`w-full py-3 rounded-lg font-medium transition ${
-                selectedTime ? 'bg-stone-900 text-white hover:bg-stone-800' : 'bg-stone-200 text-stone-400 cursor-not-allowed'
-              }`}
+              className="w-full py-3.5 bg-stone-900 text-white text-xs uppercase tracking-widest rounded-full font-medium hover:bg-stone-800 transition"
             >
               Confirm Appointment
             </button>
           </form>
         ) : (
-          <div className="text-center py-6">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">✓</div>
-            <h2 className="text-xl font-serif text-stone-900 mb-2">You're All Booked In</h2>
-            <p className="text-sm text-stone-600 mb-6">We have reserved your slot for {formattedDate} at {selectedTime}. We look forward to welcoming you.</p>
+          <div className="text-center space-y-4 py-4">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✓</div>
+            <h2 className="font-serif text-xl text-stone-900">Appointment Confirmed</h2>
+            <p className="text-sm text-stone-600">We have sent a confirmation email with your consultation link and sanctuary details.</p>
           </div>
         )}
       </div>
