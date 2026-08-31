@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Script from 'next/script';
 import PromoPopup from '@/components/PromoPopup';
-import { Sparkles, Star } from 'lucide-react';
+import { Sparkles, Star, Send } from 'lucide-react';
 
 interface Treatment {
   id: string;
@@ -27,12 +27,40 @@ interface Review {
   is_visible: boolean;
 }
 
+interface SocialLink {
+  id: string;
+  platform: string;
+  url: string;
+  icon_url?: string;
+  is_active: boolean;
+}
+
+interface FormField {
+  id: string;
+  field_name?: string;
+  field_label: string;
+  field_type?: string;
+  options?: string;
+  is_required: boolean;
+  is_active?: boolean;
+  display_order: number;
+  is_custom: boolean;
+}
+
 export default function HomePage() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [content, setContent] = useState<Record<string, string>>({});
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+  const [bookingFields, setBookingFields] = useState<FormField[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+
+  // Form state
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [submittingForm, setSubmittingForm] = useState(false);
+  const [formSuccess, setFormSuccess] = useState(false);
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -41,9 +69,8 @@ export default function HomePage() {
       fetch('/api/reviews').then((res) => res.json()).catch(() => ({ reviews: [] }))
     ])
       .then(([bookingData, galleryData, reviewData]) => {
-        if (bookingData.treatments && bookingData.treatments.length > 0) {
-          setTreatments(bookingData.treatments);
-        }
+        if (bookingData.treatments) setTreatments(bookingData.treatments);
+        
         if (bookingData.pageContent) {
           const contentMap: Record<string, string> = {};
           bookingData.pageContent.forEach((item: any) => {
@@ -51,12 +78,26 @@ export default function HomePage() {
           });
           setContent(contentMap);
         }
-        if (galleryData.images) {
-          setGalleryImages(galleryData.images);
+
+        if (bookingData.socialLinks) {
+          setSocialLinks(bookingData.socialLinks.filter((s: SocialLink) => s.is_active));
         }
-        if (reviewData.reviews) {
-          setReviews(reviewData.reviews.filter((r: Review) => r.is_visible));
-        }
+
+        // Combine standard configs and custom fields for the booking form
+        const standardFields = (bookingData.fieldConfigs || [])
+          .filter((f: any) => f.form_type === 'booking' && f.is_active)
+          .map((f: any) => ({ ...f, is_custom: false, field_type: 'text' }));
+          
+        const customFields = (bookingData.customFields || [])
+          .filter((f: any) => f.form_type === 'booking')
+          .map((f: any) => ({ ...f, is_custom: true, is_active: true, field_name: f.field_label }));
+
+        const combined = [...standardFields, ...customFields].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        setBookingFields(combined);
+
+        if (galleryData.images) setGalleryImages(galleryData.images);
+        if (reviewData.reviews) setReviews(reviewData.reviews.filter((r: Review) => r.is_visible));
+        
         setLoadingInitial(false);
       })
       .catch((err) => {
@@ -64,6 +105,39 @@ export default function HomePage() {
         setLoadingInitial(false);
       });
   }, []);
+
+  const handleFieldChange = (name: string, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [name]: String(value) }));
+  };
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingForm(true);
+    setFormError('');
+
+    try {
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: formData.client_name || 'Inquiry',
+          clientEmail: formData.client_email || 'no-email@provided.com',
+          clientPhone: formData.client_phone || 'N/A',
+          notes: JSON.stringify(formData),
+          is_inquiry: true 
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to send inquiry. Please try again or contact us via social media.');
+      
+      setFormSuccess(true);
+      setFormData({});
+    } catch (err: any) {
+      setFormError(err.message || 'Something went wrong.');
+    } finally {
+      setSubmittingForm(false);
+    }
+  };
 
   if (loadingInitial) {
     return (
@@ -78,11 +152,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans selection:bg-[#693F00] selection:text-white overflow-hidden space-y-16 py-12">
-      {/* Google Analytics GA4 */}
-      <Script
-        strategy="afterInteractive"
-        src="https://www.googletagmanager.com/gtag/js?id=G-PGKM31T7FP"
-      />
+      <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-PGKM31T7FP" />
       <Script
         id="google-analytics"
         strategy="afterInteractive"
@@ -91,9 +161,7 @@ export default function HomePage() {
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-PGKM31T7FP', {
-              page_path: window.location.pathname,
-            });
+            gtag('config', 'G-PGKM31T7FP', { page_path: window.location.pathname });
           `,
         }}
       />
@@ -103,11 +171,7 @@ export default function HomePage() {
       {/* HERO SECTION */}
       <section className="py-12 px-6 max-w-4xl mx-auto text-center space-y-4">
         <div className="flex justify-center mb-2">
-          <img 
-            src="/logo.png" 
-            alt="Sanctuary Logo" 
-            className="h-16 w-auto object-contain" 
-          />
+          <img src="/logo.png" alt="Sanctuary Logo" className="h-16 w-auto object-contain" />
         </div>
         <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
           <Sparkles className="w-3.5 h-3.5" />
@@ -121,6 +185,124 @@ export default function HomePage() {
         </p>
       </section>
 
+      {/* BOOKING & INQUIRY SECTION */}
+      <section id="book" className="py-16 px-6 max-w-4xl mx-auto border-t border-[#E5E7EB]">
+        <div className="text-center mb-10">
+          <span className="text-xs uppercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
+          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-3">
+            {content.booking_title || 'Request a Sanctuary Appointment'}
+          </h2>
+          <p className="text-gray-600 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed">
+            {content.booking_subtext || 'To ensure a bespoke and restorative experience, treatments are booked on a personal request basis. Reach out to us via our platforms below or submit an inquiry.'}
+          </p>
+        </div>
+
+        {/* Dynamic Social Links from CMS */}
+        {socialLinks.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-10">
+            {socialLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-6 rounded-2xl border border-[#E5E7EB] bg-white hover:border-[#693F00] transition flex items-center space-x-4 group shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#693F00] text-white flex items-center justify-center group-hover:scale-105 transition shrink-0">
+                  {link.icon_url ? (
+                    <img src={link.icon_url} alt={link.platform} className="w-6 h-6 object-contain filter invert brightness-0" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-0.5">Message on {link.platform}</h3>
+                  <p className="text-xs text-gray-500">Tap to open in a new window.</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Dynamic CMS Inquiry Form */}
+        <div className="max-w-2xl mx-auto bg-white p-6 sm:p-10 rounded-2xl border shadow-sm mt-8">
+          <h3 className="font-serif text-xl text-gray-900 mb-6 text-center border-b pb-4">Or Submit an Inquiry Directly</h3>
+          
+          {formSuccess ? (
+            <div className="text-center py-8 space-y-4">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                <Send className="w-6 h-6" />
+              </div>
+              <h4 className="font-serif text-xl font-bold">Inquiry Sent Successfully</h4>
+              <p className="text-sm text-gray-600">Thank you. We will be in touch shortly to confirm availability.</p>
+              <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
+            </div>
+          ) : (
+            <form onSubmit={handleInquirySubmit} className="space-y-5">
+              {formError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{formError}</div>}
+              
+              {bookingFields.map((field) => (
+                <div key={field.id}>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-gray-700">
+                    {field.field_label} {field.is_required && <span className="text-red-500">*</span>}
+                  </label>
+                  
+                  {field.field_type === 'textarea' || field.field_name === 'notes' ? (
+                    <textarea
+                      required={field.is_required}
+                      rows={3}
+                      value={formData[field.field_name!] || ''}
+                      onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
+                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    />
+                  ) : field.field_type === 'select' && field.options ? (
+                    <select
+                      required={field.is_required}
+                      value={formData[field.field_name!] || ''}
+                      onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
+                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    >
+                      <option value="">Select an option...</option>
+                      {field.options.split(',').map((opt, i) => (
+                        <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                      ))}
+                    </select>
+                  ) : field.field_type === 'checkbox' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        required={field.is_required}
+                        checked={formData[field.field_name!] === 'true'}
+                        onChange={(e) => handleFieldChange(field.field_name!, e.target.checked)}
+                        className="w-4 h-4 text-[#693F00]"
+                      />
+                      <span className="text-xs text-gray-600">Yes</span>
+                    </div>
+                  ) : (
+                    <input
+                      type={field.field_name === 'client_email' ? 'email' : field.field_name === 'client_phone' ? 'tel' : 'text'}
+                      required={field.is_required}
+                      value={formData[field.field_name!] || ''}
+                      onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
+                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={submittingForm}
+                  className="w-full py-4 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+                >
+                  {submittingForm ? 'Sending Inquiry...' : 'Submit Inquiry'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </section>
+
       {/* TREATMENTS LIST */}
       <section className="py-12 px-6 max-w-5xl mx-auto border-t border-[#E5E7EB]">
         <div className="text-center mb-10">
@@ -130,7 +312,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {treatments.map((t) => (
-            <div key={t.id} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col justify-between space-y-4">
+            <div key={t.id} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col justify-between space-y-4 hover:border-[#693F00] transition duration-300">
               <div>
                 <h3 className="font-serif text-xl text-gray-900 mb-1">{t.title}</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">{t.description}</p>
@@ -141,51 +323,6 @@ export default function HomePage() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* SOCIAL-FIRST BOOKING & INQUIRY SECTION */}
-      <section id="book" className="py-16 px-6 max-w-4xl mx-auto text-center border-t border-[#E5E7EB]">
-        <span className="text-xs uppercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
-        <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-3">
-          {content.booking_title || 'Request a Sanctuary Appointment'}
-        </h2>
-        <p className="text-gray-600 max-w-xl mx-auto mb-10 text-xs sm:text-sm leading-relaxed">
-          {content.booking_subtext || 'To ensure a bespoke and restorative experience, all treatments are booked on a personal request basis. Reach out to us directly on social media to check availability for your preferred date and time.'}
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-          {/* Instagram DM Option */}
-          <a
-            href="https://instagram.com/calmdriftsanctuary"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-8 rounded-2xl border border-[#E5E7EB] bg-white hover:border-[#693F00] transition flex flex-col items-center text-center group shadow-sm"
-          >
-            <div className="w-12 h-12 rounded-full bg-[#693F00] text-white flex items-center justify-center mb-4 group-hover:scale-105 transition">
-              <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-              </svg>
-            </div>
-            <h3 className="font-medium text-gray-900 mb-1">Message on Instagram</h3>
-            <p className="text-xs text-gray-500">Chat with us directly in DMs to request your preferred date.</p>
-          </a>
-
-          {/* Facebook Option */}
-          <a
-            href="https://facebook.com/calmdriftsanctuary"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-8 rounded-2xl border border-[#E5E7EB] bg-white hover:border-[#693F00] transition flex flex-col items-center text-center group shadow-sm"
-          >
-            <div className="w-12 h-12 rounded-full bg-[#693F00] text-white flex items-center justify-center mb-4 group-hover:scale-105 transition">
-              <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                <path d="M9 8H6v4h3v12h5V12h3.642L18 8h-4V6.333C14 5.371 14.5 5 15.5 5H18V0h-3.808C10.5 0 9 1.583 9 4.615V8z"/>
-              </svg>
-            </div>
-            <h3 className="font-medium text-gray-900 mb-1">Message on Facebook</h3>
-            <p className="text-xs text-gray-500">Send us a message on Messenger to secure your personalised slot.</p>
-          </a>
         </div>
       </section>
 
