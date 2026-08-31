@@ -295,7 +295,7 @@ export default function AdminCalendarPage() {
 
   const handleSaveEditedBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBooking || !editDate || !editTime || !editTreatmentId) return;
+    if (!selectedBooking || !editDate || !editTime) return;
 
     const startDateTime = new Date(`${editDate}T${editTime}:00`);
     const treatment = treatments.find(t => t.id === editTreatmentId);
@@ -308,7 +308,7 @@ export default function AdminCalendarPage() {
       body: JSON.stringify({
         type: 'update_booking_full',
         id: selectedBooking.id,
-        treatment_id: editTreatmentId,
+        treatment_id: editTreatmentId || null,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
         price_override: editPriceOverride ? parseFloat(editPriceOverride) : null,
@@ -328,8 +328,8 @@ export default function AdminCalendarPage() {
 
   const handleManualBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualTime || !selectedTreatmentId) {
-      alert('Please select a valid treatment and time.');
+    if (!manualTime) {
+      alert('Please select a valid time.');
       return;
     }
 
@@ -362,6 +362,7 @@ export default function AdminCalendarPage() {
     const treatment = treatments.find(t => t.id === selectedTreatmentId);
     const duration = treatment ? treatment.duration_minutes : 60;
     const startDateTime = new Date(`${bookingDateStr}T${manualTime}:00`);
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
 
     setIsSubmittingBooking(true);
     try {
@@ -369,12 +370,12 @@ export default function AdminCalendarPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          treatmentId: selectedTreatmentId,
+          treatmentId: selectedTreatmentId || null,
           clientName: finalName,
           clientEmail: finalEmail,
           clientPhone: finalPhone,
           startTime: startDateTime.toISOString(),
-          durationMinutes: duration,
+          endTime: endDateTime.toISOString(),
           notes: bookingNotes,
           marketingOptIn: finalOptIn,
           isAdminBypass: true,
@@ -470,8 +471,8 @@ export default function AdminCalendarPage() {
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                   const dayNum = i + 1;
                   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                  const dayBookings = bookings.filter(b => b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                  const dayBlocks = blockedTimes.filter(bt => bt.start_time.startsWith(dateStr));
+                  const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
+                  const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
                   const isToday = new Date().toISOString().startsWith(dateStr);
 
                   return (
@@ -525,8 +526,8 @@ export default function AdminCalendarPage() {
               <div className="grid grid-cols-7 gap-2 min-h-[450px]">
                 {getWeekDays(currentDate).map((day, idx) => {
                   const dateStr = day.toISOString().split('T')[0];
-                  const dayBookings = bookings.filter(b => b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                  const dayBlocks = blockedTimes.filter(bt => bt.start_time.startsWith(dateStr));
+                  const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
+                  const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
 
                   return (
                     <div key={idx} className="p-2 border rounded-xl bg-[#FAF9F6] space-y-2 overflow-y-auto">
@@ -534,7 +535,7 @@ export default function AdminCalendarPage() {
                         <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#6B8E70] ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-emerald-50' : ''}`}>
                           <p className="font-bold text-[#6B8E70]">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           <p className="font-serif text-sm truncate">{b.client_name}</p>
-                          <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title}</p>
+                          <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title || 'Custom Appointment'}</p>
                         </div>
                       ))}
                       {dayBlocks.map(bt => {
@@ -557,7 +558,7 @@ export default function AdminCalendarPage() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
               
               {/* Blocked Times on Day View */}
-              {blockedTimes.filter(bt => bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
+              {blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
                 const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 return (
@@ -571,13 +572,13 @@ export default function AdminCalendarPage() {
                 );
               })}
 
-              {bookings.filter(b => b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 && blockedTimes.filter(bt => bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).length === 0 ? (
+              {bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 && blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).length === 0 ? (
                 <p className="text-xs text-gray-400 py-8">No appointments or blocked times scheduled for this date.</p>
               ) : (
-                bookings.filter(b => b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => (
+                bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => (
                   <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
                     <div>
-                      <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title})</p>
+                      <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title || 'Custom Appointment'})</p>
                       <p className="text-xs text-[#6B7280]">Time: {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                     <span className="text-xs text-[#6B8E70]">View &rarr;</span>
@@ -605,7 +606,8 @@ export default function AdminCalendarPage() {
                   <h4 className="font-semibold uppercase tracking-wider text-[#6B8E70]">Edit Appointment</h4>
                   <div>
                     <label className="block uppercase mb-1">Treatment</label>
-                    <select value={editTreatmentId} onChange={(e) => setEditTreatmentId(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white" required>
+                    <select value={editTreatmentId} onChange={(e) => setEditTreatmentId(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white">
+                      <option value="">-- No Specific Treatment --</option>
                       {treatments.map(t => (
                         <option key={t.id} value={t.id}>{t.title} (£{t.price_gbp})</option>
                       ))}
@@ -639,11 +641,11 @@ export default function AdminCalendarPage() {
                   <div className="text-xs space-y-1.5 text-[#6B7280]">
                     <p><strong>Email:</strong> {selectedBooking.client_email}</p>
                     <p><strong>Phone:</strong> {selectedBooking.client_phone}</p>
-                    <p><strong>Treatment:</strong> {selectedBooking.treatments?.title} (£{selectedBooking.price_override ?? selectedBooking.treatments?.price_gbp})</p>
+                    <p><strong>Treatment:</strong> {selectedBooking.treatments?.title || 'Custom Appointment'} (£{selectedBooking.price_override ?? selectedBooking.treatments?.price_gbp ?? 0})</p>
                     {selectedBooking.price_override !== undefined && selectedBooking.price_override !== null && (
                       <p className="text-emerald-700 italic">Price overridden (Reason: {selectedBooking.override_reason})</p>
                     )}
-                    <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString('en-GB')}</p>
+                    <p><strong>Time:</strong> {selectedBooking.start_time ? new Date(selectedBooking.start_time).toLocaleString('en-GB') : 'N/A'}</p>
                     <p className="font-semibold text-[#2C332B]">
                       Marketing Opt-In: <span className={selectedBooking.marketing_opt_in ? 'text-emerald-700 font-bold' : 'text-gray-500 font-normal'}>{selectedBooking.marketing_opt_in ? 'Yes (Opted In)' : 'No Consent'}</span>
                     </p>
@@ -731,13 +733,13 @@ export default function AdminCalendarPage() {
 
               <form onSubmit={handleManualBookingSubmit} className="space-y-4 text-sm">
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Select Treatment</label>
+                  <label className="block font-medium text-gray-700 mb-1">Select Treatment (Optional)</label>
                   <select
                     value={selectedTreatmentId}
                     onChange={(e) => setSelectedTreatmentId(e.target.value)}
                     className="w-full border p-2.5 rounded-xl bg-white"
-                    required
                   >
+                    <option value="">-- No Specific Treatment / Custom --</option>
                     {treatments.map((t) => (
                       <option key={t.id} value={t.id}>{t.title} ({t.duration_minutes} mins - £{t.price_gbp})</option>
                     ))}

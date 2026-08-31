@@ -15,12 +15,14 @@ export async function POST(request: Request) {
       clientEmail,
       clientPhone,
       startTime,
+      endTime,
       durationMinutes,
       notes,
       marketingOptIn,
+      isAdminBypass,
     } = body;
 
-    if (!treatmentId || !clientName || !clientEmail || !startTime) {
+    if (!clientName || !clientEmail || !startTime) {
       return NextResponse.json({ error: 'Missing required booking fields' }, { status: 400 });
     }
 
@@ -28,41 +30,49 @@ export async function POST(request: Request) {
     const dateString = startDateTime.toISOString().split('T')[0]; // YYYY-MM-DD
     const timeString = startDateTime.toTimeString().split(' ')[0]; // HH:MM:SS
 
-    // 1. Check if this date is explicitly opened by the admin (Closed by default)
-    const { data: rules, error: ruleError } = await supabase
-      .from('availability_rules')
-      .select('*')
-      .eq('date', dateString);
+    // Only enforce strict availability rules if it's NOT an admin-bypassed custom link booking
+    if (!isAdminBypass) {
+      if (!treatmentId) {
+        return NextResponse.json({ error: 'Treatment ID is required for standard bookings.' }, { status: 400 });
+      }
 
-    if (ruleError) {
-      console.error('Availability Check Error:', ruleError);
-      return NextResponse.json({ error: 'Failed to verify availability.' }, { status: 500 });
-    }
+      // 1. Check if this date is explicitly opened by the admin (Closed by default)
+      const { data: rules, error: ruleError } = await supabase
+        .from('availability_rules')
+        .select('*')
+        .eq('date', dateString);
 
-    // If no rules exist for this date, the calendar is closed!
-    if (!rules || rules.length === 0) {
-      return NextResponse.json({ error: 'Selected date is closed for bookings.' }, { status: 400 });
-    }
+      if (ruleError) {
+        console.error('Availability Check Error:', ruleError);
+        return NextResponse.json({ error: 'Failed to verify availability.' }, { status: 500 });
+      }
 
-    // 2. Validate if the requested time falls within an open window or full day
-    let isAllowed = false;
-    for (const rule of rules) {
-      if (rule.is_full_day) {
-        isAllowed = true;
-        break;
-      } else if (rule.start_time && rule.end_time) {
-        if (timeString >= rule.start_time && timeString <= rule.end_time) {
+      if (!rules || rules.length === 0) {
+        return NextResponse.json({ error: 'Selected date is closed for bookings.' }, { status: 400 });
+      }
+
+      // 2. Validate if the requested time falls within an open window or full day
+      let isAllowed = false;
+      for (const rule of rules) {
+        if (rule.is_full_day) {
           isAllowed = true;
           break;
+        } else if (rule.start_time && rule.end_time) {
+          if (timeString >= rule.start_time && timeString <= rule.end_time) {
+            isAllowed = true;
+            break;
+          }
         }
+      }
+
+      if (!isAllowed) {
+        return NextResponse.json({ error: 'The selected time slot is outside your open working hours.' }, { status: 400 });
       }
     }
 
-    if (!isAllowed) {
-      return NextResponse.json({ error: 'The selected time slot is outside your open working hours.' }, { status: 400 });
-    }
-
-    const endDateTime = new Date(startDateTime.getTime() + (durationMinutes || 60) * 60000);
+    const calculatedEndTime = endTime 
+      ? new Date(endTime) 
+      : new Date(startDateTime.getTime() + (durationMinutes || 60) * 60000);
     const hasConsented = Boolean(marketingOptIn);
 
     // 3. Check for double bookings / overlaps
@@ -70,7 +80,7 @@ export async function POST(request: Request) {
       .from('bookings')
       .select('id')
       .neq('status', 'cancelled')
-      .lt('start_time', endDateTime.toISOString())
+      .lt('start_time', calculatedEndTime.toISOString())
       .gt('end_time', startDateTime.toISOString());
 
     if (overlapError) throw overlapError;
@@ -79,17 +89,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This time slot is already booked.' }, { status: 400 });
     }
 
-    // 4. Insert booking into Supabase database
+    // 4. Insert booking into Supabase database (supporting optional treatment_id)
     const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
       .insert([
         {
-          treatment_id: treatmentId,
+          treatment_id: treatmentId || null,
           client_name: clientName,
           client_email: clientEmail,
           client_phone: clientPhone || '',
           start_time: startDateTime.toISOString(),
-          end_time: endDateTime.toISOString(),
+          end_time: calculatedEndTime.toISOString(),
+          appointment_date: dateString,
           notes: notes || '',
           marketing_opt_in: hasConsented,
           marketing_opt_in_at: hasConsented ? new Date().toISOString() : null,
@@ -101,14 +112,19 @@ export async function POST(request: Request) {
 
     if (bookingError) throw bookingError;
 
-    // 5. Fetch treatment details for email & confirmation
-    const { data: treatmentData } = await supabase
-      .from('treatments')
-      .select('title, price_gbp')
-      .eq('id', treatmentId)
-      .single();
+    // 5. Fetch treatment details for email & confirmation (if treatmentId exists)
+    let treatment = { title: 'Sanctuary Experience', price_gbp: 0 };
+    if (treatmentId) {
+      const { data: treatmentData } = await supabase
+        .from('treatments')
+        .select('title, price_gbp')
+        .eq('id', treatmentId)
+        .single();
+      if (treatmentData) {
+        treatment = treatmentData;
+      }
+    }
 
-    const treatment = treatmentData || { title: 'Sanctuary Treatment', price_gbp: 0 };
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (!resendApiKey) {
@@ -120,13 +136,13 @@ export async function POST(request: Request) {
       // 6. Send Admin Notification Email to calmdriftsanctuary@gmail.com
       try {
         const adminEmailPayload = {
-          from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: ['calmdriftsanctuary@gmail.com'],
           subject: `New Booking: ${clientName} - ${treatment.title}`,
           html: `
             <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
               <h2 style="color:#6B8E70;">New Sanctuary Reservation</h2>
-              <p>A new appointment has been booked through the website.</p>
+              <p>A new appointment has been booked.</p>
               <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
               <p><strong>Client:</strong> ${clientName}</p>
               <p><strong>Email:</strong> ${clientEmail}</p>
@@ -134,7 +150,7 @@ export async function POST(request: Request) {
               <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
               <p><strong>Date & Time:</strong> ${formattedDate}</p>
               <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#047857' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
-              ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+              ${notes ? `<p><strong>Notes / Special Requests:</strong> ${notes}</p>` : ''}
             </div>
           `,
         };
@@ -151,7 +167,7 @@ export async function POST(request: Request) {
       // 7. Send Client Confirmation Email (With what3words and Consultation Button)
       try {
         const clientEmailPayload = {
-          from: 'Calm Drift Sanctuary <admin@calmdriftsanctuary.co.uk>',
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [clientEmail],
           subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
           html: `
@@ -165,6 +181,7 @@ export async function POST(request: Request) {
                 <p style="margin:5px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
                 <p style="margin:5px 0;"><strong>Location:</strong> Calm Drift Sanctuary</p>
                 <p style="margin:5px 0;"><strong>what3words:</strong> ///converged.archives.downturn</p>
+                ${notes ? `<p style="margin:5px 0;"><strong>Special Requests / Notes:</strong> ${notes}</p>` : ''}
               </div>
 
               <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>
@@ -173,7 +190,7 @@ export async function POST(request: Request) {
                 <a href="${consultationUrl}" style="background-color:#6B8E70; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
               </div>
 
-              <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; pt-15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
+              <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
             </div>
           `,
         };
