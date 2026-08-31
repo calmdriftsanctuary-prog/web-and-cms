@@ -316,11 +316,40 @@ export async function POST(request: Request) {
     }
 
     if (type === 'field_config') {
+      const { id: fieldId, form_type, field_name, field_label, is_required, is_active, display_order } = body;
+      
+      let queryId = fieldId;
+      if (typeof fieldId === 'string' && fieldId.startsWith('def-')) {
+        const { data: existing } = await supabase
+          .from('field_configs')
+          .select('id')
+          .eq('form_type', form_type)
+          .eq('field_name', field_name)
+          .single();
+        
+        if (existing) {
+          queryId = existing.id;
+        } else {
+          const { error: insertErr } = await supabase.from('field_configs').insert([{
+            form_type,
+            field_name: field_name || 'custom_field',
+            field_label,
+            is_required: Boolean(is_required),
+            is_active: Boolean(is_active),
+            display_order: display_order || 0
+          }]);
+          if (insertErr) throw insertErr;
+          return NextResponse.json({ success: true });
+        }
+      }
+
       const { error } = await supabase.from('field_configs').update({
-        field_label: body.field_label,
-        is_required: body.is_required,
-        is_active: body.is_active
-      }).eq('id', body.id);
+        field_label,
+        is_required: Boolean(is_required),
+        is_active: Boolean(is_active),
+        ...(display_order !== undefined ? { display_order } : {})
+      }).eq('id', queryId);
+
       if (error) throw error;
       return NextResponse.json({ success: true });
     }
