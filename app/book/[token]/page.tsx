@@ -17,6 +17,7 @@ export default function CustomBookingPage() {
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     async function fetchLink() {
@@ -37,38 +38,51 @@ export default function CustomBookingPage() {
 
   const handleBookingConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTime) return;
+    setErrorMessage('');
 
-    const startDateTime = `${linkData.target_date}T${selectedTime}:00`;
-    const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60000).toISOString();
-
-    // Call the backend API route so emails, calendar sync, and CRM tracking execute
-    const res = await fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientName: linkData.client_name,
-        clientEmail: clientEmail,
-        clientPhone: clientPhone,
-        startTime: new Date(startDateTime).toISOString(),
-        endTime: endDateTime,
-        isAdminBypass: true,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert('Error confirming booking: ' + (data.error || 'Unknown error'));
+    if (!selectedTime) {
+      setErrorMessage('Please select a preferred time slot first.');
       return;
     }
 
-    await supabase
-      .from('custom_booking_links')
-      .update({ is_used: true })
-      .eq('token', token);
+    if (!clientEmail) {
+      setErrorMessage('Please enter your email address.');
+      return;
+    }
 
-    setSubmitted(true);
+    try {
+      const startDateTime = `${linkData.target_date}T${selectedTime}:00`;
+      const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60000).toISOString();
+
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: linkData.client_name,
+          clientEmail: clientEmail,
+          clientPhone: clientPhone,
+          startTime: new Date(startDateTime).toISOString(),
+          endTime: endDateTime,
+          isAdminBypass: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMessage(data.error || 'Failed to confirm booking.');
+        return;
+      }
+
+      await supabase
+        .from('custom_booking_links')
+        .update({ is_used: true })
+        .eq('token', token);
+
+      setSubmitted(true);
+    } catch (err: any) {
+      setErrorMessage('An unexpected error occurred: ' + (err.message || 'Check connection'));
+    }
   };
 
   if (loading) return <div className="p-20 text-center text-stone-500">Loading your bespoke session details...</div>;
@@ -81,6 +95,12 @@ export default function CustomBookingPage() {
       <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-stone-200 shadow-sm">
         <span className="text-xs uppercase tracking-widest text-stone-500 font-medium block text-center mb-1">Calm Drift Sanctuary</span>
         <h1 className="text-2xl font-serif text-stone-900 text-center mb-6">Confirm Your Appointment</h1>
+
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg text-center">
+            {errorMessage}
+          </div>
+        )}
 
         {!submitted ? (
           <form onSubmit={handleBookingConfirm} className="space-y-6">
@@ -145,7 +165,7 @@ export default function CustomBookingPage() {
           <div className="text-center space-y-4 py-4">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✓</div>
             <h2 className="font-serif text-xl text-stone-900">Appointment Confirmed</h2>
-            <p className="text-sm text-stone-600">We have sent a confirmation email with your consultation link and sanctuary details.</p>
+            <p className="text-sm text-stone-600">We have sent a confirmation email with your consultation link and booking details.</p>
           </div>
         )}
       </div>
