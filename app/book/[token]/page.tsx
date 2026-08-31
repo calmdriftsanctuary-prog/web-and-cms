@@ -56,7 +56,6 @@ export default function CustomBookingPage() {
     }
 
     try {
-      // Robust date extraction: parses any date string format safely
       const parsedDateObj = new Date(linkData.target_date);
       if (isNaN(parsedDateObj.getTime())) {
         setErrorMessage('Generated link contains an invalid date format.');
@@ -68,7 +67,30 @@ export default function CustomBookingPage() {
       const day = String(parsedDateObj.getDate()).padStart(2, '0');
       const dateStringOnly = `${year}-${month}-${day}`;
 
-      const startDateTimeStr = `${dateStringOnly}T${selectedTime}:00`;
+      // Clean and normalize time string (handles "10:00", "10:00 AM", "2:30 pm", etc.)
+      let cleanTime = selectedTime.trim().toUpperCase();
+      let hours = 0;
+      let minutes = 0;
+
+      if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+        const [timePart, modifier] = cleanTime.split(' ');
+        const parts = timePart.split(':');
+        hours = parseInt(parts[0], 10);
+        minutes = parseInt(parts[1] || '0', 10);
+
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+      } else {
+        const parts = cleanTime.split(':');
+        hours = parseInt(parts[0], 10);
+        minutes = parseInt(parts[1] || '0', 10);
+      }
+
+      const formattedHour = String(hours).padStart(2, '0');
+      const formattedMinute = String(minutes).padStart(2, '0');
+      const timeString24 = `${formattedHour}:${formattedMinute}:00`;
+
+      const startDateTimeStr = `${dateStringOnly}T${timeString24}`;
       const startDate = new Date(startDateTimeStr);
 
       if (isNaN(startDate.getTime())) {
