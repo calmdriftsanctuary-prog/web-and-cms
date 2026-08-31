@@ -12,6 +12,8 @@ const supabase = createClient(
 export default function CustomBookingPage() {
   const { token } = useParams();
   const [linkData, setLinkData] = useState<any>(null);
+  const [treatments, setTreatments] = useState<any[]>([]);
+  const [selectedTreatmentId, setSelectedTreatmentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -20,20 +22,26 @@ export default function CustomBookingPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    async function fetchLink() {
+    async function fetchData() {
       if (!token) return;
-      const { data } = await supabase
-        .from('custom_booking_links')
-        .select('*')
-        .eq('token', token)
-        .single();
 
-      if (data) {
-        setLinkData(data);
+      const [linkRes, treatmentsRes] = await Promise.all([
+        supabase.from('custom_booking_links').select('*').eq('token', token).single(),
+        supabase.from('treatments').select('*').order('price_gbp', { ascending: true })
+      ]);
+
+      if (linkRes.data) {
+        setLinkData(linkRes.data);
+      }
+      if (treatmentsRes.data) {
+        setTreatments(treatmentsRes.data);
+        if (treatmentsRes.data.length > 0) {
+          setSelectedTreatmentId(treatmentsRes.data[0].id);
+        }
       }
       setLoading(false);
     }
-    fetchLink();
+    fetchData();
   }, [token]);
 
   const handleBookingConfirm = async (e: React.FormEvent) => {
@@ -47,6 +55,11 @@ export default function CustomBookingPage() {
 
     if (!clientEmail) {
       setErrorMessage('Please enter your email address.');
+      return;
+    }
+
+    if (!selectedTreatmentId) {
+      setErrorMessage('Please select a treatment.');
       return;
     }
 
@@ -67,7 +80,6 @@ export default function CustomBookingPage() {
       const day = String(parsedDateObj.getDate()).padStart(2, '0');
       const dateStringOnly = `${year}-${month}-${day}`;
 
-      // Clean and normalize time string (handles "10:00", "10:00 AM", "2:30 pm", etc.)
       let cleanTime = selectedTime.trim().toUpperCase();
       let hours = 0;
       let minutes = 0;
@@ -98,17 +110,22 @@ export default function CustomBookingPage() {
         return;
       }
 
-      const endDateTime = new Date(startDate.getTime() + 60 * 60000).toISOString();
+      // Find selected treatment duration if available
+      const chosenTreatment = treatments.find((t) => t.id === selectedTreatmentId);
+      const durationMinutes = chosenTreatment?.duration_minutes || 60;
+      const endDateTime = new Date(startDate.getTime() + durationMinutes * 60000).toISOString();
 
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          treatmentId: selectedTreatmentId,
           clientName: linkData.client_name,
           clientEmail: clientEmail,
           clientPhone: clientPhone,
           startTime: startDate.toISOString(),
           endTime: endDateTime,
+          durationMinutes: durationMinutes,
           isAdminBypass: true,
         }),
       });
@@ -154,6 +171,22 @@ export default function CustomBookingPage() {
               <p className="text-xs text-stone-500 uppercase tracking-wider mb-1">Reserved For</p>
               <p className="font-medium text-stone-900 text-lg">{linkData.client_name}</p>
               <p className="text-sm text-stone-600 mt-1">{formattedDate}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-2">Select Treatment</label>
+              <select
+                value={selectedTreatmentId}
+                onChange={(e) => setSelectedTreatmentId(e.target.value)}
+                required
+                className="w-full p-3 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:border-stone-900"
+              >
+                {treatments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title} (£{t.price_gbp} - {t.duration_minutes} mins)
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
