@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
+      type,
       treatmentId,
       clientName,
       clientEmail,
@@ -18,11 +19,57 @@ export async function POST(request: Request) {
       endTime,
       durationMinutes,
       notes,
+      message,
       marketingOptIn,
       isAdminBypass,
     } = body;
 
-    if (!clientName || !clientEmail || !startTime) {
+    const resolvedName = clientName || body.name;
+    const resolvedEmail = clientEmail || body.email;
+    const resolvedPhone = clientPhone || body.phone;
+    const resolvedNotes = notes || message;
+
+    // Handle Contact / Inquiry Form Submissions
+    if (type === 'contact' || (!startTime && !treatmentId)) {
+      if (!resolvedName || !resolvedEmail) {
+        return NextResponse.json({ error: 'Name and email are required.' }, { status: 400 });
+      }
+
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey) {
+        try {
+          const contactEmailPayload = {
+            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+            to: ['calmdriftsanctuary@gmail.com'],
+            subject: `New Contact Inquiry: ${resolvedName}`,
+            html: `
+              <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
+                <h2 style="color:#6B8E70;">New Website Contact Inquiry</h2>
+                <p>A new inquiry was submitted via the homepage contact form.</p>
+                <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
+                <p><strong>Name:</strong> ${resolvedName}</p>
+                <p><strong>Email:</strong> ${resolvedEmail}</p>
+                <p><strong>Phone:</strong> ${resolvedPhone || 'Not provided'}</p>
+                <p><strong>Message / Notes:</strong></p>
+                <p style="background:#ffffff; padding:15px; border-radius:8px; border:1px solid #E5E7EB;">${resolvedNotes || 'No message provided.'}</p>
+              </div>
+            `,
+          };
+
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+            body: JSON.stringify(contactEmailPayload),
+          });
+        } catch (contactErr) {
+          console.error('Failed to send contact inquiry email notification:', contactErr);
+        }
+      }
+
+      return NextResponse.json({ success: true, message: 'Inquiry submitted successfully.' }, { status: 200 });
+    }
+
+    if (!resolvedName || !resolvedEmail || !startTime) {
       return NextResponse.json({ error: 'Missing required booking fields' }, { status: 400 });
     }
 
@@ -95,13 +142,13 @@ export async function POST(request: Request) {
       .insert([
         {
           treatment_id: treatmentId || null,
-          client_name: clientName,
-          client_email: clientEmail,
-          client_phone: clientPhone || '',
+          client_name: resolvedName,
+          client_email: resolvedEmail,
+          client_phone: resolvedPhone || '',
           start_time: startDateTime.toISOString(),
           end_time: calculatedEndTime.toISOString(),
           appointment_date: dateString,
-          notes: notes || '',
+          notes: resolvedNotes || '',
           marketing_opt_in: hasConsented,
           marketing_opt_in_at: hasConsented ? new Date().toISOString() : null,
           status: 'confirmed',
@@ -138,19 +185,19 @@ export async function POST(request: Request) {
         const adminEmailPayload = {
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: ['calmdriftsanctuary@gmail.com'],
-          subject: `New Booking: ${clientName} - ${treatment.title}`,
+          subject: `New Booking: ${resolvedName} - ${treatment.title}`,
           html: `
             <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
               <h2 style="color:#6B8E70;">New Sanctuary Reservation</h2>
               <p>A new appointment has been booked.</p>
               <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
-              <p><strong>Client:</strong> ${clientName}</p>
-              <p><strong>Email:</strong> ${clientEmail}</p>
-              <p><strong>Phone:</strong> ${clientPhone || 'Not provided'}</p>
+              <p><strong>Client:</strong> ${resolvedName}</p>
+              <p><strong>Email:</strong> ${resolvedEmail}</p>
+              <p><strong>Phone:</strong> ${resolvedPhone || 'Not provided'}</p>
               <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
               <p><strong>Date & Time:</strong> ${formattedDate}</p>
               <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#047857' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
-              ${notes ? `<p><strong>Notes / Special Requests:</strong> ${notes}</p>` : ''}
+              ${resolvedNotes ? `<p><strong>Notes / Special Requests:</strong> ${resolvedNotes}</p>` : ''}
             </div>
           `,
         };
@@ -168,12 +215,12 @@ export async function POST(request: Request) {
       try {
         const clientEmailPayload = {
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
-          to: [clientEmail],
+          to: [resolvedEmail],
           subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
           html: `
             <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
               <h2 style="color:#6B8E70; margin-top:0;">Your Session is Confirmed</h2>
-              <p>Dear ${clientName},</p>
+              <p>Dear ${resolvedName},</p>
               <p>Thank you for booking with Calm Drift Sanctuary. We look forward to welcoming you.</p>
               
               <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #E5E7EB; margin:20px 0;">
@@ -181,7 +228,7 @@ export async function POST(request: Request) {
                 <p style="margin:5px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
                 <p style="margin:5px 0;"><strong>Location:</strong> Calm Drift Sanctuary</p>
                 <p style="margin:5px 0;"><strong>what3words:</strong> ///converged.archives.downturn</p>
-                ${notes ? `<p style="margin:5px 0;"><strong>Special Requests / Notes:</strong> ${notes}</p>` : ''}
+                ${resolvedNotes ? `<p style="margin:5px 0;"><strong>Special Requests / Notes:</strong> ${resolvedNotes}</p>` : ''}
               </div>
 
               <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>

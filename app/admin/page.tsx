@@ -234,13 +234,16 @@ export default function AdminDashboard() {
             { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
             { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
             { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
-            { id: 'def-5', form_type: 'contact', field_name: 'client_name', field_label: 'Your Name', is_required: true, is_active: true, display_order: 1 },
+            
+            { id: 'def-5', form_type: 'contact', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
             { id: 'def-6', form_type: 'contact', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
-            { id: 'def-7', form_type: 'contact', field_name: 'message', field_label: 'Your Message', is_required: true, is_active: true, display_order: 3 },
-            { id: 'def-8', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
-            { id: 'def-9', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
-            { id: 'def-10', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
-            { id: 'def-11', form_type: 'consultation', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
+            { id: 'def-7', form_type: 'contact', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
+            { id: 'def-8', form_type: 'contact', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
+
+            { id: 'def-9', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
+            { id: 'def-10', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
+            { id: 'def-11', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
+            { id: 'def-12', form_type: 'consultation', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
           ];
         }
         setFieldConfigs(defaultFields);
