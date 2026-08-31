@@ -84,13 +84,23 @@ export default function HomePage() {
         }
 
         // Combine standard configs and custom fields for the booking form
-        const standardFields = (bookingData.fieldConfigs || [])
+        let standardFields = (bookingData.fieldConfigs || [])
           .filter((f: any) => f.form_type === 'booking' && f.is_active)
           .map((f: any) => ({ ...f, is_custom: false, field_type: 'text' }));
           
         const customFields = (bookingData.customFields || [])
           .filter((f: any) => f.form_type === 'booking')
           .map((f: any) => ({ ...f, is_custom: true, is_active: true, field_name: f.field_label }));
+
+        // Fallback if the database has no fields configured yet
+        if (standardFields.length === 0 && customFields.length === 0) {
+          standardFields = [
+            { id: 'def-1', field_name: 'client_name', field_label: 'Full Name', field_type: 'text', is_required: true, is_custom: false, display_order: 1 },
+            { id: 'def-2', field_name: 'client_email', field_label: 'Email Address', field_type: 'email', is_required: true, is_custom: false, display_order: 2 },
+            { id: 'def-3', field_name: 'client_phone', field_label: 'Phone Number', field_type: 'tel', is_required: true, is_custom: false, display_order: 3 },
+            { id: 'def-4', field_name: 'notes', field_label: 'Special Requests / Notes', field_type: 'textarea', is_required: false, is_custom: false, display_order: 4 }
+          ];
+        }
 
         const combined = [...standardFields, ...customFields].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         setBookingFields(combined);
@@ -142,7 +152,7 @@ export default function HomePage() {
   if (loadingInitial) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
-        <div className="text-xs uppercase tracking-widest text-gray-400">Loading Sanctuary...</div>
+        <div className="text-xs uppercase tracking-widest text-gray-400">{content.loading_text || 'loading relaxation...'}</div>
       </div>
     );
   }
@@ -151,7 +161,7 @@ export default function HomePage() {
   const displayedReviews = reviews.length > 3 ? [...reviews, ...reviews] : reviews;
 
   return (
-    <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans selection:bg-[#693F00] selection:text-white overflow-hidden space-y-16 py-12">
+    <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans selection:bg-[#693F00] selection:text-white overflow-hidden space-y-8 py-6">
       <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-PGKM31T7FP" />
       <Script
         id="google-analytics"
@@ -169,8 +179,8 @@ export default function HomePage() {
       <PromoPopup />
 
       {/* HERO SECTION */}
-      <section className="py-12 px-6 max-w-4xl mx-auto text-center space-y-4">
-        <div className="flex justify-center mb-2">
+      <section className="py-6 px-6 max-w-4xl mx-auto text-center space-y-2">
+        <div className="flex justify-center mb-1">
           <img src="/logo.png" alt="Sanctuary Logo" className="h-16 w-auto object-contain" />
         </div>
         <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
@@ -186,10 +196,10 @@ export default function HomePage() {
       </section>
 
       {/* BOOKING & INQUIRY SECTION */}
-      <section id="book" className="py-16 px-6 max-w-4xl mx-auto border-t border-[#E5E7EB]">
-        <div className="text-center mb-10">
+      <section id="book" className="py-8 px-6 max-w-4xl mx-auto border-t border-[#E5E7EB]">
+        <div className="text-center mb-5">
           <span className="text-xs uppercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
-          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-3">
+          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-2">
             {content.booking_title || 'Request a Sanctuary Appointment'}
           </h2>
           <p className="text-gray-600 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed">
@@ -199,14 +209,14 @@ export default function HomePage() {
 
         {/* Dynamic Social Links from CMS */}
         {socialLinks.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-6">
             {socialLinks.map((link) => (
               <a
                 key={link.id}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-6 rounded-2xl border border-[#E5E7EB] bg-white hover:border-[#693F00] transition flex items-center space-x-4 group shadow-sm"
+                className="p-5 rounded-2xl border border-[#E5E7EB] bg-white hover:border-[#693F00] transition flex items-center space-x-4 group shadow-sm"
               >
                 <div className="w-12 h-12 rounded-full bg-[#693F00] text-white flex items-center justify-center group-hover:scale-105 transition shrink-0">
                   {link.icon_url ? (
@@ -225,11 +235,13 @@ export default function HomePage() {
         )}
 
         {/* Dynamic CMS Inquiry Form */}
-        <div className="max-w-2xl mx-auto bg-white p-6 sm:p-10 rounded-2xl border shadow-sm mt-8">
-          <h3 className="font-serif text-xl text-gray-900 mb-6 text-center border-b pb-4">Or Submit an Inquiry Directly</h3>
+        <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border shadow-sm mt-6">
+          <h3 className="font-serif text-xl text-gray-900 mb-5 text-center border-b pb-4">
+            {content.inquiry_heading || 'Or Submit an Inquiry Directly'}
+          </h3>
           
           {formSuccess ? (
-            <div className="text-center py-8 space-y-4">
+            <div className="text-center py-6 space-y-4">
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                 <Send className="w-6 h-6" />
               </div>
@@ -238,12 +250,12 @@ export default function HomePage() {
               <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
             </div>
           ) : (
-            <form onSubmit={handleInquirySubmit} className="space-y-5">
+            <form onSubmit={handleInquirySubmit} className="space-y-4">
               {formError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{formError}</div>}
               
               {bookingFields.map((field) => (
                 <div key={field.id}>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-gray-700">
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
                     {field.field_label} {field.is_required && <span className="text-red-500">*</span>}
                   </label>
                   
@@ -253,14 +265,14 @@ export default function HomePage() {
                       rows={3}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                     />
                   ) : field.field_type === 'select' && field.options ? (
                     <select
                       required={field.is_required}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                     >
                       <option value="">Select an option...</option>
                       {field.options.split(',').map((opt, i) => (
@@ -280,20 +292,20 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <input
-                      type={field.field_name === 'client_email' ? 'email' : field.field_name === 'client_phone' ? 'tel' : 'text'}
+                      type={field.field_type || (field.field_name === 'client_email' ? 'email' : field.field_name === 'client_phone' ? 'tel' : 'text')}
                       required={field.is_required}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                     />
                   )}
                 </div>
               ))}
-              <div className="pt-4">
+              <div className="pt-3">
                 <button
                   type="submit"
                   disabled={submittingForm}
-                  className="w-full py-4 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+                  className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
                 >
                   {submittingForm ? 'Sending Inquiry...' : 'Submit Inquiry'}
                 </button>
@@ -304,20 +316,20 @@ export default function HomePage() {
       </section>
 
       {/* TREATMENTS LIST */}
-      <section className="py-12 px-6 max-w-5xl mx-auto border-t border-[#E5E7EB]">
-        <div className="text-center mb-10">
+      <section className="py-8 px-6 max-w-5xl mx-auto border-t border-[#E5E7EB]">
+        <div className="text-center mb-5">
           <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">Our Signature Treatments</h2>
           <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">Bespoke holistic sessions tailored for you</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {treatments.map((t) => (
-            <div key={t.id} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col justify-between space-y-4 hover:border-[#693F00] transition duration-300">
+            <div key={t.id} className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col justify-between space-y-3 hover:border-[#693F00] transition duration-300">
               <div>
                 <h3 className="font-serif text-xl text-gray-900 mb-1">{t.title}</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">{t.description}</p>
               </div>
-              <div className="pt-4 border-t border-[#FAF9F6] flex items-center justify-between">
+              <div className="pt-3 border-t border-[#FAF9F6] flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">{t.duration_minutes} mins</span>
                 <span className="font-serif text-lg text-gray-900">£{t.price_gbp}</span>
               </div>
@@ -328,18 +340,18 @@ export default function HomePage() {
 
       {/* GALLERY SECTION */}
       {galleryImages.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 space-y-6 border-t border-[#E5E7EB] pt-12">
+        <section className="max-w-6xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.gallery_heading || 'Calm Drift Sanctuary Space'}</h2>
             <p className="text-xs text-gray-500 uppercase tracking-wider">{content.gallery_subtext || 'A glimpse into our restorative environment'}</p>
           </div>
           
           <div className="relative w-full overflow-hidden">
-            <div className={`flex gap-6 ${galleryImages.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
+            <div className={`flex gap-4 ${galleryImages.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
               {displayedGallery.map((img, idx) => (
                 <div key={`${img.id}-${idx}`} className="w-[340px] flex-shrink-0 overflow-hidden rounded-2xl border border-[#E5E7EB] shadow-sm bg-white">
                   <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
-                  {img.caption && <div className="p-3 text-xs text-center text-gray-600">{img.caption}</div>}
+                  {img.caption && <div className="p-2 text-xs text-center text-gray-600">{img.caption}</div>}
                 </div>
               ))}
             </div>
@@ -349,16 +361,16 @@ export default function HomePage() {
 
       {/* REVIEWS SECTION */}
       {reviews.length > 0 && (
-        <section className="max-w-5xl mx-auto px-4 space-y-6 border-t border-[#E5E7EB] pt-12 pb-6">
+        <section className="max-w-5xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8 pb-4">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.reviews_heading || 'Client Experiences'}</h2>
             <p className="text-xs text-gray-500 uppercase tracking-wider">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
           </div>
 
           <div className="relative w-full overflow-hidden">
-            <div className={`flex gap-6 ${reviews.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
+            <div className={`flex gap-4 ${reviews.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
               {displayedReviews.map((rev, idx) => (
-                <div key={`${rev.id}-${idx}`} className="w-[340px] flex-shrink-0 bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-3 flex flex-col justify-between">
+                <div key={`${rev.id}-${idx}`} className="w-[340px] flex-shrink-0 bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-3 flex flex-col justify-between">
                   <div className="space-y-2">
                     <div className="flex text-amber-500">
                       {[...Array(rev.rating || 5)].map((_, i) => (
@@ -378,7 +390,7 @@ export default function HomePage() {
       )}
 
       {/* FOOTER */}
-      <footer className="py-8 px-6 border-t border-[#E5E7EB] text-center text-xs text-gray-500">
+      <footer className="py-6 px-6 border-t border-[#E5E7EB] text-center text-xs text-gray-500">
         <p>© {new Date().getFullYear()} Calm Drift Sanctuary. All rights reserved.</p>
       </footer>
 

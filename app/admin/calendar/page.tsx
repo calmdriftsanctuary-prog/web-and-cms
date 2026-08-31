@@ -449,8 +449,8 @@ export default function AdminCalendarPage() {
             <button onClick={handlePrev} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></button>
             <h2 className="font-serif text-xl text-[#2C332B]">
               {viewMode === 'month' && `${monthNames[month]} ${year}`}
-              {viewMode === 'week' && `Week of ${getWeekDays(currentDate)[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${getWeekDays(currentDate)[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-              {viewMode === 'day' && currentDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {viewMode === 'week' && `Week of ${getWeekDays(currentDate)[0].toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} - ${getWeekDays(currentDate)[6].toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+              {viewMode === 'day' && currentDate.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
             </h2>
             <button onClick={handleNext} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronRight className="w-4 h-4" /></button>
           </div>
@@ -522,7 +522,7 @@ export default function AdminCalendarPage() {
                 {getWeekDays(currentDate).map((day, idx) => (
                   <div key={idx}>
                     <p>{day.toLocaleDateString('en-GB', { weekday: 'short' })}</p>
-                    <p className="text-sm font-bold text-[#2C332B]">{day.getDate()}</p>
+                    <p className="text-sm font-bold text-[#2C332B]">{day.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}</p>
                   </div>
                 ))}
               </div>
@@ -558,7 +558,7 @@ export default function AdminCalendarPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString()}</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
               
               {/* Blocked Times on Day View */}
               {blockedTimes.filter(bt => bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
@@ -647,7 +647,7 @@ export default function AdminCalendarPage() {
                     {selectedBooking.price_override !== undefined && selectedBooking.price_override !== null && (
                       <p className="text-emerald-700 italic">Price overridden (Reason: {selectedBooking.override_reason})</p>
                     )}
-                    <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString()}</p>
+                    <p><strong>Time:</strong> {new Date(selectedBooking.start_time).toLocaleString('en-GB')}</p>
                     <p className="font-semibold text-[#2C332B]">
                       Marketing Opt-In: <span className={selectedBooking.marketing_opt_in ? 'text-emerald-700 font-bold' : 'text-gray-500 font-normal'}>{selectedBooking.marketing_opt_in ? 'Yes (Opted In)' : 'No Consent'}</span>
                     </p>

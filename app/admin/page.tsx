@@ -173,10 +173,12 @@ export default function AdminDashboard() {
   const [heroSubtext, setHeroSubtext] = useState('Tailored massages and holistic rituals designed to ease tension.');
   const [bookingTitle, setBookingTitle] = useState('reserve your session');
   const [bookingSubtext, setBookingSubtext] = useState('Select a holistic treatment below to begin your reservation.');
+  const [inquiryHeading, setInquiryHeading] = useState('Or Submit an Inquiry Directly');
   const [galleryHeading, setGalleryHeading] = useState('Calm Drift Sanctuary Gallery');
   const [gallerySubtext, setGallerySubtext] = useState('A glimpse into our restorative space');
   const [reviewsHeading, setReviewsHeading] = useState('Client Experiences');
   const [reviewsSubtext, setReviewsSubtext] = useState('Words from those who have visited Calm Drift sanctuary');
+  const [loadingText, setLoadingText] = useState('loading relaxation...');
   const [savingContent, setSavingContent] = useState(false);
 
   const [editingTreatment, setEditingTreatment] = useState<Partial<Treatment> | null>(null);
@@ -250,10 +252,12 @@ export default function AdminDashboard() {
         if (contentMap.hero_subtext !== undefined) setHeroSubtext(contentMap.hero_subtext);
         if (contentMap.booking_title !== undefined) setBookingTitle(contentMap.booking_title);
         if (contentMap.booking_subtext !== undefined) setBookingSubtext(contentMap.booking_subtext);
+        if (contentMap.inquiry_heading !== undefined) setInquiryHeading(contentMap.inquiry_heading);
         if (contentMap.gallery_heading !== undefined) setGalleryHeading(contentMap.gallery_heading);
         if (contentMap.gallery_subtext !== undefined) setGallerySubtext(contentMap.gallery_subtext);
         if (contentMap.reviews_heading !== undefined) setReviewsHeading(contentMap.reviews_heading);
         if (contentMap.reviews_subtext !== undefined) setReviewsSubtext(contentMap.reviews_subtext);
+        if (contentMap.loading_text !== undefined) setLoadingText(contentMap.loading_text);
 
         const activeTmpl = loadedTemplates.find((t: any) => t.key === editingTemplateKey);
         const defaults = DEFAULT_TEMPLATES[editingTemplateKey] || { subject: '', content: '', button_text: '' };
@@ -448,6 +452,16 @@ export default function AdminDashboard() {
     alert('Consultation form email sent successfully!');
   };
 
+  const handleSendReviewEmail = async (clientEmail: string, clientName: string, bookingId?: string) => {
+    if (!confirm(`Send review request email to ${clientName} (${clientEmail})?`)) return;
+    await fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'send_review_email', email: clientEmail, name: clientName, bookingId }),
+    });
+    alert('Review request email sent successfully!');
+  };
+
   const handleSaveTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTreatment) return;
@@ -501,10 +515,12 @@ export default function AdminDashboard() {
         { key: 'hero_subtext', value: heroSubtext },
         { key: 'booking_title', value: bookingTitle },
         { key: 'booking_subtext', value: bookingSubtext },
+        { key: 'inquiry_heading', value: inquiryHeading },
         { key: 'gallery_heading', value: galleryHeading },
         { key: 'gallery_subtext', value: gallerySubtext },
         { key: 'reviews_heading', value: reviewsHeading },
         { key: 'reviews_subtext', value: reviewsSubtext },
+        { key: 'loading_text', value: loadingText },
       ];
 
       for (const item of keys) {
@@ -848,12 +864,6 @@ export default function AdminDashboard() {
                 <div className="pt-4 border-t space-y-3">
                   <div className="flex justify-between items-center">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
-                    <button 
-                      onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, selectedClient.bookings[0]?.id)} 
-                      className="px-2.5 py-1 bg-[#693F00] text-white text-[10px] uppercase rounded-lg flex items-center space-x-1"
-                    >
-                      <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
-                    </button>
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {selectedClient.bookings.map((b) => {
@@ -862,12 +872,20 @@ export default function AdminDashboard() {
                         <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
                           <div className="flex justify-between items-center">
                             <strong>{b.treatments?.title || 'Treatment'}</strong> (£{effectivePrice} {b.price_override !== null && b.price_override !== undefined ? '(Overridden)' : ''})
-                            <button 
-                              onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
-                              className="text-[10px] text-[#693F00] underline hover:text-black"
-                            >
-                              Email for this booking
-                            </button>
+                            <div className="flex items-center space-x-3">
+                              <button 
+                                onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
+                                className="text-[10px] text-[#693F00] underline hover:text-black"
+                              >
+                                Send Intake Form
+                              </button>
+                              <button 
+                                onClick={() => handleSendReviewEmail(selectedClient.email, selectedClient.name, b.id)}
+                                className="text-[10px] text-amber-700 underline hover:text-black"
+                              >
+                                Send Review Request
+                              </button>
+                            </div>
                           </div>
                           <p className="text-gray-500">{formatUKDateTime(b.start_time)} • <span className="capitalize">{b.status}</span></p>
                         </div>
@@ -1110,9 +1128,9 @@ export default function AdminDashboard() {
 
             <form onSubmit={handleAddSocialLink} className="space-y-4 p-4 bg-[#FAF9F6] border rounded-2xl">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#2C332B]">Add Social Platform</h3>
-              <input type="text" required placeholder="Platform Name" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="text" required placeholder="Platform Name (e.g. Instagram)" value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <input type="url" required placeholder="Profile URL" value={newSocialUrl} onChange={(e) => setNewSocialUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
-              <input type="url" placeholder="Custom Icon Image URL" value={newIconUrl} onChange={(e) => setNewIconUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
+              <input type="url" placeholder="Custom Icon Image URL (Optional)" value={newIconUrl} onChange={(e) => setNewIconUrl(e.target.value)} className="w-full p-3 bg-white border rounded-xl text-sm" />
               <button type="submit" disabled={savingSocial} className="w-full py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full">
                 {savingSocial ? 'Adding...' : 'Add Social Link'}
               </button>
@@ -1303,6 +1321,14 @@ export default function AdminDashboard() {
               <p className="text-xs text-[#6B7280] mt-0.5">Modify hero headings, section titles, and reviews copy live.</p>
             </div>
             <form onSubmit={handleSaveContent} className="space-y-4">
+              <div className="bg-[#FAF9F6] p-4 rounded-xl border mb-4 space-y-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">Global System Text</h3>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Loading Screen Text</label>
+                  <input type="text" value={loadingText} onChange={(e) => setLoadingText(e.target.value)} placeholder="loading relaxation..." className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Main Hero Heading</label>
                 <input type="text" value={heroHeading} onChange={(e) => setHeroHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
@@ -1311,6 +1337,7 @@ export default function AdminDashboard() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Main Hero Subtext</label>
                 <textarea rows={2} value={heroSubtext} onChange={(e) => setHeroSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
+              
               <div className="border-t pt-4">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Booking Section Title</label>
                 <input type="text" value={bookingTitle} onChange={(e) => setBookingTitle(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
@@ -1319,6 +1346,11 @@ export default function AdminDashboard() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Booking Section Subtext</label>
                 <textarea rows={2} value={bookingSubtext} onChange={(e) => setBookingSubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Inquiry Form Heading</label>
+                <input type="text" value={inquiryHeading} onChange={(e) => setInquiryHeading(e.target.value)} placeholder="Or Submit an Inquiry Directly" className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
+              </div>
+
               <div className="border-t pt-4">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Gallery Section Heading</label>
                 <input type="text" value={galleryHeading} onChange={(e) => setGalleryHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
@@ -1327,6 +1359,7 @@ export default function AdminDashboard() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Gallery Section Subtext</label>
                 <input type="text" value={gallerySubtext} onChange={(e) => setGallerySubtext(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
               </div>
+              
               <div className="border-t pt-4">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#2C332B] mb-1">Reviews Section Heading</label>
                 <input type="text" value={reviewsHeading} onChange={(e) => setReviewsHeading(e.target.value)} className="w-full p-3.5 bg-white border border-[#E5E7EB] rounded-xl text-sm" />
