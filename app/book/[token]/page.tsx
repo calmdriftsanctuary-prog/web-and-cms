@@ -50,9 +50,23 @@ export default function CustomBookingPage() {
       return;
     }
 
+    if (!linkData?.target_date) {
+      setErrorMessage('Invalid appointment date configured in link.');
+      return;
+    }
+
     try {
-      const startDateTime = `${linkData.target_date}T${selectedTime}:00`;
-      const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60000).toISOString();
+      // Ensure target_date is clean YYYY-MM-DD
+      const rawDate = linkData.target_date.split('T')[0];
+      const startDateTimeStr = `${rawDate}T${selectedTime}:00`;
+      const startDate = new Date(startDateTimeStr);
+
+      if (isNaN(startDate.getTime())) {
+        setErrorMessage('Generated link contains an invalid date format.');
+        return;
+      }
+
+      const endDateTime = new Date(startDate.getTime() + 60 * 60000).toISOString();
 
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -61,7 +75,7 @@ export default function CustomBookingPage() {
           clientName: linkData.client_name,
           clientEmail: clientEmail,
           clientPhone: clientPhone,
-          startTime: new Date(startDateTime).toISOString(),
+          startTime: startDate.toISOString(),
           endTime: endDateTime,
           isAdminBypass: true,
         }),
@@ -88,7 +102,7 @@ export default function CustomBookingPage() {
   if (loading) return <div className="p-20 text-center text-stone-500">Loading your bespoke session details...</div>;
   if (!linkData || linkData.is_used) return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used or is invalid.</div>;
 
-  const formattedDate = formatUKDate(linkData.target_date);
+  const formattedDate = linkData?.target_date ? formatUKDate(linkData.target_date) : 'Scheduled Date';
 
   return (
     <main className="min-h-screen bg-stone-50 py-16 px-6 flex items-center justify-center">
@@ -165,7 +179,7 @@ export default function CustomBookingPage() {
           <div className="text-center space-y-4 py-4">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✓</div>
             <h2 className="font-serif text-xl text-stone-900">Appointment Confirmed</h2>
-            <p className="text-sm text-stone-600">We have sent a confirmation email with your consultation link and booking details.</p>
+            <p className="text-sm text-stone-600">We have sent a confirmation email with your consultation link and sanctuary details.</p>
           </div>
         )}
       </div>
