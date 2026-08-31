@@ -34,20 +34,28 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status');
     const searchQuery = searchParams.get('search');
 
-    const { data: treatments, error: treatmentError } = await supabase
-      .from('treatments')
-      .select('*')
-      .order('price_gbp', { ascending: true });
+    // Run independent metadata queries concurrently using Promise.all to prevent hanging
+    const [
+      treatmentRes,
+      pageContentRes,
+      templatesRes,
+      galleryRes,
+      socialRes,
+      popupRes,
+      customFieldsRes,
+      fieldConfigsRes
+    ] = await Promise.all([
+      supabase.from('treatments').select('*').order('price_gbp', { ascending: true }),
+      supabase.from('page_content').select('*'),
+      supabase.from('email_templates').select('*'),
+      supabase.from('gallery_images').select('*').order('created_at', { ascending: false }),
+      supabase.from('social_links').select('*').order('display_order', { ascending: true }),
+      supabase.from('site_popup').select('*').single(),
+      supabase.from('custom_fields').select('*'),
+      supabase.from('field_configs').select('*')
+    ]);
 
-    if (treatmentError) throw treatmentError;
-
-    const { data: pageContent } = await supabase.from('page_content').select('*');
-    const { data: templates } = await supabase.from('email_templates').select('*');
-    const { data: gallery } = await supabase.from('gallery_images').select('*').order('created_at', { ascending: false });
-    const { data: socialLinks } = await supabase.from('social_links').select('*').order('display_order', { ascending: true });
-    const { data: popup } = await supabase.from('site_popup').select('*').single();
-    const { data: customFields } = await supabase.from('custom_fields').select('*');
-    const { data: fieldConfigs } = await supabase.from('field_configs').select('*');
+    if (treatmentRes.error) throw treatmentRes.error;
 
     let bookings = [];
     if (includeBookings === 'true' || includeBookings === '1') {
@@ -63,14 +71,12 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      // Dynamically normalize consultations so any JSON key in 'responses' maps cleanly for the frontend UI
       bookings = (bookingData || []).map((booking: any) => {
         if (booking.consultations && Array.isArray(booking.consultations)) {
           booking.consultations = booking.consultations.map((c: any) => {
             if (c.responses && typeof c.responses === 'object') {
               return {
                 ...c,
-                // Fallback / dynamic mapping for flat UI access
                 medical_conditions: c.medical_conditions || c.responses.medicalConditions || c.responses.medical_conditions || 'None',
                 allergies: c.allergies || c.responses.allergies || 'None',
                 pressure_preference: c.pressure_preference || c.responses.pressurePreference || c.responses.pressure_preference || 'Standard',
@@ -95,15 +101,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ 
       success: true,
-      treatments: treatments || [], 
+      treatments: treatmentRes.data || [], 
       bookings: bookings || [],
-      pageContent: pageContent || [],
-      templates: templates || [],
-      gallery: gallery || [],
-      socialLinks: socialLinks || [],
-      popup: popup || null,
-      customFields: customFields || [],
-      fieldConfigs: fieldConfigs || [],
+      pageContent: pageContentRes.data || [],
+      templates: templatesRes.data || [],
+      gallery: galleryRes.data || [],
+      socialLinks: socialRes.data || [],
+      popup: popupRes.data || null,
+      customFields: customFieldsRes.data || [],
+      fieldConfigs: fieldConfigsRes.data || [],
       count: bookings.length 
     });
   } catch (error: any) {
