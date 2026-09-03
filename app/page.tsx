@@ -125,20 +125,32 @@ export default function HomePage() {
     setSubmittingForm(true);
     setFormError('');
 
+    const clientName = formData.client_name || formData['Full Name'] || 'Inquiry Client';
+    const clientEmail = formData.client_email || formData['Email Address'] || '';
+    const clientPhone = formData.client_phone || formData['Phone Number'] || '';
+
+    if (!clientEmail) {
+      setFormError('Please provide a valid email address.');
+      setSubmittingForm(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientName: formData.client_name || 'Inquiry',
-          clientEmail: formData.client_email || 'no-email@provided.com',
-          clientPhone: formData.client_phone || 'N/A',
+          clientName: clientName,
+          clientEmail: clientEmail,
+          clientPhone: clientPhone,
           notes: JSON.stringify(formData),
-          is_inquiry: true 
+          is_inquiry: true,
+          isAdminBypass: true
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to send inquiry. Please try again or contact us via social media.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send inquiry. Please try again or contact us via social media.');
       
       setFormSuccess(true);
       setFormData({});
@@ -152,7 +164,7 @@ export default function HomePage() {
   if (loadingInitial) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
-        <div className="text-xs uppercase tracking-widest text-gray-400">{content.loading_text || 'loading relaxation...'}</div>
+        <div className="text-xs lowercase tracking-widest text-gray-400">{content.loading_text || 'loading relaxation...'}</div>
       </div>
     );
   }
@@ -183,7 +195,7 @@ export default function HomePage() {
         <div className="flex justify-center mb-1">
           <img src="/logo.png" alt="Sanctuary Logo" className="h-16 w-auto object-contain" />
         </div>
-        <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
+        <span className="inline-flex items-center space-x-1.5 text-xs font-semibold lowercase tracking-widest text-[#693F00]">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Calm Drift Sanctuary</span>
         </span>
@@ -198,7 +210,7 @@ export default function HomePage() {
       {/* BOOKING & INQUIRY SECTION */}
       <section id="book" className="py-8 px-6 max-w-4xl mx-auto border-t border-[#E5E7EB]">
         <div className="text-center mb-5">
-          <span className="text-xs uppercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
+          <span className="text-xs lowercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
           <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-2">
             {content.booking_title || 'Request a Sanctuary Appointment'}
           </h2>
@@ -247,7 +259,7 @@ export default function HomePage() {
               </div>
               <h4 className="font-serif text-xl font-bold">Inquiry Sent Successfully</h4>
               <p className="text-sm text-gray-600">Thank you. We will be in touch shortly to confirm availability.</p>
-              <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
+              <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs lowercase rounded-full">Send Another</button>
             </div>
           ) : (
             <form onSubmit={handleInquirySubmit} className="space-y-4">
@@ -255,7 +267,7 @@ export default function HomePage() {
               
               {bookingFields.map((field) => (
                 <div key={field.id}>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
+                  <label className="block text-xs font-semibold lowercase tracking-wider mb-1 text-gray-700">
                     {field.field_label} {field.is_required && <span className="text-red-500">*</span>}
                   </label>
                   
@@ -305,7 +317,7 @@ export default function HomePage() {
                 <button
                   type="submit"
                   disabled={submittingForm}
-                  className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+                  className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold lowercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
                 >
                   {submittingForm ? 'Sending Inquiry...' : 'Submit Inquiry'}
                 </button>
@@ -319,7 +331,7 @@ export default function HomePage() {
       <section className="py-8 px-6 max-w-5xl mx-auto border-t border-[#E5E7EB]">
         <div className="text-center mb-5">
           <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">Our Signature Treatments</h2>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">Bespoke holistic sessions tailored for you</p>
+          <p className="text-xs text-gray-500 lowercase tracking-wider mt-1">Bespoke holistic sessions tailored for you</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -330,7 +342,7 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500 leading-relaxed">{t.description}</p>
               </div>
               <div className="pt-3 border-t border-[#FAF9F6] flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">{t.duration_minutes} mins</span>
+                <span className="text-xs font-semibold lowercase tracking-wider text-[#693F00]">{t.duration_minutes} mins</span>
                 <span className="font-serif text-lg text-gray-900">£{t.price_gbp}</span>
               </div>
             </div>
@@ -343,7 +355,7 @@ export default function HomePage() {
         <section className="max-w-6xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.gallery_heading || 'Calm Drift Sanctuary Space'}</h2>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">{content.gallery_subtext || 'A glimpse into our restorative environment'}</p>
+            <p className="text-xs text-gray-500 lowercase tracking-wider">{content.gallery_subtext || 'A glimpse into our restorative environment'}</p>
           </div>
           
           <div className="relative w-full overflow-hidden">
@@ -364,7 +376,7 @@ export default function HomePage() {
         <section className="max-w-5xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8 pb-4">
           <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.reviews_heading || 'Client Experiences'}</h2>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
+            <p className="text-xs text-gray-500 lowercase tracking-wider">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
           </div>
 
           <div className="relative w-full overflow-hidden">
@@ -379,7 +391,7 @@ export default function HomePage() {
                     </div>
                     <p className="text-xs sm:text-sm text-gray-700 italic leading-relaxed">"{rev.comment}"</p>
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">
+                  <div className="text-xs font-semibold lowercase tracking-wider text-[#693F00]">
                     — {rev.client_name}
                   </div>
                 </div>
