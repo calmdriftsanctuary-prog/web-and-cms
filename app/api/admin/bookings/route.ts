@@ -329,6 +329,7 @@ export async function POST(request: Request) {
         if (existing) {
           queryId = existing.id;
         } else {
+          // If it doesn't exist in field_configs yet, insert it with the active state
           const { error: insertErr } = await supabase.from('field_configs').insert([{
             form_type,
             field_name: field_name || 'custom_field',
@@ -342,6 +343,7 @@ export async function POST(request: Request) {
         }
       }
 
+      // Perform update on the config row using explicit booleans
       const { error } = await supabase.from('field_configs').update({
         field_label,
         is_required: Boolean(is_required),
