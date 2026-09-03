@@ -317,41 +317,46 @@ export async function POST(request: Request) {
     if (type === 'field_config') {
       const { id: fieldId, form_type, field_name, field_label, is_required, is_active, display_order } = body;
       
-      let queryId = fieldId;
-      if (typeof fieldId === 'string' && fieldId.startsWith('def-')) {
-        const { data: existing } = await supabase
-          .from('field_configs')
-          .select('id')
-          .eq('form_type', form_type)
-          .eq('field_name', field_name)
-          .single();
-        
-        if (existing) {
-          queryId = existing.id;
-        } else {
-          // If it doesn't exist in field_configs yet, insert it with the active state
-          const { error: insertErr } = await supabase.from('field_configs').insert([{
-            form_type,
-            field_name: field_name || 'custom_field',
-            field_label,
-            is_required: Boolean(is_required),
-            is_active: Boolean(is_active),
-            display_order: display_order || 0
-          }]);
-          if (insertErr) throw insertErr;
-          return NextResponse.json({ success: true });
-        }
+      const cleanFieldName = field_name || 'custom_field';
+      const cleanFormType = form_type || 'booking';
+
+      const { data: existingByName } = await supabase
+        .from('field_configs')
+        .select('id')
+        .eq('form_type', cleanFormType)
+        .eq('field_name', cleanFieldName)
+        .single();
+
+      if (existingByName) {
+        const { error } = await supabase.from('field_configs').update({
+          field_label,
+          is_required: Boolean(is_required),
+          is_active: Boolean(is_active),
+          ...(display_order !== undefined ? { display_order } : {})
+        }).eq('id', existingByName.id);
+
+        if (error) throw error;
+      } else if (typeof fieldId === 'string' && !fieldId.startsWith('def-')) {
+        const { error } = await supabase.from('field_configs').update({
+          field_label,
+          is_required: Boolean(is_required),
+          is_active: Boolean(is_active),
+          ...(display_order !== undefined ? { display_order } : {})
+        }).eq('id', fieldId);
+
+        if (error) throw error;
+      } else {
+        const { error: insertErr } = await supabase.from('field_configs').insert([{
+          form_type: cleanFormType,
+          field_name: cleanFieldName,
+          field_label,
+          is_required: Boolean(is_required),
+          is_active: Boolean(is_active),
+          display_order: display_order || 0
+        }]);
+        if (insertErr) throw insertErr;
       }
 
-      // Perform update on the config row using explicit booleans
-      const { error } = await supabase.from('field_configs').update({
-        field_label,
-        is_required: Boolean(is_required),
-        is_active: Boolean(is_active),
-        ...(display_order !== undefined ? { display_order } : {})
-      }).eq('id', queryId);
-
-      if (error) throw error;
       return NextResponse.json({ success: true });
     }
 
