@@ -34,7 +34,6 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status');
     const searchQuery = searchParams.get('search');
 
-    // Run independent metadata queries concurrently using Promise.all to prevent hanging
     const [
       treatmentRes,
       pageContentRes,
@@ -121,7 +120,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason } = body;
+    const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason, send_email } = body;
 
     if (type === 'page_content') {
       const { key, value } = body;
@@ -372,7 +371,7 @@ export async function POST(request: Request) {
 
       if (updateErr) throw updateErr;
 
-      if (booking.client_email) {
+      if (booking.client_email && send_email === true) {
         const startTimeFormatted = formatUKDateTime(booking.start_time);
 
         if (status === 'cancelled' || trigger_email === 'cancellation') {
@@ -430,7 +429,6 @@ export async function POST(request: Request) {
           `;
 
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
-          
           const rawDbUrl = dbTemplate?.button_url;
           let finalUrl = absoluteConsultationUrl;
           
@@ -466,7 +464,7 @@ export async function POST(request: Request) {
         }
       }
 
-      return NextResponse.json({ success: true, message: 'Booking status updated and email processed successfully' });
+      return NextResponse.json({ success: true, message: 'Booking status updated successfully' });
     }
 
     if (type === 'update_booking_full' || type === 'update_booking_details') {
@@ -495,13 +493,14 @@ export async function POST(request: Request) {
 
       if (updateErr) throw updateErr;
 
-      let treatmentTitle = booking.treatments?.title;
-      if (treatment_id && treatment_id !== booking.treatment_id) {
-        const { data: newTr } = await supabase.from('treatments').select('title').eq('id', treatment_id).single();
-        if (newTr) treatmentTitle = newTr.title;
-      }
+      // Only send reschedule email if send_email is explicitly set to true
+      if (booking.client_email && send_email === true) {
+        let treatmentTitle = booking.treatments?.title;
+        if (treatment_id && treatment_id !== booking.treatment_id) {
+          const { data: newTr } = await supabase.from('treatments').select('title').eq('id', treatment_id).single();
+          if (newTr) treatmentTitle = newTr.title;
+        }
 
-      if (booking.client_email) {
         const targetStartTime = start_time || booking.start_time;
         const newTimeFormatted = formatUKDateTime(targetStartTime);
         
@@ -529,7 +528,7 @@ export async function POST(request: Request) {
         });
       }
 
-      return NextResponse.json({ success: true, message: 'Booking successfully updated and email sent' });
+      return NextResponse.json({ success: true, message: 'Booking successfully updated without email notification' });
     }
 
     return NextResponse.json({ error: 'Invalid operation type specified in request payload' }, { status: 400 });
