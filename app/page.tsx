@@ -83,24 +83,46 @@ export default function HomePage() {
           setSocialLinks(bookingData.socialLinks.filter((s: SocialLink) => s.is_active));
         }
 
-        // Combine standard configs and custom fields for the booking form
-        let standardFields = (bookingData.fieldConfigs || [])
-          .filter((f: any) => f.form_type === 'booking' && f.is_active)
-          .map((f: any) => ({ ...f, is_custom: false, field_type: 'text' }));
+        // Map database configurations, ensuring inactive fields are dropped
+        const rawConfigs = bookingData.fieldConfigs || [];
+        const configMap = new Map<string, boolean>();
+        rawConfigs.forEach((cfg: any) => {
+          if (cfg.form_type === 'booking') {
+            configMap.set(cfg.field_name, cfg.is_active);
+          }
+        });
+
+        // Define standard default fields with their corresponding keys
+        const defaultDefs = [
+          { id: 'def-1', field_name: 'client_name', field_label: 'Full Name', field_type: 'text', is_required: true, display_order: 1 },
+          { id: 'def-2', field_name: 'client_email', field_label: 'Email Address', field_type: 'email', is_required: true, display_order: 2 },
+          { id: 'def-3', field_name: 'client_phone', field_label: 'Phone Number', field_type: 'tel', is_required: true, display_order: 3 },
+          { id: 'def-4', field_name: 'notes', field_label: 'Special Requests / Notes', field_type: 'textarea', is_required: false, display_order: 4 }
+        ];
+
+        let standardFields = defaultDefs
+          .filter((def) => {
+            // If explicitly configured in DB as inactive (false), filter it out
+            if (configMap.has(def.field_name)) {
+              return configMap.get(def.field_name) === true;
+            }
+            return true; // Default to active if no DB override exists yet
+          })
+          .map((def) => {
+            // Merge any label/order overrides from DB config if present
+            const match = rawConfigs.find((c: any) => c.form_type === 'booking' && c.field_name === def.field_name);
+            return {
+              ...def,
+              field_label: match?.field_label || def.field_label,
+              is_required: match?.is_required !== undefined ? match.is_required : def.is_required,
+              display_order: match?.display_order !== undefined ? match.display_order : def.display_order,
+              is_custom: false
+            };
+          });
           
         const customFields = (bookingData.customFields || [])
           .filter((f: any) => f.form_type === 'booking')
           .map((f: any) => ({ ...f, is_custom: true, is_active: true, field_name: f.field_label }));
-
-        // Fallback if the database has no fields configured yet
-        if (standardFields.length === 0 && customFields.length === 0) {
-          standardFields = [
-            { id: 'def-1', field_name: 'client_name', field_label: 'Full Name', field_type: 'text', is_required: true, is_custom: false, display_order: 1 },
-            { id: 'def-2', field_name: 'client_email', field_label: 'Email Address', field_type: 'email', is_required: true, is_custom: false, display_order: 2 },
-            { id: 'def-3', field_name: 'client_phone', field_label: 'Phone Number', field_type: 'tel', is_required: true, is_custom: false, display_order: 3 },
-            { id: 'def-4', field_name: 'notes', field_label: 'Special Requests / Notes', field_type: 'textarea', is_required: false, is_custom: false, display_order: 4 }
-          ];
-        }
 
         const combined = [...standardFields, ...customFields].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         setBookingFields(combined);
