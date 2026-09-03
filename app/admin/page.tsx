@@ -227,26 +227,48 @@ export default function AdminDashboard() {
         setSocialLinks(data.socialLinks || []);
         setCustomFields(data.customFields || []);
 
-        let defaultFields = data.fieldConfigs || [];
-        if (defaultFields.length === 0) {
-          defaultFields = [
-            { id: 'def-1', form_type: 'booking', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
-            { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
-            { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
-            { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
-            
-            { id: 'def-5', form_type: 'contact', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
-            { id: 'def-6', form_type: 'contact', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
-            { id: 'def-7', form_type: 'contact', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
-            { id: 'def-8', form_type: 'contact', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
+        const defaultsList = [
+          { id: 'def-1', form_type: 'booking', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
+          { id: 'def-2', form_type: 'booking', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
+          { id: 'def-3', form_type: 'booking', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
+          { id: 'def-4', form_type: 'booking', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
+          
+          { id: 'def-5', form_type: 'contact', field_name: 'client_name', field_label: 'Full Name', is_required: true, is_active: true, display_order: 1 },
+          { id: 'def-6', form_type: 'contact', field_name: 'client_email', field_label: 'Email Address', is_required: true, is_active: true, display_order: 2 },
+          { id: 'def-7', form_type: 'contact', field_name: 'client_phone', field_label: 'Phone Number', is_required: true, is_active: true, display_order: 3 },
+          { id: 'def-8', form_type: 'contact', field_name: 'notes', field_label: 'Special Requests / Notes', is_required: false, is_active: true, display_order: 4 },
 
-            { id: 'def-9', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
-            { id: 'def-10', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
-            { id: 'def-11', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
-            { id: 'def-12', form_type: 'consultation', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
-          ];
-        }
-        setFieldConfigs(defaultFields);
+          { id: 'def-9', form_type: 'consultation', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
+          { id: 'def-10', form_type: 'consultation', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
+          { id: 'def-11', form_type: 'consultation', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
+          { id: 'def-12', form_type: 'consultation', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
+        ];
+
+        const dbConfigs = data.fieldConfigs || [];
+        // Merge DB configurations over the defaults so saved states/labels are preserved
+        const mergedFields = defaultsList.map(def => {
+          const found = dbConfigs.find((c: any) => c.form_type === def.form_type && c.field_name === def.field_name);
+          if (found) {
+            return {
+              ...def,
+              id: found.id,
+              field_label: found.field_label ?? def.field_label,
+              is_required: found.is_required ?? def.is_required,
+              is_active: found.is_active ?? def.is_active,
+              display_order: found.display_order ?? def.display_order
+            };
+          }
+          return def;
+        });
+
+        // Also include any extra DB configs not in standard defaults
+        dbConfigs.forEach((dbC: any) => {
+          if (!mergedFields.some(m => m.form_type === dbC.form_type && m.field_name === dbC.field_name)) {
+            mergedFields.push(dbC);
+          }
+        });
+
+        setFieldConfigs(mergedFields);
         
         const loadedTemplates = data.templates || [];
         setTemplates(loadedTemplates);
@@ -689,10 +711,21 @@ export default function AdminDashboard() {
   const handleSaveDefaultFieldConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDefaultField) return;
+    
+    // Explicitly include field_name so the backend can upsert correctly even for default IDs
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'field_config', ...editingDefaultField }),
+      body: JSON.stringify({ 
+        type: 'field_config', 
+        id: editingDefaultField.id,
+        form_type: editingDefaultField.form_type,
+        field_name: editingDefaultField.field_name,
+        field_label: editingDefaultField.field_label,
+        is_required: Boolean(editingDefaultField.is_required),
+        is_active: Boolean(editingDefaultField.is_active),
+        display_order: editingDefaultField.display_order || 0
+      }),
     });
     setEditingDefaultField(null);
     loadData();
