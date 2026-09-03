@@ -72,6 +72,7 @@ export default function AdminCalendarPage() {
   const [editTreatmentId, setEditTreatmentId] = useState('');
   const [editPriceOverride, setEditPriceOverride] = useState('');
   const [editOverrideReason, setEditOverrideReason] = useState('');
+  const [sendEmailUpdate, setSendEmailUpdate] = useState(false); // Added toggle state for silent updates
 
   // Selected Blocked Time for Editing/Deleting
   const [selectedBlockTime, setSelectedBlockTime] = useState<BlockedTime | null>(null);
@@ -180,6 +181,7 @@ export default function AdminCalendarPage() {
       setEditTreatmentId(selectedBooking.treatment_id || selectedBooking.treatments?.id || '');
       setEditPriceOverride(selectedBooking.price_override !== undefined && selectedBooking.price_override !== null ? String(selectedBooking.price_override) : '');
       setEditOverrideReason(selectedBooking.override_reason || '');
+      setSendEmailUpdate(false); // Default to false so edits are silent unless checked
     }
   }, [selectedBooking]);
 
@@ -313,6 +315,7 @@ export default function AdminCalendarPage() {
         end_time: endDateTime.toISOString(),
         price_override: editPriceOverride ? parseFloat(editPriceOverride) : null,
         override_reason: editPriceOverride ? editOverrideReason : null,
+        send_email: sendEmailUpdate, // Passes true or false based on the checkbox toggle
       }),
     });
 
@@ -631,6 +634,21 @@ export default function AdminCalendarPage() {
                       <input type="text" value={editOverrideReason} onChange={(e) => setEditOverrideReason(e.target.value)} placeholder="e.g. Family discount, VIP" className="w-full p-2.5 border rounded-xl" required />
                     </div>
                   )}
+
+                  {/* Send Email Toggle Checkbox */}
+                  <div className="flex items-center space-x-2 py-2 bg-[#FAF9F6] p-3 rounded-xl border border-[#E5E7EB]">
+                    <input
+                      type="checkbox"
+                      id="sendEmailCheckbox"
+                      checked={sendEmailUpdate}
+                      onChange={(e) => setSendEmailUpdate(e.target.checked)}
+                      className="h-4 w-4 rounded border-stone-300 text-[#6B8E70] focus:ring-[#6B8E70] cursor-pointer"
+                    />
+                    <label htmlFor="sendEmailCheckbox" className="text-xs font-medium text-[#2C332B] select-none cursor-pointer">
+                      Send update email notification to client
+                    </label>
+                  </div>
+
                   <div className="flex space-x-2 pt-2">
                     <button type="button" onClick={() => setIsEditingBooking(false)} className="w-1/2 py-2.5 border rounded-xl uppercase font-semibold">Cancel</button>
                     <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-xl uppercase font-semibold">Save Changes</button>
