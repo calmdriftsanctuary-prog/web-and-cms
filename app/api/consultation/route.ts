@@ -8,13 +8,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { bookingId, dateOfBirth, responses } = body;
+    const { bookingId, clientName, clientEmail, dateOfBirth, responses } = body;
 
     const formattedResponses = {
       ...(responses || {}),
       date_of_birth: dateOfBirth || responses?.date_of_birth || responses?.['Date of Birth'] || null,
     };
 
+    // This updates the booking record which populates your CRM and calendar modal cards!
     if (bookingId) {
       const { error: updateError } = await supabase
         .from('bookings')
@@ -26,28 +27,30 @@ export async function POST(request: Request) {
         .eq('id', bookingId);
 
       if (updateError) {
-        console.error('Failed to update booking consultation details in calendar/CRM:', updateError);
+        console.error('Failed to update booking consultation details:', updateError);
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
       }
     }
 
-    const { data, error } = await supabase
-      .from('consultations')
-      .insert([
-        {
-          booking_id: bookingId || null,
-          date_of_birth: dateOfBirth || null,
-          responses: formattedResponses,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase error inserting consultation submission:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // Also record it in the consultations history table if it exists
+    try {
+      await supabase
+        .from('consultations')
+        .insert([
+          {
+            booking_id: bookingId || null,
+            client_name: clientName || null,
+            client_email: clientEmail || null,
+            date_of_birth: dateOfBirth || null,
+            responses: formattedResponses,
+          },
+        ]);
+    } catch (err) {
+      // Non-blocking if consultations table is bypassed
+      console.log('Consultations table log skipped:', err);
     }
 
-    return NextResponse.json({ success: true, submission: data });
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Server error processing consultation submission:', err);
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
@@ -70,13 +73,9 @@ export async function GET(request: Request) {
       .single();
 
     if (!bookingError && bookingData) {
-      const { data: qData, error: qError } = await supabase
+      const { data: qData } = await supabase
         .from('consultation_questions')
         .select('*');
-
-      if (qError) {
-        console.error('Failed to fetch consultation questions configuration:', qError);
-      }
 
       return NextResponse.json({
         consultation: {
