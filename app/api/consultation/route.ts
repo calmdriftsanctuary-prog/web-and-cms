@@ -35,7 +35,6 @@ export async function POST(request: Request) {
       'Medical Conditions': finalMedical,
       medical_conditions: finalMedical,
       Allergies: finalAllergies,
-      'Allergies': finalAllergies,
       allergies: finalAllergies,
       Pressure: finalPressure,
       'Pressure Preference': finalPressure,
