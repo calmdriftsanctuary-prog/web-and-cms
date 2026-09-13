@@ -80,6 +80,7 @@ export default function ConsultationPage() {
     setError('');
 
     try {
+      // Map responses using the exact question text as keys (e.g. "Medical", "Allergies", "Pressure", "Emergency")
       const formattedResponses: Record<string, any> = {
         ...responses,
         ...(dateOfBirth ? { 'Date of Birth': dateOfBirth, date_of_birth: dateOfBirth } : {}),
@@ -191,13 +192,13 @@ export default function ConsultationPage() {
 
             {consultation?.consultation_questions && consultation.consultation_questions.length > 0 && (
               <div className="space-y-6 pt-2">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Health & Lifestyle Questions</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Consultation Questions</h2>
                 
                 {consultation.consultation_questions.map((q) => {
                   const fieldKey = q.question_text;
                   return (
                     <div key={q.id} className="space-y-1.5">
-                      <label className="block text-xs font-medium text-gray-800">
+                      <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">
                         {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
                       </label>
 
