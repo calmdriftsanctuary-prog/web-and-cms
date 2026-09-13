@@ -12,25 +12,25 @@ export async function POST(request: Request) {
 
     const formattedResponses = {
       ...(responses || {}),
+      'Date of Birth': dateOfBirth || responses?.['Date of Birth'] || responses?.date_of_birth || null,
       date_of_birth: dateOfBirth || responses?.date_of_birth || responses?.['Date of Birth'] || null,
     };
 
     if (bookingId) {
-      // Update booking table with date of birth and status
+      // Sync date_of_birth onto the booking record as well
       const { error: updateError } = await supabase
         .from('bookings')
         .update({
           date_of_birth: dateOfBirth || null,
-          consultation_status: 'completed',
         })
         .eq('id', bookingId);
 
       if (updateError) {
-        console.error('Failed to update booking record:', updateError);
+        console.error('Failed to update booking date of birth:', updateError);
       }
     }
 
-    // Save directly into the consultations table where your CRM/Calendar views pull records
+    // Insert into the consultations table linked via booking_id
     const { data, error } = await supabase
       .from('consultations')
       .insert([
