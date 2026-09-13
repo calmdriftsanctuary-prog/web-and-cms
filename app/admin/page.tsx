@@ -27,11 +27,13 @@ interface Booking {
   };
   consultations?: {
     id: string;
+    date_of_birth?: string;
     medical_conditions: string;
     allergies: string;
     pressure_preference: string;
     emergency_contact: string;
     created_at: string;
+    responses?: any;
   }[];
 }
 
@@ -952,6 +954,7 @@ export default function AdminDashboard() {
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Forms</h4>
                   {selectedClient.consultations.length > 0 ? (
                     <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+                      <p><strong>Date of Birth:</strong> {selectedClient.consultations[0].date_of_birth || selectedClient.consultations[0].responses?.['Date of Birth'] || selectedClient.consultations[0].responses?.date_of_birth || 'Not provided'}</p>
                       <p><strong>Medical:</strong> {selectedClient.consultations[0].medical_conditions || 'None'}</p>
                       <p><strong>Allergies:</strong> {selectedClient.consultations[0].allergies || 'None'}</p>
                       <p><strong>Pressure:</strong> {selectedClient.consultations[0].pressure_preference || 'Standard'}</p>

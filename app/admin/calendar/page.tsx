@@ -6,11 +6,13 @@ import { Sparkles, ChevronLeft, ChevronRight, XCircle, Send, Plus, RefreshCw, Tr
 
 interface Consultation {
   id: string;
+  date_of_birth?: string;
   medical_conditions: string;
   allergies: string;
   pressure_preference: string;
   emergency_contact: string;
   created_at: string;
+  responses?: any;
 }
 
 interface Booking {
@@ -72,7 +74,7 @@ export default function AdminCalendarPage() {
   const [editTreatmentId, setEditTreatmentId] = useState('');
   const [editPriceOverride, setEditPriceOverride] = useState('');
   const [editOverrideReason, setEditOverrideReason] = useState('');
-  const [sendEmailUpdate, setSendEmailUpdate] = useState(false); // Added toggle state for silent updates
+  const [sendEmailUpdate, setSendEmailUpdate] = useState(false);
 
   // Selected Blocked Time for Editing/Deleting
   const [selectedBlockTime, setSelectedBlockTime] = useState<BlockedTime | null>(null);
@@ -91,7 +93,7 @@ export default function AdminCalendarPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newMarketingOptIn, setNewMarketingOptIn] = useState(false);
-  
+
   // Unrestricted manual time input for admin
   const [manualTime, setManualTime] = useState('10:00');
   const [bookingNotes, setBookingNotes] = useState('');
@@ -181,7 +183,7 @@ export default function AdminCalendarPage() {
       setEditTreatmentId(selectedBooking.treatment_id || selectedBooking.treatments?.id || '');
       setEditPriceOverride(selectedBooking.price_override !== undefined && selectedBooking.price_override !== null ? String(selectedBooking.price_override) : '');
       setEditOverrideReason(selectedBooking.override_reason || '');
-      setSendEmailUpdate(false); // Default to false so edits are silent unless checked
+      setSendEmailUpdate(false);
     }
   }, [selectedBooking]);
 
@@ -221,7 +223,7 @@ export default function AdminCalendarPage() {
   const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
   const getFirstDayOfMonth = (y: number, m: number) => {
     let day = new Date(y, m, 1).getDay();
-    return day === 0 ? 6 : day - 1; // Monday start
+    return day === 0 ? 6 : day - 1;
   };
 
   const daysInMonth = getDaysInMonth(year, month);
@@ -315,7 +317,7 @@ export default function AdminCalendarPage() {
         end_time: endDateTime.toISOString(),
         price_override: editPriceOverride ? parseFloat(editPriceOverride) : null,
         override_reason: editPriceOverride ? editOverrideReason : null,
-        send_email: sendEmailUpdate, // Passes true or false based on the checkbox toggle
+        send_email: sendEmailUpdate,
       }),
     });
 
@@ -406,7 +408,7 @@ export default function AdminCalendarPage() {
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans p-4 sm:p-8 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
-        
+
         {/* Header with Back to Admin Button */}
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#E5E7EB] pb-6 gap-4">
           <div className="flex items-center space-x-4">
@@ -457,7 +459,7 @@ export default function AdminCalendarPage() {
           <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 bg-[#FAF9F6] border rounded-xl text-xs uppercase font-semibold">Today</button>
         </div>
 
-        {/* Main Calendar View Area (Full Width) */}
+        {/* Main Calendar View Area */}
         <div className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[550px]">
           {loading ? (
             <p className="text-xs text-gray-400 py-12 text-center">Loading schedule...</p>
@@ -488,9 +490,9 @@ export default function AdminCalendarPage() {
                       </div>
                       <div className="space-y-1 mt-1">
                         {dayBookings.map(b => (
-                          <div 
-                            key={b.id} 
-                            onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} 
+                          <div
+                            key={b.id}
+                            onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
                             className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#6B8E70] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
                           >
                             {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {b.client_name}
@@ -500,8 +502,8 @@ export default function AdminCalendarPage() {
                           const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                           const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                           return (
-                            <div 
-                              key={bt.id} 
+                            <div
+                              key={bt.id}
                               onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }}
                               className={`text-[10px] p-1 rounded bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer hover:bg-amber-100 transition ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}
                             >
@@ -559,8 +561,7 @@ export default function AdminCalendarPage() {
           ) : (
             <div className="space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
-              
-              {/* Blocked Times on Day View */}
+
               {blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
                 const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -635,7 +636,6 @@ export default function AdminCalendarPage() {
                     </div>
                   )}
 
-                  {/* Send Email Toggle Checkbox */}
                   <div className="flex items-center space-x-2 py-2 bg-[#FAF9F6] p-3 rounded-xl border border-[#E5E7EB]">
                     <input
                       type="checkbox"
@@ -675,6 +675,7 @@ export default function AdminCalendarPage() {
                     {selectedBooking?.consultations?.[0] ? (
                       <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-1.5 text-xs">
                         <p className="text-emerald-700 font-medium">✓ Form Completed</p>
+                        <p><strong>Date of Birth:</strong> {selectedBooking.consultations[0].date_of_birth || selectedBooking.consultations[0].responses?.['Date of Birth'] || selectedBooking.consultations[0].responses?.date_of_birth || 'Not provided'}</p>
                         <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
                         <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
                         <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
