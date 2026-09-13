@@ -73,16 +73,14 @@ export async function GET(request: Request) {
       bookings = (bookingData || []).map((booking: any) => {
         if (booking.consultations && Array.isArray(booking.consultations)) {
           booking.consultations = booking.consultations.map((c: any) => {
-            if (c.responses && typeof c.responses === 'object') {
-              return {
-                ...c,
-                medical_conditions: c.medical_conditions || c.responses.medicalConditions || c.responses.medical_conditions || 'None',
-                allergies: c.allergies || c.responses.allergies || 'None',
-                pressure_preference: c.pressure_preference || c.responses.pressurePreference || c.responses.pressure_preference || 'Standard',
-                emergency_contact: c.emergency_contact || c.responses.emergencyContact || c.responses.emergency_contact || 'None',
-              };
-            }
-            return c;
+            const resp = c.responses || {};
+            return {
+              ...c,
+              medical_conditions: c.medical_conditions || resp.medical_conditions || resp.medicalConditions || resp['Medical Conditions / Injuries'] || resp['Medical Conditions'] || 'None',
+              allergies: c.allergies || resp.allergies || resp.Allergies || 'None',
+              pressure_preference: c.pressure_preference || resp.pressure_preference || resp.pressurePreference || resp['Massage Pressure Preference'] || resp['Pressure Preference'] || 'Standard',
+              emergency_contact: c.emergency_contact || resp.emergency_contact || resp.emergencyContact || resp['Emergency Contact Details'] || resp['Emergency Contact'] || 'None',
+            };
           });
         }
         return booking;
@@ -90,7 +88,7 @@ export async function GET(request: Request) {
 
       if (searchQuery) {
         const queryLower = searchQuery.toLowerCase();
-        bookings = bookings.filter((b: any) => 
+        bookings = bookings.filter((b: any) =>
           b.client_name?.toLowerCase().includes(queryLower) ||
           b.client_email?.toLowerCase().includes(queryLower) ||
           b.client_phone?.toLowerCase().includes(queryLower)
@@ -98,9 +96,9 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      treatments: treatmentRes.data || [], 
+      treatments: treatmentRes.data || [],
       bookings: bookings || [],
       pageContent: pageContentRes.data || [],
       templates: templatesRes.data || [],
@@ -109,7 +107,7 @@ export async function GET(request: Request) {
       popup: popupRes.data || null,
       customFields: customFieldsRes.data || [],
       fieldConfigs: fieldConfigsRes.data || [],
-      count: bookings.length 
+      count: bookings.length
     });
   } catch (error: any) {
     console.error('Admin Bookings GET Error:', error);
@@ -135,15 +133,15 @@ export async function POST(request: Request) {
     if (type === 'template') {
       const { key, subject, content, button_text, button_url } = body;
       const finalButtonUrl = button_url && button_url.trim() !== '' ? button_url : 'https://calmdriftsanctuary.co.uk';
-      
+
       const { error } = await supabase
         .from('email_templates')
-        .upsert({ 
-          key, 
-          subject, 
-          content, 
-          button_text: button_text || 'Complete Digital Consultation', 
-          button_url: finalButtonUrl 
+        .upsert({
+          key,
+          subject,
+          content,
+          button_text: button_text || 'Complete Digital Consultation',
+          button_url: finalButtonUrl
         }, { onConflict: 'key' });
 
       if (error) throw error;
@@ -316,7 +314,7 @@ export async function POST(request: Request) {
 
     if (type === 'field_config') {
       const { id: fieldId, form_type, field_name, field_label, is_required, is_active, display_order } = body;
-      
+
       const cleanFieldName = field_name || 'custom_field';
       const cleanFormType = form_type || 'booking';
 
@@ -438,7 +436,7 @@ export async function POST(request: Request) {
           const buttonText = dbTemplate?.button_text && dbTemplate.button_text.trim() !== '' ? dbTemplate.button_text : 'Complete Digital Consultation';
           const rawDbUrl = dbTemplate?.button_url;
           let finalUrl = absoluteConsultationUrl;
-          
+
           if (rawDbUrl && typeof rawDbUrl === 'string' && rawDbUrl.trim() !== '') {
             const trimmedUrl = rawDbUrl.trim();
             if (trimmedUrl.includes('calmdriftsanctuary.co.uk/consultation')) {
@@ -500,7 +498,6 @@ export async function POST(request: Request) {
 
       if (updateErr) throw updateErr;
 
-      // Only send reschedule email if send_email is explicitly set to true
       if (booking.client_email && send_email === true) {
         let treatmentTitle = booking.treatments?.title;
         if (treatment_id && treatment_id !== booking.treatment_id) {
@@ -510,7 +507,7 @@ export async function POST(request: Request) {
 
         const targetStartTime = start_time || booking.start_time;
         const newTimeFormatted = formatUKDateTime(targetStartTime);
-        
+
         await resend.emails.send({
           from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [booking.client_email],
