@@ -2,61 +2,69 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Sparkles, Send } from 'lucide-react';
+import { Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 
-interface FormFieldConfig {
+interface Question {
   id: string;
-  field_name: string;
-  field_label: string;
+  question_text: string;
+  question_type: string;
+  options?: string;
   is_required: boolean;
-  is_active: boolean;
-  display_order: number;
+}
+
+interface ConsultationForm {
+  id: string;
+  title: string;
+  description: string;
+  consultation_questions: Question[];
 }
 
 export default function ConsultationPage() {
   const params = useParams();
-  const bookingId = params.id as string;
+  const id = params?.id as string;
 
+  const [consultation, setConsultation] = useState<ConsultationForm | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
-  const [bookingDetails, setBookingDetails] = useState<any>(null);
-  const [fieldConfigs, setFieldConfigs] = useState<FormFieldConfig[]>([]);
 
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [medicalConditions, setMedicalConditions] = useState('');
-  const [allergies, setAllergies] = useState('');
-  const [pressurePreference, setPressurePreference] = useState('Standard');
-  const [emergencyContact, setEmergencyContact] = useState('');
-  const [customResponses, setCustomResponses] = useState<Record<string, string>>({});
+  const [responses, setResponses] = useState<Record<string, any>>({});
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/consultation?bookingId=${bookingId}`)
+    if (!id) return;
+    fetch(`/api/consultation?id=${id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
           setError(data.error);
         } else {
-          setBookingDetails(data.booking);
-          setFieldConfigs(data.fieldConfigs || [
-            { id: 'c-1', field_name: 'date_of_birth', field_label: 'Date of Birth', is_required: true, is_active: true, display_order: 0 },
-            { id: 'c-2', field_name: 'medical_conditions', field_label: 'Medical Conditions / Injuries', is_required: false, is_active: true, display_order: 1 },
-            { id: 'c-3', field_name: 'allergies', field_label: 'Allergies', is_required: false, is_active: true, display_order: 2 },
-            { id: 'c-4', field_name: 'pressure_preference', field_label: 'Massage Pressure Preference', is_required: false, is_active: true, display_order: 3 },
-            { id: 'c-5', field_name: 'emergency_contact', field_label: 'Emergency Contact Details', is_required: true, is_active: true, display_order: 4 },
-          ]);
+          setConsultation(data.consultation);
         }
         setLoading(false);
       })
-      .catch(() => {
-        setError('Failed to load consultation session.');
+      .catch((err) => {
+        console.error('Failed to load consultation', err);
+        setError('Failed to load consultation form.');
         setLoading(false);
       });
-  }, [bookingId]);
+  }, [id]);
+
+  const handleInputChange = (questionId: string, value: any) => {
+    setResponses((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     setError('');
 
     try {
@@ -64,28 +72,31 @@ export default function ConsultationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId,
+          consultationId: id,
+          clientName,
+          clientEmail,
+          clientPhone,
           dateOfBirth,
-          medicalConditions,
-          allergies,
-          pressurePreference,
-          emergencyContact,
-          responses: customResponses
+          responses: {
+            ...responses,
+            date_of_birth: dateOfBirth,
+            'Date of Birth': dateOfBirth,
+          },
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit consultation form.');
+      if (!res.ok) throw new Error(data.error || 'Failed to submit consultation.');
 
       setSubmitted(true);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || 'Something went wrong during submission.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  if (loading && !bookingDetails) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
         <div className="text-xs uppercase tracking-widest text-gray-400">loading consultation form...</div>
@@ -93,12 +104,27 @@ export default function ConsultationPage() {
     );
   }
 
-  if (error && !bookingDetails) {
+  if (error && !consultation) {
     return (
-      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B] p-6">
-        <div className="bg-white p-8 rounded-2xl border max-w-md w-full text-center space-y-3">
-          <h2 className="font-serif text-xl text-red-600">Unable to Load Form</h2>
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans p-6">
+        <div className="bg-white p-6 rounded-2xl border border-red-200 text-center max-w-md w-full space-y-3">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
+          <h2 className="font-serif text-xl text-gray-900">Form Not Found</h2>
           <p className="text-xs text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans p-6">
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] text-center max-w-md w-full space-y-4 shadow-sm">
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h2 className="font-serif text-2xl text-gray-900">Submission Received</h2>
+          <p className="text-sm text-gray-600">Thank you, {clientName}. Your consultation details have been securely recorded for your upcoming sanctuary visit.</p>
         </div>
       </div>
     );
@@ -106,120 +132,144 @@ export default function ConsultationPage() {
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans py-12 px-4 sm:px-6">
-      <div className="max-w-xl mx-auto bg-white p-6 sm:p-10 rounded-2xl border shadow-sm space-y-6">
-        <div className="text-center space-y-2 border-b pb-6">
-          <div className="flex justify-center mb-1">
-            <img src="/logo.png" alt="Sanctuary Logo" className="h-12 w-auto object-contain" />
-          </div>
-          <span className="inline-flex items-center space-x-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#693F00]">
-            <Sparkles className="w-3 h-3" />
-            <span>Calm Drift Sanctuary Intake</span>
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div className="text-center space-y-2">
+          <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Calm Drift Sanctuary</span>
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl text-gray-900">Client Consultation Form</h1>
-          {bookingDetails && (
-            <p className="text-xs text-gray-500">
-              Welcome, {bookingDetails.client_name} • Treatment: {bookingDetails.treatments?.title || 'Sanctuary Session'}
+          <h1 className="font-serif text-3xl sm:text-4xl text-gray-900 font-bold tracking-tight">
+            {consultation?.title || 'Client Consultation'}
+          </h1>
+          {consultation?.description && (
+            <p className="text-sm text-gray-600 max-w-lg mx-auto font-light leading-relaxed">
+              {consultation.description}
             </p>
           )}
         </div>
 
-        {submitted ? (
-          <div className="text-center py-8 space-y-4">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-              <Send className="w-6 h-6" />
-            </div>
-            <h3 className="font-serif text-2xl font-bold">Consultation Submitted</h3>
-            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-              Thank you for providing your details. Our practitioners have received your intake form and look forward to welcoming you to the sanctuary.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{error}</div>}
+        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
+          {error && <div className="mb-6 p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{error}</div>}
 
-            <div className="p-3 bg-[#FAF9F6] rounded-xl border text-xs text-gray-600 mb-4">
-              Please complete this brief wellness intake prior to your appointment so we can tailor your treatment safely.
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4 pb-6 border-b border-[#E5E7EB]">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Personal Information</h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    placeholder="Jane Doe"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
-                Date of Birth <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    placeholder="jane@example.com"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
-                Medical Conditions / Recent Injuries
-              </label>
-              <textarea
-                rows={3}
-                value={medicalConditions}
-                onChange={(e) => setMedicalConditions(e.target.value)}
-                placeholder="Please list any conditions, surgeries, or injuries..."
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                    placeholder="07123 456789"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
-                Allergies or Product Sensitivities
-              </label>
-              <input
-                type="text"
-                value={allergies}
-                onChange={(e) => setAllergies(e.target.value)}
-                placeholder="e.g. Nut oils, latex, scents"
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
-                Massage Pressure Preference
-              </label>
-              <select
-                value={pressurePreference}
-                onChange={(e) => setPressurePreference(e.target.value)}
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-              >
-                <option value="Light">Light & Gentle</option>
-                <option value="Standard">Standard / Medium</option>
-                <option value="Firm">Firm / Deep Tissue</option>
-              </select>
+                <div>
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
+                    Date of Birth <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
-                Emergency Contact Details <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={emergencyContact}
-                onChange={(e) => setEmergencyContact(e.target.value)}
-                placeholder="Name and phone number"
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-              />
-            </div>
+            {consultation?.consultation_questions && consultation.consultation_questions.length > 0 && (
+              <div className="space-y-6 pt-2">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Health & Lifestyle Questions</h2>
+                
+                {consultation.consultation_questions.map((q) => (
+                  <div key={q.id} className="space-y-1.5">
+                    <label className="block text-xs font-medium text-gray-800">
+                      {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
+                    </label>
+
+                    {q.question_type === 'textarea' ? (
+                      <textarea
+                        required={q.is_required}
+                        rows={3}
+                        value={responses[q.id] || ''}
+                        onChange={(e) => handleInputChange(q.id, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      />
+                    ) : q.question_type === 'select' && q.options ? (
+                      <select
+                        required={q.is_required}
+                        value={responses[q.id] || ''}
+                        onChange={(e) => handleInputChange(q.id, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      >
+                        <option value="">Select an option...</option>
+                        {q.options.split(',').map((opt, i) => (
+                          <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        required={q.is_required}
+                        value={responses[q.id] || ''}
+                        onChange={(e) => handleInputChange(q.id, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+                disabled={submitting}
+                className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
               >
-                {loading ? 'Submitting...' : 'Submit Consultation Form'}
+                {submitting ? 'Submitting Form...' : 'Submit Consultation'}
               </button>
             </div>
           </form>
-        )}
+        </div>
       </div>
     </main>
   );
