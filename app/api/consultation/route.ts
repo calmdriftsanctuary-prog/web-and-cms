@@ -76,19 +76,45 @@ export async function GET(request: Request) {
       .single();
 
     if (!bookingError && bookingData) {
-      // Fetch the actual consultation questions from the database
-      const { data: templateData, error: templateError } = await supabase
+      // Fetch consultation templates and all questions directly
+      const { data: templates } = await supabase
         .from('consultations')
-        .select('*, consultation_questions(*)')
-        .limit(1)
-        .single();
+        .select('*');
+
+      let questions: any[] = [];
+      let templateTitle = 'Client Consultation Form';
+      let templateDesc = 'Please complete your pre-treatment consultation details below.';
+      let templateId = id;
+
+      if (templates && templates.length > 0) {
+        templateId = templates[0].id;
+        templateTitle = templates[0].title || templateTitle;
+        templateDesc = templates[0].description || templateDesc;
+
+        const { data: qData } = await supabase
+          .from('consultation_questions')
+          .select('*')
+          .eq('consultation_id', templateId);
+
+        if (qData && qData.length > 0) {
+          questions = qData;
+        }
+      }
+
+      // Fallback: if no questions found linked by ID, grab all active consultation questions
+      if (questions.length === 0) {
+        const { data: allQ } = await supabase
+          .from('consultation_questions')
+          .select('*');
+        if (allQ) questions = allQ;
+      }
 
       return NextResponse.json({
         consultation: {
-          id: templateData?.id || id,
-          title: templateData?.title || 'Client Consultation Form',
-          description: templateData?.description || 'Please complete your pre-treatment consultation details below.',
-          consultation_questions: templateData?.consultation_questions || [],
+          id: templateId,
+          title: templateTitle,
+          description: templateDesc,
+          consultation_questions: questions,
         },
         booking: bookingData,
       });
