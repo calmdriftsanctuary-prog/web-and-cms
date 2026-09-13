@@ -102,6 +102,7 @@ export default function CustomBookingPage() {
       const formattedMinute = String(minutes).padStart(2, '0');
       const timeString24 = `${formattedHour}:${formattedMinute}:00`;
 
+      // Construct local ISO string representation to preserve exact local time without UTC shifting
       const startDateTimeStr = `${dateStringOnly}T${timeString24}`;
       const startDate = new Date(startDateTimeStr);
 
@@ -110,10 +111,17 @@ export default function CustomBookingPage() {
         return;
       }
 
-      // Find selected treatment duration if available
       const chosenTreatment = treatments.find((t) => t.id === selectedTreatmentId);
       const durationMinutes = chosenTreatment?.duration_minutes || 60;
-      const endDateTime = new Date(startDate.getTime() + durationMinutes * 60000).toISOString();
+      
+      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+      
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      const endHour = String(endDate.getHours()).padStart(2, '0');
+      const endMinute = String(endDate.getMinutes()).padStart(2, '0');
+      const endString24 = `${endHour}:${endMinute}:00`;
 
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -123,8 +131,8 @@ export default function CustomBookingPage() {
           clientName: linkData.client_name,
           clientEmail: clientEmail,
           clientPhone: clientPhone,
-          startTime: startDate.toISOString(),
-          endTime: endDateTime,
+          startTime: `${startDateTimeStr}.000Z`,
+          endTime: `${endYear}-${endMonth}-${endDay}T${endString24}.000Z`,
           durationMinutes: durationMinutes,
           isAdminBypass: true,
         }),
