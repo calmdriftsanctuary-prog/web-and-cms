@@ -146,32 +146,33 @@ export default function ConsultationPage() {
     );
   }
 
-  // Fallback default questions if none come back from the database query
+  // Fallback to standard original questions if none are returned by template
   const questionsToDisplay = consultation?.consultation_questions && consultation.consultation_questions.length > 0 
     ? consultation.consultation_questions 
     : [
-        { id: 'fb-1', question_text: 'Medical', question_type: 'textarea', is_required: false },
-        { id: 'fb-2', question_text: 'Allergies', question_type: 'textarea', is_required: false },
-        { id: 'fb-3', question_text: 'Pressure', question_type: 'text', is_required: false },
-        { id: 'fb-4', question_text: 'Emergency', question_type: 'text', is_required: false }
+        { id: 'q-1', question_text: 'Medical', question_type: 'textarea', is_required: false },
+        { id: 'q-2', question_text: 'Allergies', question_type: 'textarea', is_required: false },
+        { id: 'q-3', question_text: 'Pressure', question_type: 'select', options: 'Gentle, Medium, Firm', is_required: false },
+        { id: 'q-4', question_text: 'Emergency', question_type: 'text', is_required: false }
       ];
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans py-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="text-center space-y-2">
+          <div className="flex justify-center mb-1">
+            <img src="/logo.png" alt="Sanctuary Logo" className="h-16 w-auto object-contain" />
+          </div>
           <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Calm Drift Sanctuary</span>
           </span>
           <h1 className="font-serif text-3xl sm:text-4xl text-gray-900 font-bold tracking-tight">
-            {consultation?.title || 'Client Consultation'}
+            {consultation?.title || 'Client Consultation Form'}
           </h1>
-          {consultation?.description && (
-            <p className="text-sm text-gray-600 max-w-lg mx-auto font-light leading-relaxed">
-              {consultation.description}
-            </p>
-          )}
+          <p className="text-sm text-gray-600 max-w-lg mx-auto font-light leading-relaxed">
+            {consultation?.description || 'Please complete your pre-treatment consultation details below.'}
+          </p>
           {booking?.client_name && (
             <p className="text-xs text-gray-500 pt-1">
               Preparing consultation for <span className="font-medium text-gray-800">{booking.client_name}</span>
@@ -204,6 +205,9 @@ export default function ConsultationPage() {
               
               {questionsToDisplay.map((q) => {
                 const fieldKey = q.question_text;
+                const isPressure = fieldKey.toLowerCase().includes('pressure');
+                const optionsList = q.options || (isPressure ? 'Gentle, Medium, Firm' : '');
+
                 return (
                   <div key={q.id || fieldKey} className="space-y-1.5">
                     <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">
@@ -218,15 +222,15 @@ export default function ConsultationPage() {
                         onChange={(e) => handleInputChange(fieldKey, e.target.value)}
                         className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                       />
-                    ) : q.question_type === 'select' && q.options ? (
+                    ) : q.question_type === 'select' || optionsList ? (
                       <select
                         required={q.is_required}
                         value={responses[fieldKey] || ''}
                         onChange={(e) => handleInputChange(fieldKey, e.target.value)}
                         className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                       >
-                        <option value="">Select an option...</option>
-                        {q.options.split(',').map((opt, i) => (
+                        <option value="">Select pressure preference...</option>
+                        {optionsList.split(',').map((opt, i) => (
                           <option key={i} value={opt.trim()}>{opt.trim()}</option>
                         ))}
                       </select>
