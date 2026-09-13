@@ -15,42 +15,42 @@ export async function POST(request: Request) {
       date_of_birth: dateOfBirth || responses?.date_of_birth || responses?.['Date of Birth'] || null,
     };
 
-    // This updates the booking record which populates your CRM and calendar modal cards!
     if (bookingId) {
+      // Update booking table with date of birth and status
       const { error: updateError } = await supabase
         .from('bookings')
         .update({
           date_of_birth: dateOfBirth || null,
-          consultation_responses: formattedResponses,
           consultation_status: 'completed',
         })
         .eq('id', bookingId);
 
       if (updateError) {
-        console.error('Failed to update booking consultation details:', updateError);
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
+        console.error('Failed to update booking record:', updateError);
       }
     }
 
-    // Also record it in the consultations history table if it exists
-    try {
-      await supabase
-        .from('consultations')
-        .insert([
-          {
-            booking_id: bookingId || null,
-            client_name: clientName || null,
-            client_email: clientEmail || null,
-            date_of_birth: dateOfBirth || null,
-            responses: formattedResponses,
-          },
-        ]);
-    } catch (err) {
-      // Non-blocking if consultations table is bypassed
-      console.log('Consultations table log skipped:', err);
+    // Save directly into the consultations table where your CRM/Calendar views pull records
+    const { data, error } = await supabase
+      .from('consultations')
+      .insert([
+        {
+          booking_id: bookingId || null,
+          client_name: clientName || null,
+          client_email: clientEmail || null,
+          date_of_birth: dateOfBirth || null,
+          responses: formattedResponses,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error inserting consultation:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, submission: data });
   } catch (err: any) {
     console.error('Server error processing consultation submission:', err);
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
