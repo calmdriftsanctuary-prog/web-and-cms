@@ -26,15 +26,14 @@ export async function POST(request: Request) {
         .eq('id', bookingId);
 
       if (updateError) {
-        console.error('Failed to update booking consultation details:', updateError);
+        console.error('Failed to update booking consultation details in calendar/CRM:', updateError);
       }
     }
 
     const { data, error } = await supabase
-      .from('consultation_submissions')
+      .from('consultations')
       .insert([
         {
-          consultation_id: consultationId || null,
           booking_id: bookingId || null,
           client_name: clientName,
           client_email: clientEmail,
@@ -48,7 +47,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('Supabase error inserting consultation:', error);
+      console.error('Supabase error inserting consultation submission:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -68,7 +67,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
-    // Check if the ID belongs to an actual booking
     const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
       .select('*')
@@ -76,54 +74,28 @@ export async function GET(request: Request) {
       .single();
 
     if (!bookingError && bookingData) {
-      // Fetch consultation templates and all questions directly
-      const { data: templates } = await supabase
-        .from('consultations')
+      const { data: qData, error: qError } = await supabase
+        .from('consultation_questions')
         .select('*');
 
-      let questions: any[] = [];
-      let templateTitle = 'Client Consultation Form';
-      let templateDesc = 'Please complete your pre-treatment consultation details below.';
-      let templateId = id;
-
-      if (templates && templates.length > 0) {
-        templateId = templates[0].id;
-        templateTitle = templates[0].title || templateTitle;
-        templateDesc = templates[0].description || templateDesc;
-
-        const { data: qData } = await supabase
-          .from('consultation_questions')
-          .select('*')
-          .eq('consultation_id', templateId);
-
-        if (qData && qData.length > 0) {
-          questions = qData;
-        }
-      }
-
-      // Fallback: if no questions found linked by ID, grab all active consultation questions
-      if (questions.length === 0) {
-        const { data: allQ } = await supabase
-          .from('consultation_questions')
-          .select('*');
-        if (allQ) questions = allQ;
+      if (qError) {
+        console.error('Failed to fetch consultation questions configuration:', qError);
       }
 
       return NextResponse.json({
         consultation: {
-          id: templateId,
-          title: templateTitle,
-          description: templateDesc,
-          consultation_questions: questions,
+          id: id,
+          title: 'Client Consultation Form',
+          description: 'Please complete your pre-treatment consultation details below.',
+          consultation_questions: qData || [],
         },
         booking: bookingData,
       });
     }
 
-    // Fallback for direct consultation template IDs
     const { data, error } = await supabase
       .from('consultations')
-      .select('*, consultation_questions(*)')
+      .select('*')
       .eq('id', id)
       .single();
 
