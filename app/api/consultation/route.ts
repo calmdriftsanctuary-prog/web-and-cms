@@ -20,23 +20,27 @@ export async function POST(request: Request) {
       responses 
     } = body;
 
-    // Extract values flexibly from direct body properties or responses dictionary
+    // Extract values flexibly from direct body properties or responses dictionary (including frontend PascalCase keys)
     const finalDob = dateOfBirth || responses?.['Date of Birth'] || responses?.date_of_birth || null;
-    const finalMedical = medicalConditions || responses?.['Medical Conditions'] || responses?.medical_conditions || responses?.medical || null;
-    const finalAllergies = allergies || responses?.['Allergies'] || responses?.allergies || null;
-    const finalPressure = pressurePreference || responses?.['Pressure Preference'] || responses?.pressure_preference || responses?.pressure || null;
-    const finalEmergency = emergencyContact || responses?.['Emergency Contact'] || responses?.emergency_contact || responses?.emergency || null;
+    const finalMedical = medicalConditions || responses?.Medical || responses?.['Medical Conditions'] || responses?.medical_conditions || responses?.medical || null;
+    const finalAllergies = allergies || responses?.Allergies || responses?.['Allergies'] || responses?.allergies || null;
+    const finalPressure = pressurePreference || responses?.Pressure || responses?.['Pressure Preference'] || responses?.pressure_preference || responses?.pressure || null;
+    const finalEmergency = emergencyContact || responses?.Emergency || responses?.['Emergency Contact'] || responses?.emergency_contact || responses?.emergency || null;
 
     const formattedResponses = {
       ...(responses || {}),
       'Date of Birth': finalDob,
       date_of_birth: finalDob,
+      Medical: finalMedical,
       'Medical Conditions': finalMedical,
       medical_conditions: finalMedical,
+      Allergies: finalAllergies,
       'Allergies': finalAllergies,
       allergies: finalAllergies,
+      Pressure: finalPressure,
       'Pressure Preference': finalPressure,
       pressure_preference: finalPressure,
+      Emergency: finalEmergency,
       'Emergency Contact': finalEmergency,
       emergency_contact: finalEmergency,
     };
