@@ -186,8 +186,8 @@ export default function HomePage() {
     );
   }
 
-  const displayedGallery = galleryImages.length > 3 ? [...galleryImages, ...galleryImages] : galleryImages;
-  const displayedReviews = reviews.length > 3 ? [...reviews, ...reviews] : reviews;
+  const displayedGallery = galleryImages;
+  const displayedReviews = reviews;
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans selection:bg-[#693F00] selection:text-white overflow-x-hidden space-y-8 py-6">
@@ -363,16 +363,16 @@ export default function HomePage() {
       </section>
 
       {galleryImages.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8 overflow-hidden">
-          <div className="text-center space-y-1">
+        <section className="border-t border-[#E5E7EB] pt-8">
+          <div className="max-w-6xl mx-auto px-4 text-center space-y-1 mb-4">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.gallery_heading || 'Calm Drift Sanctuary Space'}</h2>
             <p className="text-xs text-gray-500 uppercase tracking-wider">{content.gallery_subtext || 'A glimpse into our restorative environment'}</p>
           </div>
           
-          <div className="w-full overflow-x-auto pb-4 scrollbar-none">
-            <div className={`flex gap-4 ${galleryImages.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
-              {displayedGallery.map((img, idx) => (
-                <div key={`${img.id}-${idx}`} className="w-[300px] sm:w-[340px] flex-shrink-0 overflow-hidden rounded-2xl border border-[#E5E7EB] shadow-sm bg-white">
+          <div className="w-full overflow-x-auto pb-4 pt-2 scrollbar-none">
+            <div className="flex gap-4 px-6 md:justify-center w-max mx-auto">
+              {displayedGallery.map((img) => (
+                <div key={img.id} className="w-[300px] sm:w-[340px] flex-shrink-0 overflow-hidden rounded-2xl border border-[#E5E7EB] shadow-sm bg-white">
                   <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
                   {img.caption && <div className="p-2 text-xs text-center text-gray-600">{img.caption}</div>}
                 </div>
@@ -383,16 +383,16 @@ export default function HomePage() {
       )}
 
       {reviews.length > 0 && (
-        <section className="max-w-5xl mx-auto px-4 space-y-4 border-t border-[#E5E7EB] pt-8 pb-4 overflow-hidden">
-          <div className="text-center space-y-1">
+        <section className="border-t border-[#E5E7EB] pt-8 pb-4">
+          <div className="max-w-5xl mx-auto px-4 text-center space-y-1 mb-4">
             <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.reviews_heading || 'Client Experiences'}</h2>
             <p className="text-xs text-gray-500 uppercase tracking-wider">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
           </div>
 
-          <div className="w-full overflow-x-auto pb-4 scrollbar-none">
-            <div className={`flex gap-4 ${reviews.length > 3 ? 'animate-marquee' : 'justify-center'}`}>
-              {displayedReviews.map((rev, idx) => (
-                <div key={`${rev.id}-${idx}`} className="w-[300px] sm:w-[340px] flex-shrink-0 bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-3 flex flex-col justify-between">
+          <div className="w-full overflow-x-auto pb-4 pt-2 scrollbar-none">
+            <div className="flex gap-4 px-6 md:justify-center w-max mx-auto">
+              {displayedReviews.map((rev) => (
+                <div key={rev.id} className="w-[300px] sm:w-[340px] flex-shrink-0 bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-3 flex flex-col justify-between">
                   <div className="space-y-2">
                     <div className="flex text-amber-500">
                       {[...Array(rev.rating || 5)].map((_, i) => (
@@ -416,18 +416,6 @@ export default function HomePage() {
       </footer>
 
       <style jsx global>{`
-        @keyframes marquee {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          display: flex;
-          width: max-content;
-          animation: marquee 35s linear infinite;
-        }
-        .animate-marquee:hover {
-          animation-play-state: paused;
-        }
         .scrollbar-none::-webkit-scrollbar {
           display: none;
         }
