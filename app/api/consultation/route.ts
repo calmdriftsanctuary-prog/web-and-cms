@@ -1,103 +1,118 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const bookingId = searchParams.get('bookingId');
-
-    if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
-    }
-
-    const { data: booking, error: bookingErr } = await supabase
-      .from('bookings')
-      .select('*, treatments(title)')
-      .eq('id', bookingId)
-      .single();
-
-    if (bookingErr || !booking) {
-      return NextResponse.json({ error: 'Booking appointment not found' }, { status: 404 });
-    }
-
-    const { data: fieldConfigs } = await supabase
-      .from('field_configs')
-      .select('*')
-      .eq('form_type', 'consultation');
-
-    return NextResponse.json({ success: true, booking, fieldConfigs: fieldConfigs || [] });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch consultation' }, { status: 500 });
-  }
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      bookingId, 
-      dateOfBirth,
-      medicalConditions, 
-      allergies, 
-      pressurePreference, 
-      emergencyContact, 
-      ...dynamicFields 
-    } = body;
+    const { consultationId, bookingId, clientName, clientEmail, clientPhone, dateOfBirth, responses } = body;
 
-    if (!bookingId) {
-      return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
-    }
-
-    // Package all standard fields, date of birth, and dynamic fields neatly into the database row and jsonb responses column
-    const consultationRecord = {
-      booking_id: bookingId,
-      date_of_birth: dateOfBirth || null,
-      responses: {
-        medicalConditions: medicalConditions || 'None',
-        allergies: allergies || 'None',
-        pressurePreference: pressurePreference || 'Standard',
-        emergencyContact: emergencyContact || 'None',
-        ...dynamicFields
-      }
+    const formattedResponses = {
+      ...(responses || {}),
+      date_of_birth: dateOfBirth || responses?.date_of_birth || responses?.['Date of Birth'] || null,
     };
 
-    // Check if a consultation record already exists for this booking
-    const { data: existing } = await supabase
-      .from('consultations')
-      .select('id')
-      .eq('booking_id', bookingId)
+    // If submitted via a booking link, update the existing booking record or insert a submission
+    if (bookingId) {
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          date_of_birth: dateOfBirth || null,
+          consultation_responses: formattedResponses,
+          consultation_status: 'completed',
+        })
+        .eq('id', bookingId);
+
+      if (updateError) {
+        console.error('Failed to update booking consultation details:', updateError);
+      }
+    }
+
+    if (!consultationId && !bookingId) {
+      return NextResponse.json({ error: 'Missing consultation or booking reference' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('consultation_submissions')
+      .insert([
+        {
+          consultation_id: consultationId || null,
+          booking_id: bookingId || null,
+          client_name: clientName,
+          client_email: clientEmail,
+          client_phone: clientPhone,
+          date_of_birth: dateOfBirth || null,
+          responses: formattedResponses,
+          status: 'submitted',
+        },
+      ])
+      .select()
       .single();
 
-    let queryError = null;
-
-    if (existing) {
-      // Update existing record
-      const { error } = await supabase
-        .from('consultations')
-        .update(consultationRecord)
-        .eq('id', existing.id);
-      queryError = error;
-    } else {
-      // Insert new record
-      const { error } = await supabase
-        .from('consultations')
-        .insert(consultationRecord);
-      queryError = error;
+    if (error) {
+      console.error('Supabase error inserting consultation:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (queryError) {
-      console.error('Consultation Save Error:', queryError);
-      return NextResponse.json({ error: queryError.message }, { status: 500 });
+    return NextResponse.json({ success: true, submission: data });
+  } catch (err: any) {
+    console.error('Server error processing consultation submission:', err);
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Consultation API Route Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    // First, check if the ID corresponds to an actual Booking from the email link
+    const { data: bookingData, error: bookingError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!bookingError && bookingData) {
+      // Find the active consultation template questions to display on the form
+      const { data: templateData } = await supabase
+        .from('consultations')
+        .select('*, consultation_questions(*)')
+        .limit(1)
+        .single();
+
+      return NextResponse.json({
+        consultation: {
+          id: templateData?.id || id,
+          title: templateData?.title || 'Client Consultation Form',
+          description: templateData?.description || 'Please complete your pre-treatment consultation details below.',
+          consultation_questions: templateData?.consultation_questions || [],
+        },
+        booking: bookingData,
+      });
+    }
+
+    // Fallback: If it was requested as a raw consultation template ID instead
+    const { data, error } = await supabase
+      .from('consultations')
+      .select('*, consultation_questions(*)')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Consultation form not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ consultation: data });
+  } catch (err: any) {
+    console.error('Server error fetching consultation form:', err);
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
