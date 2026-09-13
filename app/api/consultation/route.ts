@@ -6,11 +6,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const bookingId = searchParams.get('bookingId');
+
+    if (!bookingId) {
+      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
+    }
+
+    const { data: booking, error: bookingErr } = await supabase
+      .from('bookings')
+      .select('*, treatments(title)')
+      .eq('id', bookingId)
+      .single();
+
+    if (bookingErr || !booking) {
+      return NextResponse.json({ error: 'Booking appointment not found' }, { status: 404 });
+    }
+
+    const { data: fieldConfigs } = await supabase
+      .from('field_configs')
+      .select('*')
+      .eq('form_type', 'consultation');
+
+    return NextResponse.json({ success: true, booking, fieldConfigs: fieldConfigs || [] });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to fetch consultation' }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
       bookingId, 
+      dateOfBirth,
       medicalConditions, 
       allergies, 
       pressurePreference, 
@@ -22,9 +53,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing booking reference ID.' }, { status: 400 });
     }
 
-    // Package all standard and dynamic fields neatly into the jsonb responses column
+    // Package all standard fields, date of birth, and dynamic fields neatly into the database row and jsonb responses column
     const consultationRecord = {
       booking_id: bookingId,
+      date_of_birth: dateOfBirth || null,
       responses: {
         medicalConditions: medicalConditions || 'None',
         allergies: allergies || 'None',
