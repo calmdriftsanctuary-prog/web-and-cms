@@ -30,10 +30,6 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!consultationId && !bookingId) {
-      return NextResponse.json({ error: 'Missing consultation or booking reference' }, { status: 400 });
-    }
-
     const { data, error } = await supabase
       .from('consultation_submissions')
       .insert([
@@ -72,6 +68,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
+    // Check if the ID belongs to an actual booking
     const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
       .select('*')
@@ -79,7 +76,8 @@ export async function GET(request: Request) {
       .single();
 
     if (!bookingError && bookingData) {
-      const { data: templateData } = await supabase
+      // Fetch the actual consultation questions from the database
+      const { data: templateData, error: templateError } = await supabase
         .from('consultations')
         .select('*, consultation_questions(*)')
         .limit(1)
@@ -96,6 +94,7 @@ export async function GET(request: Request) {
       });
     }
 
+    // Fallback for direct consultation template IDs
     const { data, error } = await supabase
       .from('consultations')
       .select('*, consultation_questions(*)')
