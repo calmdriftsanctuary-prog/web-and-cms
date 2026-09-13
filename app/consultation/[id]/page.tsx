@@ -80,7 +80,6 @@ export default function ConsultationPage() {
     setError('');
 
     try {
-      // Map responses using the exact question text as keys (e.g. "Medical", "Allergies", "Pressure", "Emergency")
       const formattedResponses: Record<string, any> = {
         ...responses,
         ...(dateOfBirth ? { 'Date of Birth': dateOfBirth, date_of_birth: dateOfBirth } : {}),
@@ -147,6 +146,16 @@ export default function ConsultationPage() {
     );
   }
 
+  // Fallback default questions if none come back from the database query
+  const questionsToDisplay = consultation?.consultation_questions && consultation.consultation_questions.length > 0 
+    ? consultation.consultation_questions 
+    : [
+        { id: 'fb-1', question_text: 'Medical', question_type: 'textarea', is_required: false },
+        { id: 'fb-2', question_text: 'Allergies', question_type: 'textarea', is_required: false },
+        { id: 'fb-3', question_text: 'Pressure', question_type: 'text', is_required: false },
+        { id: 'fb-4', question_text: 'Emergency', question_type: 'text', is_required: false }
+      ];
+
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans py-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -190,52 +199,50 @@ export default function ConsultationPage() {
               </div>
             </div>
 
-            {consultation?.consultation_questions && consultation.consultation_questions.length > 0 && (
-              <div className="space-y-6 pt-2">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Consultation Questions</h2>
-                
-                {consultation.consultation_questions.map((q) => {
-                  const fieldKey = q.question_text;
-                  return (
-                    <div key={q.id} className="space-y-1.5">
-                      <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">
-                        {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
-                      </label>
+            <div className="space-y-6 pt-2">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Consultation Questions</h2>
+              
+              {questionsToDisplay.map((q) => {
+                const fieldKey = q.question_text;
+                return (
+                  <div key={q.id || fieldKey} className="space-y-1.5">
+                    <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">
+                      {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
+                    </label>
 
-                      {q.question_type === 'textarea' ? (
-                        <textarea
-                          required={q.is_required}
-                          rows={3}
-                          value={responses[fieldKey] || ''}
-                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                        />
-                      ) : q.question_type === 'select' && q.options ? (
-                        <select
-                          required={q.is_required}
-                          value={responses[fieldKey] || ''}
-                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                        >
-                          <option value="">Select an option...</option>
-                          {q.options.split(',').map((opt, i) => (
-                            <option key={i} value={opt.trim()}>{opt.trim()}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          required={q.is_required}
-                          value={responses[fieldKey] || ''}
-                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    {q.question_type === 'textarea' ? (
+                      <textarea
+                        required={q.is_required}
+                        rows={3}
+                        value={responses[fieldKey] || ''}
+                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      />
+                    ) : q.question_type === 'select' && q.options ? (
+                      <select
+                        required={q.is_required}
+                        value={responses[fieldKey] || ''}
+                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      >
+                        <option value="">Select an option...</option>
+                        {q.options.split(',').map((opt, i) => (
+                          <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        required={q.is_required}
+                        value={responses[fieldKey] || ''}
+                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="pt-4">
               <button
