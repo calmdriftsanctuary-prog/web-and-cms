@@ -19,17 +19,23 @@ interface ConsultationForm {
   consultation_questions: Question[];
 }
 
+interface BookingData {
+  id: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  date_of_birth?: string;
+}
+
 export default function ConsultationPage() {
   const params = useParams();
   const id = params?.id as string;
 
   const [consultation, setConsultation] = useState<ConsultationForm | null>(null);
+  const [booking, setBooking] = useState<BookingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [clientName, setClientName] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [responses, setResponses] = useState<Record<string, any>>({});
 
@@ -45,6 +51,12 @@ export default function ConsultationPage() {
           setError(data.error);
         } else {
           setConsultation(data.consultation);
+          if (data.booking) {
+            setBooking(data.booking);
+            if (data.booking.date_of_birth) {
+              setDateOfBirth(data.booking.date_of_birth);
+            }
+          }
         }
         setLoading(false);
       })
@@ -55,10 +67,10 @@ export default function ConsultationPage() {
       });
   }, [id]);
 
-  const handleInputChange = (questionId: string, value: any) => {
+  const handleInputChange = (questionLabel: string, value: any) => {
     setResponses((prev) => ({
       ...prev,
-      [questionId]: value,
+      [questionLabel]: value,
     }));
   };
 
@@ -68,20 +80,22 @@ export default function ConsultationPage() {
     setError('');
 
     try {
+      const formattedResponses: Record<string, any> = {
+        ...responses,
+        ...(dateOfBirth ? { 'Date of Birth': dateOfBirth, date_of_birth: dateOfBirth } : {}),
+      };
+
       const res = await fetch('/api/consultation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          consultationId: id,
-          clientName,
-          clientEmail,
-          clientPhone,
-          dateOfBirth,
-          responses: {
-            ...responses,
-            date_of_birth: dateOfBirth,
-            'Date of Birth': dateOfBirth,
-          },
+          consultationId: consultation?.id,
+          bookingId: booking?.id || id,
+          clientName: booking?.client_name || 'Client',
+          clientEmail: booking?.client_email || '',
+          clientPhone: booking?.client_phone || '',
+          dateOfBirth: dateOfBirth || null,
+          responses: formattedResponses,
         }),
       });
 
@@ -107,7 +121,7 @@ export default function ConsultationPage() {
   if (error && !consultation) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans p-6">
-        <div className="bg-white p-6 rounded-2xl border border-red-200 text-center max-w-md w-full space-y-3">
+        <div className="bg-white p-6 rounded-2xl border border-red-200 text-center max-w-md w-full space-y-3 shadow-sm">
           <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
           <h2 className="font-serif text-xl text-gray-900">Form Not Found</h2>
           <p className="text-xs text-gray-600">{error}</p>
@@ -124,7 +138,9 @@ export default function ConsultationPage() {
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <h2 className="font-serif text-2xl text-gray-900">Submission Received</h2>
-          <p className="text-sm text-gray-600">Thank you, {clientName}. Your consultation details have been securely recorded for your upcoming sanctuary visit.</p>
+          <p className="text-sm text-gray-600">
+            Thank you{booking?.client_name ? `, ${booking.client_name}` : ''}. Your consultation details have been securely recorded for your upcoming sanctuary visit.
+          </p>
         </div>
       </div>
     );
@@ -146,6 +162,11 @@ export default function ConsultationPage() {
               {consultation.description}
             </p>
           )}
+          {booking?.client_name && (
+            <p className="text-xs text-gray-500 pt-1">
+              Preparing consultation for <span className="font-medium text-gray-800">{booking.client_name}</span>
+            </p>
+          )}
         </div>
 
         <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
@@ -153,65 +174,18 @@ export default function ConsultationPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4 pb-6 border-b border-[#E5E7EB]">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Personal Information</h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                    placeholder="Jane Doe"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                    placeholder="jane@example.com"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                    placeholder="07123 456789"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
-                    Date of Birth <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                  />
-                </div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Client Details</h2>
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wider mb-1 text-gray-700">
+                  Date of Birth <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="w-full sm:w-1/2 p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                />
               </div>
             </div>
 
@@ -219,43 +193,46 @@ export default function ConsultationPage() {
               <div className="space-y-6 pt-2">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Health & Lifestyle Questions</h2>
                 
-                {consultation.consultation_questions.map((q) => (
-                  <div key={q.id} className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-800">
-                      {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
-                    </label>
+                {consultation.consultation_questions.map((q) => {
+                  const fieldKey = q.question_text;
+                  return (
+                    <div key={q.id} className="space-y-1.5">
+                      <label className="block text-xs font-medium text-gray-800">
+                        {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
+                      </label>
 
-                    {q.question_type === 'textarea' ? (
-                      <textarea
-                        required={q.is_required}
-                        rows={3}
-                        value={responses[q.id] || ''}
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      />
-                    ) : q.question_type === 'select' && q.options ? (
-                      <select
-                        required={q.is_required}
-                        value={responses[q.id] || ''}
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      >
-                        <option value="">Select an option...</option>
-                        {q.options.split(',').map((opt, i) => (
-                          <option key={i} value={opt.trim()}>{opt.trim()}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        required={q.is_required}
-                        value={responses[q.id] || ''}
-                        onChange={(e) => handleInputChange(q.id, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      />
-                    )}
-                  </div>
-                ))}
+                      {q.question_type === 'textarea' ? (
+                        <textarea
+                          required={q.is_required}
+                          rows={3}
+                          value={responses[fieldKey] || ''}
+                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                        />
+                      ) : q.question_type === 'select' && q.options ? (
+                        <select
+                          required={q.is_required}
+                          value={responses[fieldKey] || ''}
+                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                        >
+                          <option value="">Select an option...</option>
+                          {q.options.split(',').map((opt, i) => (
+                            <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          required={q.is_required}
+                          value={responses[fieldKey] || ''}
+                          onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                          className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
