@@ -37,7 +37,6 @@ export async function POST(request: Request) {
           booking_id: bookingId || null,
           date_of_birth: dateOfBirth || null,
           responses: formattedResponses,
-          status: 'submitted',
         },
       ])
       .select()
