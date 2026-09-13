@@ -37,7 +37,11 @@ export default function ConsultationPage() {
   const [error, setError] = useState('');
 
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [medical, setMedical] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [pressure, setPressure] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -67,22 +71,19 @@ export default function ConsultationPage() {
       });
   }, [id]);
 
-  const handleInputChange = (questionLabel: string, value: any) => {
-    setResponses((prev) => ({
-      ...prev,
-      [questionLabel]: value,
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
 
     try {
-      const formattedResponses: Record<string, any> = {
-        ...responses,
-        ...(dateOfBirth ? { 'Date of Birth': dateOfBirth, date_of_birth: dateOfBirth } : {}),
+      const responses = {
+        Medical: medical,
+        Allergies: allergies,
+        Pressure: pressure,
+        Emergency: `${emergencyName} - ${emergencyPhone}`,
+        'Date of Birth': dateOfBirth,
+        date_of_birth: dateOfBirth,
       };
 
       const res = await fetch('/api/consultation', {
@@ -95,7 +96,7 @@ export default function ConsultationPage() {
           clientEmail: booking?.client_email || '',
           clientPhone: booking?.client_phone || '',
           dateOfBirth: dateOfBirth || null,
-          responses: formattedResponses,
+          responses: responses,
         }),
       });
 
@@ -146,16 +147,6 @@ export default function ConsultationPage() {
     );
   }
 
-  // Fallback to standard original questions if none are returned by template
-  const questionsToDisplay = consultation?.consultation_questions && consultation.consultation_questions.length > 0 
-    ? consultation.consultation_questions 
-    : [
-        { id: 'q-1', question_text: 'Medical', question_type: 'textarea', is_required: false },
-        { id: 'q-2', question_text: 'Allergies', question_type: 'textarea', is_required: false },
-        { id: 'q-3', question_text: 'Pressure', question_type: 'select', options: 'Gentle, Medium, Firm', is_required: false },
-        { id: 'q-4', question_text: 'Emergency', question_type: 'text', is_required: false }
-      ];
-
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#2C332B] font-sans py-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -168,10 +159,10 @@ export default function ConsultationPage() {
             <span>Calm Drift Sanctuary</span>
           </span>
           <h1 className="font-serif text-3xl sm:text-4xl text-gray-900 font-bold tracking-tight">
-            {consultation?.title || 'Client Consultation Form'}
+            Client Consultation Form
           </h1>
           <p className="text-sm text-gray-600 max-w-lg mx-auto font-light leading-relaxed">
-            {consultation?.description || 'Please complete your pre-treatment consultation details below.'}
+            Please complete your pre-treatment consultation details below.
           </p>
           {booking?.client_name && (
             <p className="text-xs text-gray-500 pt-1">
@@ -203,49 +194,61 @@ export default function ConsultationPage() {
             <div className="space-y-6 pt-2">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-[#693F00]">Consultation Questions</h2>
               
-              {questionsToDisplay.map((q) => {
-                const fieldKey = q.question_text;
-                const isPressure = fieldKey.toLowerCase().includes('pressure');
-                const optionsList = q.options || (isPressure ? 'Gentle, Medium, Firm' : '');
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">Medical</label>
+                <input
+                  type="text"
+                  value={medical}
+                  onChange={(e) => setMedical(e.target.value)}
+                  placeholder="e.g. bulging disc, none"
+                  className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                />
+              </div>
 
-                return (
-                  <div key={q.id || fieldKey} className="space-y-1.5">
-                    <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">
-                      {q.question_text} {q.is_required && <span className="text-red-500">*</span>}
-                    </label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">Allergies</label>
+                <input
+                  type="text"
+                  value={allergies}
+                  onChange={(e) => setAllergies(e.target.value)}
+                  placeholder="e.g. nut allergy, none of note"
+                  className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                />
+              </div>
 
-                    {q.question_type === 'textarea' ? (
-                      <textarea
-                        required={q.is_required}
-                        rows={3}
-                        value={responses[fieldKey] || ''}
-                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      />
-                    ) : q.question_type === 'select' || optionsList ? (
-                      <select
-                        required={q.is_required}
-                        value={responses[fieldKey] || ''}
-                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      >
-                        <option value="">Select pressure preference...</option>
-                        {optionsList.split(',').map((opt, i) => (
-                          <option key={i} value={opt.trim()}>{opt.trim()}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        required={q.is_required}
-                        value={responses[fieldKey] || ''}
-                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                        className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
-                      />
-                    )}
-                  </div>
-                );
-              })}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">Pressure</label>
+                <select
+                  value={pressure}
+                  onChange={(e) => setPressure(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                >
+                  <option value="">Select pressure preference...</option>
+                  <option value="Gentle">Gentle</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Firm">Firm</option>
+                </select>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <label className="block text-xs font-medium uppercase tracking-wider text-gray-700">Emergency Contact</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    value={emergencyName}
+                    onChange={(e) => setEmergencyName(e.target.value)}
+                    placeholder="Contact Name"
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                  />
+                  <input
+                    type="tel"
+                    value={emergencyPhone}
+                    onChange={(e) => setEmergencyPhone(e.target.value)}
+                    placeholder="Contact Phone Number"
+                    className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="pt-4">
