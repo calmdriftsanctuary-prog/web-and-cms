@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { consultationId, bookingId, clientName, clientEmail, clientPhone, dateOfBirth, responses } = body;
+    const { bookingId, dateOfBirth, responses } = body;
 
     const formattedResponses = {
       ...(responses || {}),
@@ -35,9 +35,6 @@ export async function POST(request: Request) {
       .insert([
         {
           booking_id: bookingId || null,
-          client_name: clientName,
-          client_email: clientEmail,
-          client_phone: clientPhone,
           date_of_birth: dateOfBirth || null,
           responses: formattedResponses,
           status: 'submitted',
