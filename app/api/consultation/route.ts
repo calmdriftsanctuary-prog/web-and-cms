@@ -8,12 +8,37 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { bookingId, clientName, clientEmail, dateOfBirth, responses } = body;
+    const { 
+      bookingId, 
+      clientName, 
+      clientEmail, 
+      dateOfBirth, 
+      medicalConditions, 
+      allergies, 
+      pressurePreference, 
+      emergencyContact, 
+      responses 
+    } = body;
+
+    // Extract values flexibly from direct body properties or responses dictionary
+    const finalDob = dateOfBirth || responses?.['Date of Birth'] || responses?.date_of_birth || null;
+    const finalMedical = medicalConditions || responses?.['Medical Conditions'] || responses?.medical_conditions || responses?.medical || null;
+    const finalAllergies = allergies || responses?.['Allergies'] || responses?.allergies || null;
+    const finalPressure = pressurePreference || responses?.['Pressure Preference'] || responses?.pressure_preference || responses?.pressure || null;
+    const finalEmergency = emergencyContact || responses?.['Emergency Contact'] || responses?.emergency_contact || responses?.emergency || null;
 
     const formattedResponses = {
       ...(responses || {}),
-      'Date of Birth': dateOfBirth || responses?.['Date of Birth'] || responses?.date_of_birth || null,
-      date_of_birth: dateOfBirth || responses?.date_of_birth || responses?.['Date of Birth'] || null,
+      'Date of Birth': finalDob,
+      date_of_birth: finalDob,
+      'Medical Conditions': finalMedical,
+      medical_conditions: finalMedical,
+      'Allergies': finalAllergies,
+      allergies: finalAllergies,
+      'Pressure Preference': finalPressure,
+      pressure_preference: finalPressure,
+      'Emergency Contact': finalEmergency,
+      emergency_contact: finalEmergency,
     };
 
     if (bookingId) {
@@ -21,7 +46,7 @@ export async function POST(request: Request) {
       const { error: updateError } = await supabase
         .from('bookings')
         .update({
-          date_of_birth: dateOfBirth || null,
+          date_of_birth: finalDob,
         })
         .eq('id', bookingId);
 
@@ -30,7 +55,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Insert into the consultations table linked via booking_id
+    // Insert into the consultations table linked via booking_id with dedicated columns populated
     const { data, error } = await supabase
       .from('consultations')
       .insert([
@@ -38,7 +63,11 @@ export async function POST(request: Request) {
           booking_id: bookingId || null,
           client_name: clientName || null,
           client_email: clientEmail || null,
-          date_of_birth: dateOfBirth || null,
+          date_of_birth: finalDob,
+          medical_conditions: finalMedical,
+          allergies: finalAllergies,
+          pressure_preference: finalPressure,
+          emergency_contact: finalEmergency,
           responses: formattedResponses,
         },
       ])
