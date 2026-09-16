@@ -42,6 +42,7 @@ export default function ConsultationPage() {
   const [pressure, setPressure] = useState('');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [medicalDisclaimerAccepted, setMedicalDisclaimerAccepted] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -73,6 +74,11 @@ export default function ConsultationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!medicalDisclaimerAccepted) {
+      setError('You must confirm the medical disclaimer before submitting.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
@@ -84,6 +90,7 @@ export default function ConsultationPage() {
         Emergency: `${emergencyName} - ${emergencyPhone}`,
         'Date of Birth': dateOfBirth,
         date_of_birth: dateOfBirth,
+        medical_disclaimer_accepted: medicalDisclaimerAccepted,
       };
 
       const res = await fetch('/api/consultation', {
@@ -96,6 +103,7 @@ export default function ConsultationPage() {
           clientEmail: booking?.client_email || '',
           clientPhone: booking?.client_phone || '',
           dateOfBirth: dateOfBirth || null,
+          medicalDisclaimerAccepted: medicalDisclaimerAccepted,
           responses: responses,
         }),
       });
@@ -248,6 +256,22 @@ export default function ConsultationPage() {
                     className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                   />
                 </div>
+              </div>
+
+              {/* Mandatory Medical Disclaimer Checkbox */}
+              <div className="pt-4 border-t border-[#E5E7EB] mt-6">
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={medicalDisclaimerAccepted}
+                    onChange={(e) => setMedicalDisclaimerAccepted(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#693F00] focus:ring-[#693F00]"
+                  />
+                  <span className="text-xs text-gray-700 leading-relaxed">
+                    I confirm that I have fully and accurately disclosed all relevant medical history, conditions, injuries, and other health information requested. I understand that failing to disclose complete and accurate information may impact my treatment and that Calm Drift Sanctuary and its therapists accept no liability for any adverse effects resulting from undisclosed conditions. By ticking this box, I acknowledge and agree to these terms. <span className="text-red-500">*</span>
+                  </span>
+                </label>
               </div>
             </div>
 
