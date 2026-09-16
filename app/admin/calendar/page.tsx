@@ -11,6 +11,7 @@ interface Consultation {
   allergies: string;
   pressure_preference: string;
   emergency_contact: string;
+  medical_disclaimer_accepted?: boolean;
   created_at: string;
   responses?: any;
 }
@@ -416,7 +417,7 @@ export default function AdminCalendarPage() {
               &larr; Back to Admin Portal
             </Link>
             <div>
-              <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#6B8E70]">
+              <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#693F00]">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Sanctuary Schedule</span>
               </span>
@@ -427,18 +428,18 @@ export default function AdminCalendarPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsBookingModalOpen(true)}
-              className="px-4 py-2 bg-[#6B8E70] text-white rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-[#5B7B60] transition shadow-sm flex items-center space-x-1.5"
+              className="px-4 py-2 bg-[#693F00] text-white rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-[#523100] transition shadow-sm flex items-center space-x-1.5"
             >
               <Plus className="w-3.5 h-3.5" /> <span>Manual Booking</span>
             </button>
             <div className="flex items-center bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm">
-              <button onClick={() => setViewMode('month')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'month' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setViewMode('month')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'month' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Month
               </button>
-              <button onClick={() => setViewMode('week')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'week' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setViewMode('week')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'week' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Week
               </button>
-              <button onClick={() => setViewMode('day')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'day' ? 'bg-[#6B8E70] text-white' : 'text-[#6B7280]'}`}>
+              <button onClick={() => setViewMode('day')} className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${viewMode === 'day' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Day
               </button>
             </div>
@@ -481,9 +482,9 @@ export default function AdminCalendarPage() {
                   const isToday = new Date().toISOString().startsWith(dateStr);
 
                   return (
-                    <div key={dayNum} className={`h-36 p-2 rounded-xl border flex flex-col justify-between overflow-y-auto ${isToday ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB] bg-white'}`}>
+                    <div key={dayNum} className={`h-36 p-2 rounded-xl border flex flex-col justify-between overflow-y-auto ${isToday ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-[#E5E7EB] bg-white'}`}>
                       <div className="flex justify-between items-center">
-                        <span className={`text-xs font-bold ${isToday ? 'bg-[#6B8E70] text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-[#2C332B]'}`}>{dayNum}</span>
+                        <span className={`text-xs font-bold ${isToday ? 'bg-[#693F00] text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-[#2C332B]'}`}>{dayNum}</span>
                         {(dayBookings.length > 0 || dayBlocks.length > 0) && (
                           <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 rounded font-semibold">{dayBookings.length + dayBlocks.length}</span>
                         )}
@@ -493,7 +494,7 @@ export default function AdminCalendarPage() {
                           <div
                             key={b.id}
                             onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
-                            className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#6B8E70] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
+                            className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#693F00] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
                           >
                             {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {b.client_name}
                           </div>
@@ -537,8 +538,8 @@ export default function AdminCalendarPage() {
                   return (
                     <div key={idx} className="p-2 border rounded-xl bg-[#FAF9F6] space-y-2 overflow-y-auto">
                       {dayBookings.map(b => (
-                        <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#6B8E70] ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-emerald-50' : ''}`}>
-                          <p className="font-bold text-[#6B8E70]">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#693F00] ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-emerald-50' : ''}`}>
+                          <p className="font-bold text-[#693F00]">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           <p className="font-serif text-sm truncate">{b.client_name}</p>
                           <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title || 'Custom Appointment'}</p>
                         </div>
@@ -580,12 +581,12 @@ export default function AdminCalendarPage() {
                 <p className="text-xs text-gray-400 py-8">No appointments or blocked times scheduled for this date.</p>
               ) : (
                 bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => (
-                  <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#6B8E70] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
+                  <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
                     <div>
                       <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title || 'Custom Appointment'})</p>
                       <p className="text-xs text-[#6B7280]">Time: {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <span className="text-xs text-[#6B8E70]">View &rarr;</span>
+                    <span className="text-xs text-[#693F00]">View &rarr;</span>
                   </div>
                 ))
               )}
@@ -607,7 +608,7 @@ export default function AdminCalendarPage() {
 
               {isEditingBooking ? (
                 <form onSubmit={handleSaveEditedBooking} className="space-y-3 text-xs pt-2">
-                  <h4 className="font-semibold uppercase tracking-wider text-[#6B8E70]">Edit Appointment</h4>
+                  <h4 className="font-semibold uppercase tracking-wider text-[#693F00]">Edit Appointment</h4>
                   <div>
                     <label className="block uppercase mb-1">Treatment</label>
                     <select value={editTreatmentId} onChange={(e) => setEditTreatmentId(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white">
@@ -642,7 +643,7 @@ export default function AdminCalendarPage() {
                       id="sendEmailCheckbox"
                       checked={sendEmailUpdate}
                       onChange={(e) => setSendEmailUpdate(e.target.checked)}
-                      className="h-4 w-4 rounded border-stone-300 text-[#6B8E70] focus:ring-[#6B8E70] cursor-pointer"
+                      className="h-4 w-4 rounded border-stone-300 text-[#693F00] focus:ring-[#693F00] cursor-pointer"
                     />
                     <label htmlFor="sendEmailCheckbox" className="text-xs font-medium text-[#2C332B] select-none cursor-pointer">
                       Send update email notification to client
@@ -651,7 +652,7 @@ export default function AdminCalendarPage() {
 
                   <div className="flex space-x-2 pt-2">
                     <button type="button" onClick={() => setIsEditingBooking(false)} className="w-1/2 py-2.5 border rounded-xl uppercase font-semibold">Cancel</button>
-                    <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-xl uppercase font-semibold">Save Changes</button>
+                    <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-xl uppercase font-semibold">Save Changes</button>
                   </div>
                 </form>
               ) : (
@@ -680,11 +681,12 @@ export default function AdminCalendarPage() {
                         <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
                         <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
                         <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                        <p><strong>Medical Disclaimer:</strong> {selectedBooking.consultations[0].medical_disclaimer_accepted || selectedBooking.consultations[0].responses?.medical_disclaimer_accepted ? <span className="text-emerald-600 font-medium">✓ Accepted</span> : <span className="text-red-500 font-medium">Not Accepted</span>}</p>
                       </div>
                     ) : (
                       <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
                         <p className="text-amber-700 italic">No consultation form completed yet.</p>
-                        <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#6B8E70] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
+                        <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
                           <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
                         </button>
                       </div>
@@ -731,7 +733,7 @@ export default function AdminCalendarPage() {
                   <input type="text" value={editBlockReason} onChange={(e) => setEditBlockReason(e.target.value)} className="w-full p-2.5 border rounded-xl" required />
                 </div>
                 <div className="flex space-x-2 pt-2">
-                  <button type="submit" className="w-1/2 py-2.5 bg-[#6B8E70] text-white uppercase rounded-xl font-semibold">Save</button>
+                  <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white uppercase rounded-xl font-semibold">Save</button>
                   <button type="button" onClick={() => handleRemoveBlock(selectedBlockTime.id)} className="w-1/2 py-2.5 bg-red-50 text-red-600 border border-red-200 uppercase rounded-xl flex items-center justify-center space-x-1 font-semibold">
                     <Trash2 className="w-3.5 h-3.5" /> <span>Remove</span>
                   </button>
@@ -794,14 +796,14 @@ export default function AdminCalendarPage() {
                     <button
                       type="button"
                       onClick={() => setClientMode('existing')}
-                      className={`flex-1 py-2 text-xs font-semibold uppercase rounded-lg border transition ${clientMode === 'existing' ? 'bg-[#6B8E70] text-white border-[#6B8E70]' : 'bg-gray-50 text-gray-700'}`}
+                      className={`flex-1 py-2 text-xs font-semibold uppercase rounded-lg border transition ${clientMode === 'existing' ? 'bg-[#693F00] text-white border-[#693F00]' : 'bg-gray-50 text-gray-700'}`}
                     >
                       Existing Client
                     </button>
                     <button
                       type="button"
                       onClick={() => setClientMode('new')}
-                      className={`flex-1 py-2 text-xs font-semibold uppercase rounded-lg border transition ${clientMode === 'new' ? 'bg-[#6B8E70] text-white border-[#6B8E70]' : 'bg-gray-50 text-gray-700'}`}
+                      className={`flex-1 py-2 text-xs font-semibold uppercase rounded-lg border transition ${clientMode === 'new' ? 'bg-[#693F00] text-white border-[#693F00]' : 'bg-gray-50 text-gray-700'}`}
                     >
                       New Client
                     </button>
@@ -836,7 +838,7 @@ export default function AdminCalendarPage() {
                           id="manualOptIn"
                           checked={newMarketingOptIn}
                           onChange={(e) => setNewMarketingOptIn(e.target.checked)}
-                          className="h-4 w-4 text-[#6B8E70]"
+                          className="h-4 w-4 text-[#693F00]"
                         />
                         <label htmlFor="manualOptIn" className="text-xs font-medium text-gray-700 cursor-pointer">Opted in to marketing emails</label>
                       </div>
@@ -851,7 +853,7 @@ export default function AdminCalendarPage() {
 
                 <div className="flex space-x-3 pt-4 border-t">
                   <button type="button" onClick={() => setIsBookingModalOpen(false)} className="w-1/2 py-2.5 border rounded-xl text-xs uppercase font-semibold">Cancel</button>
-                  <button type="submit" disabled={isSubmittingBooking} className="w-1/2 py-2.5 bg-[#6B8E70] text-white rounded-xl text-xs uppercase font-semibold hover:bg-[#5B7B60] transition disabled:opacity-50">
+                  <button type="submit" disabled={isSubmittingBooking} className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-xl text-xs uppercase font-semibold hover:bg-[#523100] transition disabled:opacity-50">
                     {isSubmittingBooking ? 'Booking...' : 'Confirm Booking'}
                   </button>
                 </div>
