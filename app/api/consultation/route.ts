@@ -17,15 +17,18 @@ export async function POST(request: Request) {
       allergies, 
       pressurePreference, 
       emergencyContact, 
+      medicalDisclaimerAccepted,
       responses 
     } = body;
 
-    // Extract values flexibly from direct body properties or responses dictionary (including frontend PascalCase keys)
+    // Extract values flexibly from direct body properties or responses dictionary
     const finalDob = dateOfBirth || responses?.['Date of Birth'] || responses?.date_of_birth || null;
     const finalMedical = medicalConditions || responses?.Medical || responses?.['Medical Conditions'] || responses?.medical_conditions || responses?.medical || null;
     const finalAllergies = allergies || responses?.Allergies || responses?.['Allergies'] || responses?.allergies || null;
     const finalPressure = pressurePreference || responses?.Pressure || responses?.['Pressure Preference'] || responses?.pressure_preference || responses?.pressure || null;
     const finalEmergency = emergencyContact || responses?.Emergency || responses?.['Emergency Contact'] || responses?.emergency_contact || responses?.emergency || null;
+    
+    const finalDisclaimer = medicalDisclaimerAccepted !== undefined ? Boolean(medicalDisclaimerAccepted) : (responses?.medicalDisclaimerAccepted || responses?.['Medical Disclaimer'] || false);
 
     const formattedResponses = {
       ...(responses || {}),
@@ -42,10 +45,10 @@ export async function POST(request: Request) {
       Emergency: finalEmergency,
       'Emergency Contact': finalEmergency,
       emergency_contact: finalEmergency,
+      medical_disclaimer_accepted: finalDisclaimer,
     };
 
     if (bookingId) {
-      // Sync date_of_birth onto the booking record as well
       const { error: updateError } = await supabase
         .from('bookings')
         .update({
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Insert into the consultations table linked via booking_id with dedicated columns populated
+    // Insert into the consultations table with the disclaimer column populated
     const { data, error } = await supabase
       .from('consultations')
       .insert([
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
           allergies: finalAllergies,
           pressure_preference: finalPressure,
           emergency_contact: finalEmergency,
+          medical_disclaimer_accepted: finalDisclaimer,
           responses: formattedResponses,
         },
       ])
