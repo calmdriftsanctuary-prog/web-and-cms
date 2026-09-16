@@ -32,6 +32,7 @@ interface Booking {
     allergies: string;
     pressure_preference: string;
     emergency_contact: string;
+    medical_disclaimer_accepted?: boolean;
     created_at: string;
     responses?: any;
   }[];
@@ -195,7 +196,6 @@ export default function AdminDashboard() {
   const [savingSocial, setSavingSocial] = useState(false);
   const [editingSocial, setEditingSocial] = useState<SocialLinkItem | null>(null);
 
-  // Form Builder State - Expanded to support 'booking', 'contact', and 'consultation'
   const [formTypeTab, setFormTypeTab] = useState<'booking' | 'contact' | 'consultation'>('booking');
   const [fieldLabel, setFieldLabel] = useState('');
   const [fieldType, setFieldType] = useState('text');
@@ -247,7 +247,6 @@ export default function AdminDashboard() {
         ];
 
         const dbConfigs = data.fieldConfigs || [];
-        // Merge DB configurations over the defaults so saved states/labels are preserved
         const mergedFields = defaultsList.map(def => {
           const found = dbConfigs.find((c: any) => c.form_type === def.form_type && c.field_name === def.field_name);
           if (found) {
@@ -263,7 +262,6 @@ export default function AdminDashboard() {
           return def;
         });
 
-        // Also include any extra DB configs not in standard defaults
         dbConfigs.forEach((dbC: any) => {
           if (!mergedFields.some(m => m.form_type === dbC.form_type && m.field_name === dbC.field_name)) {
             mergedFields.push(dbC);
@@ -714,7 +712,6 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!editingDefaultField) return;
     
-    // Explicitly include field_name so the backend can upsert correctly even for default IDs
     await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -959,6 +956,7 @@ export default function AdminDashboard() {
                       <p><strong>Allergies:</strong> {selectedClient.consultations[0].allergies || 'None'}</p>
                       <p><strong>Pressure:</strong> {selectedClient.consultations[0].pressure_preference || 'Standard'}</p>
                       <p><strong>Emergency:</strong> {selectedClient.consultations[0].emergency_contact || 'None'}</p>
+                      <p><strong>Medical Disclaimer:</strong> {selectedClient.consultations[0].medical_disclaimer_accepted || selectedClient.consultations[0].responses?.medical_disclaimer_accepted ? <span className="text-emerald-600 font-medium">✓ Accepted</span> : <span className="text-red-500 font-medium">Not Accepted</span>}</p>
                     </div>
                   ) : (
                     <p className="text-xs text-[#6B7280] italic">No consultation form completed yet.</p>
