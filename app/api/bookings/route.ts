@@ -40,8 +40,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Name and email are required.' }, { status: 400 });
       }
 
-      // 1. Store the enquiry in your existing form_submissions table
-      const { error: dbError } = await supabase.from('form_submissions').insert([{
+      // 1. Store the enquiry in the contact_enquiries table
+      const { error: dbError } = await supabase.from('contact_enquiries').insert([{
         name: resolvedName,
         email: resolvedEmail,
         phone: resolvedPhone || '',
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       }]);
 
       if (dbError) {
-        console.error('Failed to store form submission in database:', dbError);
+        console.error('Failed to store contact enquiry in database:', dbError);
         return NextResponse.json({ error: `Database error: ${dbError.message}` }, { status: 500 });
       }
 
