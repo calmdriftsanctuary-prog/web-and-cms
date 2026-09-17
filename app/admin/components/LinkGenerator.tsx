@@ -91,6 +91,7 @@ export default function LinkGenerator() {
       available_times: selectedTimes,
       final_price: finalPrice,
       discount_amount: discountApplied > 0 ? discountApplied : 0,
+      is_used: false,
     };
 
     if (isBespoke) {
