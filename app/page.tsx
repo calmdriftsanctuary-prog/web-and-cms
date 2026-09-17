@@ -142,7 +142,7 @@ export default function HomePage() {
     setSubmittingForm(true);
     setFormError('');
 
-    const clientName = formData.client_name || formData['Full Name'] || 'enquiry Client';
+    const clientName = formData.client_name || formData['Full Name'] || 'Enquiry Client';
     const clientEmail = formData.client_email || formData['Email Address'] || '';
     const clientPhone = formData.client_phone || formData['Phone Number'] || '';
 
@@ -262,7 +262,7 @@ export default function HomePage() {
 
         <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border shadow-sm mt-6">
           <h3 className="font-serif text-xl text-gray-900 mb-5 text-center border-b pb-4">
-            {content.enquiry_heading || 'Or Submit an enquiry Directly'}
+            {content.enquiry_heading || 'Or Submit an enquiry directly'}
           </h3>
           
           {formSuccess ? (
@@ -270,7 +270,7 @@ export default function HomePage() {
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                 <Send className="w-6 h-6" />
               </div>
-              <h4 className="font-serif text-xl font-bold">enquiry Sent Successfully</h4>
+              <h4 className="font-serif text-xl font-bold">Enquiry sent successfully</h4>
               <p className="text-sm text-gray-600">Thank you. We will be in touch shortly to confirm availability.</p>
               <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
             </div>
