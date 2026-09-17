@@ -91,10 +91,10 @@ export default function HomePage() {
         });
 
         const defaultDefs = [
-          { id: 'def-1', field_name: 'client_name', field_label: 'Full Name', field_type: 'text', is_required: true, display_order: 1 },
-          { id: 'def-2', field_name: 'client_email', field_label: 'Email Address', field_type: 'email', is_required: true, display_order: 2 },
-          { id: 'def-3', field_name: 'client_phone', field_label: 'Phone Number', field_type: 'tel', is_required: true, display_order: 3 },
-          { id: 'def-4', field_name: 'notes', field_label: 'Special Requests / Notes', field_type: 'textarea', is_required: false, display_order: 4 }
+          { id: 'def-1', field_name: 'client_name', field_label: 'full name', field_type: 'text', is_required: true, display_order: 1 },
+          { id: 'def-2', field_name: 'client_email', field_label: 'email address', field_type: 'email', is_required: true, display_order: 2 },
+          { id: 'def-3', field_name: 'client_phone', field_label: 'phone number', field_type: 'tel', is_required: true, display_order: 3 },
+          { id: 'def-4', field_name: 'notes', field_label: 'special requests / notes', field_type: 'textarea', is_required: false, display_order: 4 }
         ];
 
         let standardFields = defaultDefs
@@ -108,7 +108,7 @@ export default function HomePage() {
             const match = rawConfigs.find((c: any) => c.form_type === 'booking' && c.field_name === def.field_name);
             return {
               ...def,
-              field_label: match?.field_label || def.field_label,
+              field_label: match?.field_label ? match.field_label.toLowerCase() : def.field_label,
               is_required: match?.is_required !== undefined ? match.is_required : def.is_required,
               display_order: match?.display_order !== undefined ? match.display_order : def.display_order,
               is_custom: false
@@ -117,7 +117,7 @@ export default function HomePage() {
           
         const customFields = (bookingData.customFields || [])
           .filter((f: any) => f.form_type === 'booking')
-          .map((f: any) => ({ ...f, is_custom: true, is_active: true, field_name: f.field_label }));
+          .map((f: any) => ({ ...f, is_custom: true, is_active: true, field_name: f.field_label, field_label: f.field_label.toLowerCase() }));
 
         const combined = [...standardFields, ...customFields].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         setBookingFields(combined);
@@ -142,12 +142,12 @@ export default function HomePage() {
     setSubmittingForm(true);
     setFormError('');
 
-    const clientName = formData.client_name || formData['Full Name'] || 'Enquiry Client';
-    const clientEmail = formData.client_email || formData['Email Address'] || '';
-    const clientPhone = formData.client_phone || formData['Phone Number'] || '';
+    const clientName = formData.client_name || formData['full name'] || 'enquiry client';
+    const clientEmail = formData.client_email || formData['email address'] || '';
+    const clientPhone = formData.client_phone || formData['phone number'] || '';
 
     if (!clientEmail) {
-      setFormError('Please provide a valid email address.');
+      setFormError('please provide a valid email address.');
       setSubmittingForm(false);
       return;
     }
@@ -167,12 +167,12 @@ export default function HomePage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send enquiry.');
+      if (!res.ok) throw new Error(data.error || 'failed to send enquiry.');
       
       setFormSuccess(true);
       setFormData({});
     } catch (err: any) {
-      setFormError(err.message || 'Something went wrong.');
+      setFormError(err.message || 'something went wrong.');
     } finally {
       setSubmittingForm(false);
     }
@@ -181,7 +181,7 @@ export default function HomePage() {
   if (loadingInitial) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center font-sans text-[#2C332B]">
-        <div className="text-xs uppercase tracking-widest text-gray-400">{content.loading_text || 'loading relaxation...'}</div>
+        <div className="text-xs lowercase tracking-widest text-gray-400">{content.loading_text ? content.loading_text.toLowerCase() : 'loading relaxation...'}</div>
       </div>
     );
   }
@@ -207,30 +207,26 @@ export default function HomePage() {
 
       <PromoPopup />
 
-      <section className="py-6 px-6 max-w-4xl mx-auto text-center space-y-2">
+      <section className="py-6 px-6 max-w-4xl mx-auto text-center space-y-3">
         <div className="flex justify-center mb-1">
-          <img src="/logo.png" alt="Sanctuary Logo" className="h-16 w-auto object-contain" />
+          <img src="/logo.png" alt="sanctuary logo" className="h-16 w-auto object-contain" />
         </div>
-        <span className="inline-flex items-center space-x-1.5 text-xs font-semibold uppercase tracking-widest text-[#693F00]">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Calm Drift Sanctuary</span>
-        </span>
-        <h1 className="font-serif text-3xl sm:text-5xl text-gray-900 font-bold tracking-tight">
-          {content.hero_heading || 'rest, restore, and reconnect.'}
+        <h1 className="font-serif text-3xl sm:text-5xl text-gray-900 font-bold tracking-tight lowercase">
+          {content.hero_heading ? content.hero_heading.toLowerCase() : 'rest, restore, and reconnect.'}
         </h1>
-        <p className="text-sm sm:text-base text-gray-600 max-w-xl mx-auto font-light leading-relaxed">
-          {content.hero_subtext || 'Tailored massages and holistic rituals designed to ease tension and bring balance to your wellbeing.'}
+        <p className="text-sm sm:text-base text-gray-600 max-w-xl mx-auto font-light leading-relaxed lowercase">
+          {content.hero_subtext ? content.hero_subtext.toLowerCase() : 'tailored massages and holistic rituals designed to ease tension and bring balance to your wellbeing.'}
         </p>
       </section>
 
       <section id="book" className="py-8 px-6 max-w-4xl mx-auto border-t border-[#E5E7EB]">
         <div className="text-center mb-5">
-          <span className="text-xs uppercase tracking-widest text-[#693F00] font-semibold">Begin Your Journey</span>
-          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-2">
-            {content.booking_title || 'Request a Sanctuary Appointment'}
+          <span className="text-xs lowercase tracking-widest text-[#693F00] font-semibold">begin your journey</span>
+          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2 mb-2 lowercase">
+            {content.booking_title ? content.booking_title.toLowerCase() : 'request a sanctuary appointment'}
           </h2>
-          <p className="text-gray-600 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed">
-            {content.booking_subtext || 'To ensure a bespoke and restorative experience, treatments are booked on a personal request basis.'}
+          <p className="text-gray-600 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed lowercase">
+            {content.booking_subtext ? content.booking_subtext.toLowerCase() : 'to ensure a bespoke and restorative experience, treatments are booked on a personal request basis.'}
           </p>
         </div>
 
@@ -251,9 +247,9 @@ export default function HomePage() {
                     <Send className="w-5 h-5" />
                   )}
                 </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-0.5">Message on {link.platform}</h3>
-                  <p className="text-xs text-gray-500">Tap to open in a new window.</p>
+                <div className="lowercase">
+                  <h3 className="font-medium text-gray-900 mb-0.5">message on {link.platform.toLowerCase()}</h3>
+                  <p className="text-xs text-gray-500">tap to open in a new window.</p>
                 </div>
               </a>
             ))}
@@ -261,26 +257,26 @@ export default function HomePage() {
         )}
 
         <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border shadow-sm mt-6">
-          <h3 className="font-serif text-xl text-gray-900 mb-5 text-center border-b pb-4">
-            {content.enquiry_heading || 'Or Submit an enquiry directly'}
+          <h3 className="font-serif text-xl text-gray-900 mb-5 text-center border-b pb-4 lowercase">
+            {content.enquiry_heading ? content.enquiry_heading.toLowerCase() : 'or submit an enquiry directly'}
           </h3>
           
           {formSuccess ? (
-            <div className="text-center py-6 space-y-4">
+            <div className="text-center py-6 space-y-4 lowercase">
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                 <Send className="w-6 h-6" />
               </div>
-              <h4 className="font-serif text-xl font-bold">Enquiry sent successfully</h4>
-              <p className="text-sm text-gray-600">Thank you. We will be in touch shortly to confirm availability.</p>
-              <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
+              <h4 className="font-serif text-xl font-bold">enquiry sent successfully</h4>
+              <p className="text-sm text-gray-600">thank you. we will be in touch shortly to confirm availability.</p>
+              <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs lowercase rounded-full">send another</button>
             </div>
           ) : (
             <form onSubmit={handleenquirySubmit} className="space-y-4">
-              {formError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{formError}</div>}
+              {formError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200 lowercase">{formError}</div>}
               
               {bookingFields.map((field) => (
                 <div key={field.id}>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-700">
+                  <label className="block text-xs font-semibold lowercase tracking-wider mb-1 text-gray-700">
                     {field.field_label} {field.is_required && <span className="text-red-500">*</span>}
                   </label>
                   
@@ -290,18 +286,18 @@ export default function HomePage() {
                       rows={3}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition lowercase"
                     />
                   ) : field.field_type === 'select' && field.options ? (
                     <select
                       required={field.is_required}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition lowercase"
                     >
-                      <option value="">Select an option...</option>
+                      <option value="">select an option...</option>
                       {field.options.split(',').map((opt, i) => (
-                        <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                        <option key={i} value={opt.trim()}>{opt.trim().toLowerCase()}</option>
                       ))}
                     </select>
                   ) : field.field_type === 'checkbox' ? (
@@ -313,7 +309,7 @@ export default function HomePage() {
                         onChange={(e) => handleFieldChange(field.field_name!, e.target.checked)}
                         className="w-4 h-4 text-[#693F00]"
                       />
-                      <span className="text-xs text-gray-600">Yes</span>
+                      <span className="text-xs text-gray-600 lowercase">yes</span>
                     </div>
                   ) : (
                     <input
@@ -321,7 +317,7 @@ export default function HomePage() {
                       required={field.is_required}
                       value={formData[field.field_name!] || ''}
                       onChange={(e) => handleFieldChange(field.field_name!, e.target.value)}
-                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
+                      className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition lowercase"
                     />
                   )}
                 </div>
@@ -330,9 +326,9 @@ export default function HomePage() {
                 <button
                   type="submit"
                   disabled={submittingForm}
-                  className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+                  className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold lowercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
                 >
-                  {submittingForm ? 'Sending enquiry...' : 'Submit enquiry'}
+                  {submittingForm ? 'sending enquiry...' : 'submit enquiry'}
                 </button>
               </div>
             </form>
@@ -342,19 +338,19 @@ export default function HomePage() {
 
       <section className="py-8 px-6 max-w-5xl mx-auto border-t border-[#E5E7EB]">
         <div className="text-center mb-5">
-          <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">Our Signature Treatments</h2>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">Bespoke holistic sessions tailored for you</p>
+          <h2 className="font-serif text-2xl sm:text-3xl text-gray-900 lowercase">our signature treatments</h2>
+          <p className="text-xs text-gray-500 lowercase tracking-wider mt-1">bespoke holistic sessions tailored for you</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {treatments.map((t) => (
             <div key={t.id} className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col justify-between space-y-3 hover:border-[#693F00] transition duration-300">
-              <div>
-                <h3 className="font-serif text-xl text-gray-900 mb-1">{t.title}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{t.description}</p>
+              <div className="lowercase">
+                <h3 className="font-serif text-xl text-gray-900 mb-1">{t.title.toLowerCase()}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{t.description.toLowerCase()}</p>
               </div>
-              <div className="pt-3 border-t border-[#FAF9F6] flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">{t.duration_minutes} mins</span>
+              <div className="pt-3 border-t border-[#FAF9F6] flex items-center justify-between lowercase">
+                <span className="text-xs font-semibold tracking-wider text-[#693F00]">{t.duration_minutes} mins</span>
                 <span className="font-serif text-lg text-gray-900">£{t.price_gbp}</span>
               </div>
             </div>
@@ -364,17 +360,17 @@ export default function HomePage() {
 
       {galleryImages.length > 0 && (
         <section className="border-t border-[#E5E7EB] pt-8">
-          <div className="max-w-6xl mx-auto px-4 text-center space-y-1 mb-4">
-            <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.gallery_heading || 'Calm Drift Sanctuary Space'}</h2>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">{content.gallery_subtext || 'A glimpse into our restorative environment'}</p>
+          <div className="max-w-6xl mx-auto px-4 text-center space-y-1 mb-4 lowercase">
+            <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.gallery_heading ? content.gallery_heading.toLowerCase() : 'calm drift sanctuary space'}</h2>
+            <p className="text-xs text-gray-500 tracking-wider">{content.gallery_subtext ? content.gallery_subtext.toLowerCase() : 'a glimpse into our restorative environment'}</p>
           </div>
           
           <div className="w-full overflow-x-auto pb-4 pt-2 scrollbar-none">
             <div className="flex gap-4 px-6 md:justify-center w-max mx-auto">
               {displayedGallery.map((img) => (
                 <div key={img.id} className="w-[300px] sm:w-[340px] flex-shrink-0 overflow-hidden rounded-2xl border border-[#E5E7EB] shadow-sm bg-white">
-                  <img src={img.image_url} alt={img.caption || 'Calm Drift Sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
-                  {img.caption && <div className="p-2 text-xs text-center text-gray-600">{img.caption}</div>}
+                  <img src={img.image_url} alt={img.caption || 'calm drift sanctuary'} className="w-full h-64 object-cover hover:scale-105 transition duration-500" />
+                  {img.caption && <div className="p-2 text-xs text-center text-gray-600 lowercase">{img.caption.toLowerCase()}</div>}
                 </div>
               ))}
             </div>
@@ -384,25 +380,25 @@ export default function HomePage() {
 
       {reviews.length > 0 && (
         <section className="border-t border-[#E5E7EB] pt-8 pb-4">
-          <div className="max-w-5xl mx-auto px-4 text-center space-y-1 mb-4">
-            <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.reviews_heading || 'Client Experiences'}</h2>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">{content.reviews_subtext || 'Words from those who have visited our sanctuary'}</p>
+          <div className="max-w-5xl mx-auto px-4 text-center space-y-1 mb-4 lowercase">
+            <h2 className="font-serif text-2xl sm:text-3xl text-gray-900">{content.reviews_heading ? content.reviews_heading.toLowerCase() : 'client experiences'}</h2>
+            <p className="text-xs text-gray-500 tracking-wider">{content.reviews_subtext ? content.reviews_subtext.toLowerCase() : 'words from those who have visited our sanctuary'}</p>
           </div>
 
           <div className="w-full overflow-x-auto pb-4 pt-2 scrollbar-none">
             <div className="flex gap-4 px-6 md:justify-center w-max mx-auto">
               {displayedReviews.map((rev) => (
                 <div key={rev.id} className="w-[300px] sm:w-[340px] flex-shrink-0 bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-2 lowercase">
                     <div className="flex text-amber-500">
                       {[...Array(rev.rating || 5)].map((_, i) => (
                         <Star key={i} className="w-4 h-4 fill-current" />
                       ))}
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-700 italic leading-relaxed">"{rev.comment}"</p>
+                    <p className="text-xs sm:text-sm text-gray-700 italic leading-relaxed">"{rev.comment.toLowerCase()}"</p>
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[#693F00]">
-                    — {rev.client_name}
+                  <div className="text-xs font-semibold tracking-wider text-[#693F00] lowercase">
+                    — {rev.client_name.toLowerCase()}
                   </div>
                 </div>
               ))}
@@ -411,8 +407,8 @@ export default function HomePage() {
         </section>
       )}
 
-      <footer className="py-6 px-6 border-t border-[#E5E7EB] text-center text-xs text-gray-500">
-        <p>© {new Date().getFullYear()} Calm Drift Sanctuary. All rights reserved.</p>
+      <footer className="py-6 px-6 border-t border-[#E5E7EB] text-center text-xs text-gray-500 lowercase">
+        <p>© {new Date().getFullYear()} calm drift sanctuary. all rights reserved.</p>
       </footer>
 
       <style jsx global>{`
