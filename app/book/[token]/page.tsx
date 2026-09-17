@@ -12,6 +12,7 @@ const supabase = createClient(
 export default function CustomBookingPage() {
   const { token } = useParams();
   const [linkData, setLinkData] = useState<any>(null);
+  const [treatments, setTreatments] = useState<any[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState('');
@@ -24,20 +25,24 @@ export default function CustomBookingPage() {
     async function fetchData() {
       if (!token) return;
 
-      const { data, error } = await supabase
-        .from('custom_booking_links')
-        .select('*, treatments(*)')
-        .eq('token', token)
-        .maybeSingle(); // Use maybeSingle instead of single to prevent throwing errors on missing rows
+      const [linkRes, treatmentsRes] = await Promise.all([
+        supabase.from('custom_booking_links').select('*').eq('token', token).maybeSingle(),
+        supabase.from('treatments').select('*').order('price_gbp', { ascending: true })
+      ]);
 
-      if (error) {
-        console.error('Supabase fetch error:', error);
-        setFetchError(error.message);
-      } else if (!data) {
+      if (linkRes.error) {
+        console.error('Supabase fetch error:', linkRes.error);
+        setFetchError(linkRes.error.message);
+      } else if (!linkRes.data) {
         setFetchError('Link not found in database.');
       } else {
-        setLinkData(data);
+        setLinkData(linkRes.data);
       }
+
+      if (treatmentsRes.data) {
+        setTreatments(treatmentsRes.data);
+      }
+
       setLoading(false);
     }
     fetchData();
@@ -104,8 +109,9 @@ export default function CustomBookingPage() {
         return;
       }
 
-      const durationMinutes = linkData.bespoke_duration || linkData.treatments?.duration_minutes || 60;
-      const finalPrice = linkData.final_price ?? linkData.bespoke_price ?? linkData.price_override ?? linkData.treatments?.price_gbp ?? 0;
+      const matchedTreatment = treatments.find((t) => t.id === linkData.treatment_id);
+      const durationMinutes = linkData.bespoke_duration || matchedTreatment?.duration_minutes || 60;
+      const finalPrice = linkData.final_price ?? linkData.bespoke_price ?? linkData.price_override ?? matchedTreatment?.price_gbp ?? 0;
 
       const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
       
@@ -166,10 +172,11 @@ export default function CustomBookingPage() {
     return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used.</div>;
   }
 
+  const matchedTreatment = treatments.find((t) => t.id === linkData.treatment_id);
   const formattedDate = linkData?.target_date ? formatUKDate(linkData.target_date) : 'Scheduled Date';
-  const treatmentTitle = linkData.bespoke_title || linkData.treatments?.title || 'Personalised Sanctuary Session';
-  const treatmentDuration = linkData.bespoke_duration || linkData.treatments?.duration_minutes || 60;
-  const treatmentPrice = linkData.final_price ?? linkData.bespoke_price ?? linkData.price_override ?? linkData.treatments?.price_gbp ?? 0;
+  const treatmentTitle = linkData.bespoke_title || matchedTreatment?.title || 'Personalised Sanctuary Session';
+  const treatmentDuration = linkData.bespoke_duration || matchedTreatment?.duration_minutes || 60;
+  const treatmentPrice = linkData.final_price ?? linkData.bespoke_price ?? linkData.price_override ?? matchedTreatment?.price_gbp ?? 0;
 
   return (
     <main className="min-h-screen bg-stone-50 py-16 px-6 flex items-center justify-center">
