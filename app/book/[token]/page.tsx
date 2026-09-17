@@ -12,6 +12,7 @@ const supabase = createClient(
 export default function CustomBookingPage() {
   const { token } = useParams();
   const [linkData, setLinkData] = useState<any>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -27,9 +28,14 @@ export default function CustomBookingPage() {
         .from('custom_booking_links')
         .select('*, treatments(*)')
         .eq('token', token)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to prevent throwing errors on missing rows
 
-      if (data) {
+      if (error) {
+        console.error('Supabase fetch error:', error);
+        setFetchError(error.message);
+      } else if (!data) {
+        setFetchError('Link not found in database.');
+      } else {
         setLinkData(data);
       }
       setLoading(false);
@@ -146,7 +152,19 @@ export default function CustomBookingPage() {
   };
 
   if (loading) return <div className="p-20 text-center text-stone-500">Loading your bespoke session details...</div>;
-  if (!linkData || linkData.is_used === true) return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used or is invalid.</div>;
+  
+  if (fetchError || !linkData) {
+    return (
+      <div className="p-20 text-center font-serif text-xl text-stone-800">
+        This booking link is invalid or could not be found. <br />
+        <span className="text-xs font-sans text-stone-500 mt-2 block">Details: {fetchError || 'Token does not exist'}</span>
+      </div>
+    );
+  }
+
+  if (linkData.is_used === true) {
+    return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used.</div>;
+  }
 
   const formattedDate = linkData?.target_date ? formatUKDate(linkData.target_date) : 'Scheduled Date';
   const treatmentTitle = linkData.bespoke_title || linkData.treatments?.title || 'Personalised Sanctuary Session';
