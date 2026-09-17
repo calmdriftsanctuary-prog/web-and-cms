@@ -12,7 +12,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log('Incoming Booking Payload:', body); // Debug log to track exact payload
+    console.log('Incoming Payload:', body);
 
     const {
       type,
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const resolvedNotes = notes || message;
 
     // Handle Contact / Enquiry Form Submissions
-    if (type === 'contact' || (!startTime && !treatmentId)) {
+    if (type === 'contact' || type === 'enquiry' || (!startTime && !treatmentId)) {
       if (!resolvedName || !resolvedEmail) {
         return NextResponse.json({ error: 'Name and email are required.' }, { status: 400 });
       }
@@ -50,13 +50,14 @@ export async function POST(request: Request) {
 
       if (dbError) {
         console.error('Failed to store form submission in database:', dbError);
+        return NextResponse.json({ error: `Database error: ${dbError.message}` }, { status: 500 });
       }
 
       // 2. Send email notification via Resend SDK
       if (process.env.RESEND_API_KEY) {
         try {
           await resend.emails.send({
-            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+            from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
             to: ['calmdriftsanctuary@gmail.com'],
             subject: `New Contact Enquiry: ${resolvedName}`,
             html: `
@@ -72,8 +73,9 @@ export async function POST(request: Request) {
               </div>
             `,
           });
-        } catch (contactErr) {
+        } catch (contactErr: any) {
           console.error('Failed to send contact enquiry email notification:', contactErr);
+          return NextResponse.json({ error: `Email error: ${contactErr.message}` }, { status: 500 });
         }
       }
 
@@ -85,10 +87,9 @@ export async function POST(request: Request) {
     }
 
     const startDateTime = new Date(startTime);
-    const dateString = startDateTime.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeString = startDateTime.toTimeString().split(' ')[0]; // HH:MM:SS
+    const dateString = startDateTime.toISOString().split('T')[0];
+    const timeString = startDateTime.toTimeString().split(' ')[0];
 
-    // Only enforce strict availability rules if it's NOT an admin-bypassed custom link booking
     if (!isAdminBypass) {
       if (!treatmentId) {
         return NextResponse.json({ error: 'Treatment ID is required for standard bookings.' }, { status: 400 });
@@ -131,7 +132,6 @@ export async function POST(request: Request) {
       : new Date(startDateTime.getTime() + (durationMinutes || 60) * 60000);
     const hasConsented = Boolean(marketingOptIn);
 
-    // Check for double bookings / overlaps
     const { data: existingBookings, error: overlapError } = await supabase
       .from('bookings')
       .select('id')
@@ -145,7 +145,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This time slot is already booked.' }, { status: 400 });
     }
 
-    // Insert booking into Supabase database
     const insertPayload: any = {
       client_name: resolvedName,
       client_email: resolvedEmail,
@@ -174,7 +173,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Database insert failed: ${bookingError.message}` }, { status: 500 });
     }
 
-    // Fetch treatment details for email
     let treatment = { title: 'Sanctuary Experience', price_gbp: 0 };
     if (treatmentId) {
       const { data: treatmentData } = await supabase
@@ -193,10 +191,9 @@ export async function POST(request: Request) {
       const consultationUrl = `https://calmdriftsanctuary.co.uk/consultation/${bookingData.id}`;
       const formattedDate = startDateTime.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }) + ' BST';
 
-      // Send Admin Notification Email
       try {
         await resend.emails.send({
-          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+          from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
           to: ['calmdriftsanctuary@gmail.com'],
           subject: `New Booking: ${resolvedName} - ${treatment.title}`,
           html: `
@@ -218,10 +215,9 @@ export async function POST(request: Request) {
         console.error('Failed to send admin notification email:', adminErr);
       }
 
-      // Send Client Confirmation Email
       try {
         await resend.emails.send({
-          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+          from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
           to: [resolvedEmail],
           subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
           html: `
