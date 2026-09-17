@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -31,23 +34,35 @@ export async function POST(request: Request) {
     const resolvedPhone = clientPhone || body.phone;
     const resolvedNotes = notes || message;
 
-    // Handle Contact / Inquiry Form Submissions
+    // Handle Contact / Enquiry Form Submissions
     if (type === 'contact' || (!startTime && !treatmentId)) {
       if (!resolvedName || !resolvedEmail) {
         return NextResponse.json({ error: 'Name and email are required.' }, { status: 400 });
       }
 
-      const resendApiKey = process.env.RESEND_API_KEY;
-      if (resendApiKey) {
+      // 1. Store the enquiry in your existing form_submissions table
+      const { error: dbError } = await supabase.from('form_submissions').insert([{
+        name: resolvedName,
+        email: resolvedEmail,
+        phone: resolvedPhone || '',
+        message: resolvedNotes || '',
+      }]);
+
+      if (dbError) {
+        console.error('Failed to store form submission in database:', dbError);
+      }
+
+      // 2. Send email notification via Resend SDK
+      if (process.env.RESEND_API_KEY) {
         try {
-          const contactEmailPayload = {
+          await resend.emails.send({
             from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: ['calmdriftsanctuary@gmail.com'],
-            subject: `New Contact Inquiry: ${resolvedName}`,
+            subject: `New Contact Enquiry: ${resolvedName}`,
             html: `
               <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
-                <h2 style="color:#693F00;">New Website Contact Inquiry</h2>
-                <p>A new inquiry was submitted via the homepage contact form.</p>
+                <h2 style="color:#693F00;">New Website Contact Enquiry</h2>
+                <p>A new enquiry was submitted via the homepage contact form.</p>
                 <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
                 <p><strong>Name:</strong> ${resolvedName}</p>
                 <p><strong>Email:</strong> ${resolvedEmail}</p>
@@ -56,19 +71,13 @@ export async function POST(request: Request) {
                 <p style="background:#ffffff; padding:15px; border-radius:8px; border:1px solid #E5E7EB;">${resolvedNotes || 'No message provided.'}</p>
               </div>
             `,
-          };
-
-          await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-            body: JSON.stringify(contactEmailPayload),
           });
         } catch (contactErr) {
-          console.error('Failed to send contact inquiry email notification:', contactErr);
+          console.error('Failed to send contact enquiry email notification:', contactErr);
         }
       }
 
-      return NextResponse.json({ success: true, message: 'Inquiry submitted successfully.' }, { status: 200 });
+      return NextResponse.json({ success: true, message: 'Enquiry submitted successfully.' }, { status: 200 });
     }
 
     if (!resolvedName || !resolvedEmail || !startTime) {
@@ -186,28 +195,24 @@ export async function POST(request: Request) {
 
       // Send Admin Notification Email
       try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-          body: JSON.stringify({
-            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
-            to: ['calmdriftsanctuary@gmail.com'],
-            subject: `New Booking: ${resolvedName} - ${treatment.title}`,
-            html: `
-              <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
-                <h2 style="color:#693F00;">New Sanctuary Reservation</h2>
-                <p>A new appointment has been booked via generated link.</p>
-                <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
-                <p><strong>Client:</strong> ${resolvedName}</p>
-                <p><strong>Email:</strong> ${resolvedEmail}</p>
-                <p><strong>Phone:</strong> ${resolvedPhone || 'Not provided'}</p>
-                <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
-                <p><strong>Date & Time:</strong> ${formattedDate}</p>
-                <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#693F00' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
-                ${resolvedNotes ? `<p><strong>Notes / Special Requests:</strong> ${resolvedNotes}</p>` : ''}
-              </div>
-            `,
-          }),
+        await resend.emails.send({
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+          to: ['calmdriftsanctuary@gmail.com'],
+          subject: `New Booking: ${resolvedName} - ${treatment.title}`,
+          html: `
+            <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
+              <h2 style="color:#693F00;">New Sanctuary Reservation</h2>
+              <p>A new appointment has been booked via generated link.</p>
+              <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
+              <p><strong>Client:</strong> ${resolvedName}</p>
+              <p><strong>Email:</strong> ${resolvedEmail}</p>
+              <p><strong>Phone:</strong> ${resolvedPhone || 'Not provided'}</p>
+              <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
+              <p><strong>Date & Time:</strong> ${formattedDate}</p>
+              <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#693F00' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
+              ${resolvedNotes ? `<p><strong>Notes / Special Requests:</strong> ${resolvedNotes}</p>` : ''}
+            </div>
+          `,
         });
       } catch (adminErr) {
         console.error('Failed to send admin notification email:', adminErr);
@@ -215,37 +220,33 @@ export async function POST(request: Request) {
 
       // Send Client Confirmation Email
       try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-          body: JSON.stringify({
-            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
-            to: [resolvedEmail],
-            subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
-            html: `
-              <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
-                <h2 style="color:#693F00; margin-top:0;">Your Session is Confirmed</h2>
-                <p>Dear ${resolvedName},</p>
-                <p>Thank you for booking with Calm Drift Sanctuary. We look forward to welcoming you.</p>
-                
-                <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #E5E7EB; margin:20px 0;">
-                  <p style="margin:5px 0;"><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
-                  <p style="margin:5px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
-                  <p style="margin:5px 0;"><strong>Location:</strong> Calm Drift Sanctuary</p>
-                  <p style="margin:5px 0;"><strong>what3words:</strong> ///converged.archives.downturn</p>
-                  ${resolvedNotes ? `<p style="margin:5px 0;"><strong>Special Requests / Notes:</strong> ${resolvedNotes}</p>` : ''}
-                </div>
-
-                <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>
-                
-                <div style="text-align:center; margin:30px 0;">
-                  <a href="${consultationUrl}" style="background-color:#693F00; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
-                </div>
-
-                <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
+        await resend.emails.send({
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
+          to: [resolvedEmail],
+          subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
+          html: `
+            <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
+              <h2 style="color:#693F00; margin-top:0;">Your Session is Confirmed</h2>
+              <p>Dear ${resolvedName},</p>
+              <p>Thank you for booking with Calm Drift Sanctuary. We look forward to welcoming you.</p>
+              
+              <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #E5E7EB; margin:20px 0;">
+                <p style="margin:5px 0;"><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
+                <p style="margin:5px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
+                <p style="margin:5px 0;"><strong>Location:</strong> Calm Drift Sanctuary</p>
+                <p style="margin:5px 0;"><strong>what3words:</strong> ///converged.archives.downturn</p>
+                ${resolvedNotes ? `<p style="margin:5px 0;"><strong>Special Requests / Notes:</strong> ${resolvedNotes}</p>` : ''}
               </div>
-            `,
-          }),
+
+              <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>
+              
+              <div style="text-align:center; margin:30px 0;">
+                <a href="${consultationUrl}" style="background-color:#693F00; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
+              </div>
+
+              <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
+            </div>
+          `,
         });
       } catch (clientErr) {
         console.error('Failed to send client confirmation email:', clientErr);
