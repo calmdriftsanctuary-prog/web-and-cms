@@ -276,14 +276,24 @@ export default function AdminCalendarPage() {
     }
   };
 
-  const handleSendConsultationEmail = async (clientEmail: string, clientName: string) => {
+  const handleSendConsultationEmail = async (bookingId: string, clientEmail: string, clientName: string) => {
     if (!confirm(`Send consultation intake form request email to ${clientName} (${clientEmail})?`)) return;
-    await fetch('/api/admin/bookings', {
+    const res = await fetch('/api/admin/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'send_consultation_email', email: clientEmail, name: clientName }),
+      body: JSON.stringify({ 
+        type: 'send_consultation_email', 
+        bookingId: bookingId, 
+        email: clientEmail, 
+        name: clientName 
+      }),
     });
-    alert('Consultation form email sent successfully!');
+
+    if (res.ok) {
+      alert('Consultation form email sent successfully!');
+    } else {
+      alert('Failed to send consultation email.');
+    }
   };
 
   const handleCancelBooking = async (id: string) => {
@@ -686,7 +696,10 @@ export default function AdminCalendarPage() {
                     ) : (
                       <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
                         <p className="text-amber-700 italic">No consultation form completed yet.</p>
-                        <button onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name)} className="mt-2 w-full py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1">
+                        <button 
+                          onClick={() => handleSendConsultationEmail(selectedBooking.id, selectedBooking.client_email, selectedBooking.client_name)} 
+                          className="mt-2 w-full py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-lg flex items-center justify-center space-x-1"
+                        >
                           <Send className="w-3 h-3" /> <span>Trigger Form Email</span>
                         </button>
                       </div>
