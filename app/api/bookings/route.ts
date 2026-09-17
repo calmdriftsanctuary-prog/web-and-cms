@@ -46,7 +46,7 @@ export async function POST(request: Request) {
             subject: `New Contact Inquiry: ${resolvedName}`,
             html: `
               <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
-                <h2 style="color:#6B8E70;">New Website Contact Inquiry</h2>
+                <h2 style="color:#693F00;">New Website Contact Inquiry</h2>
                 <p>A new inquiry was submitted via the homepage contact form.</p>
                 <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
                 <p><strong>Name:</strong> ${resolvedName}</p>
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
             subject: `New Booking: ${resolvedName} - ${treatment.title}`,
             html: `
               <div style="font-family:sans-serif; color:#2C332B; padding:20px; background:#FAF9F6; border-radius:12px;">
-                <h2 style="color:#6B8E70;">New Sanctuary Reservation</h2>
+                <h2 style="color:#693F00;">New Sanctuary Reservation</h2>
                 <p>A new appointment has been booked via generated link.</p>
                 <hr style="border:none; border-top:1px solid #E5E7EB; margin:15px 0;" />
                 <p><strong>Client:</strong> ${resolvedName}</p>
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
                 <p><strong>Phone:</strong> ${resolvedPhone || 'Not provided'}</p>
                 <p><strong>Treatment:</strong> ${treatment.title} (£${treatment.price_gbp})</p>
                 <p><strong>Date & Time:</strong> ${formattedDate}</p>
-                <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#047857' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
+                <p><strong>Marketing Opt-In:</strong> <span style="color: ${hasConsented ? '#693F00' : '#6b7280'}; font-weight:bold;">${hasConsented ? 'Yes (Consented)' : 'No Consent'}</span></p>
                 ${resolvedNotes ? `<p><strong>Notes / Special Requests:</strong> ${resolvedNotes}</p>` : ''}
               </div>
             `,
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
             subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
             html: `
               <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
-                <h2 style="color:#6B8E70; margin-top:0;">Your Session is Confirmed</h2>
+                <h2 style="color:#693F00; margin-top:0;">Your Session is Confirmed</h2>
                 <p>Dear ${resolvedName},</p>
                 <p>Thank you for booking with Calm Drift Sanctuary. We look forward to welcoming you.</p>
                 
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
                 <p style="margin-bottom:15px;">Before your visit, please complete your mandatory digital consultation form by clicking the button below:</p>
                 
                 <div style="text-align:center; margin:30px 0;">
-                  <a href="${consultationUrl}" style="background-color:#6B8E70; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
+                  <a href="${consultationUrl}" style="background-color:#693F00; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:14px; font-weight:bold; display:inline-block;">Complete Consultation Form</a>
                 </div>
 
                 <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px;">If you have any questions or need to reschedule, please reply directly to this email.</p>
