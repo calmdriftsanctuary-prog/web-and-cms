@@ -12,7 +12,6 @@ const supabase = createClient(
 export default function CustomBookingPage() {
   const { token } = useParams();
   const [linkData, setLinkData] = useState<any>(null);
-  const [treatments, setTreatments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -24,16 +23,14 @@ export default function CustomBookingPage() {
     async function fetchData() {
       if (!token) return;
 
-      const [linkRes, treatmentsRes] = await Promise.all([
-        supabase.from('custom_booking_links').select('*, treatments(*)').eq('token', token).single(),
-        supabase.from('treatments').select('*').order('price_gbp', { ascending: true })
-      ]);
+      const { data, error } = await supabase
+        .from('custom_booking_links')
+        .select('*, treatments(*)')
+        .eq('token', token)
+        .single();
 
-      if (linkRes.data) {
-        setLinkData(linkRes.data);
-      }
-      if (treatmentsRes.data) {
-        setTreatments(treatmentsRes.data);
+      if (data) {
+        setLinkData(data);
       }
       setLoading(false);
     }
@@ -149,7 +146,7 @@ export default function CustomBookingPage() {
   };
 
   if (loading) return <div className="p-20 text-center text-stone-500">Loading your bespoke session details...</div>;
-  if (!linkData || linkData.is_used) return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used or is invalid.</div>;
+  if (!linkData || linkData.is_used === true) return <div className="p-20 text-center font-serif text-xl text-stone-800">This booking link has already been used or is invalid.</div>;
 
   const formattedDate = linkData?.target_date ? formatUKDate(linkData.target_date) : 'Scheduled Date';
   const treatmentTitle = linkData.bespoke_title || linkData.treatments?.title || 'Personalised Sanctuary Session';
