@@ -137,12 +137,12 @@ export default function HomePage() {
     setFormData((prev) => ({ ...prev, [name]: String(value) }));
   };
 
-  const handleInquirySubmit = async (e: React.FormEvent) => {
+  const handleenquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingForm(true);
     setFormError('');
 
-    const clientName = formData.client_name || formData['Full Name'] || 'Inquiry Client';
+    const clientName = formData.client_name || formData['Full Name'] || 'enquiry Client';
     const clientEmail = formData.client_email || formData['Email Address'] || '';
     const clientPhone = formData.client_phone || formData['Phone Number'] || '';
 
@@ -161,13 +161,13 @@ export default function HomePage() {
           clientEmail: clientEmail,
           clientPhone: clientPhone,
           notes: JSON.stringify(formData),
-          is_inquiry: true,
+          is_enquiry: true,
           isAdminBypass: true
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send inquiry.');
+      if (!res.ok) throw new Error(data.error || 'Failed to send enquiry.');
       
       setFormSuccess(true);
       setFormData({});
@@ -262,7 +262,7 @@ export default function HomePage() {
 
         <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border shadow-sm mt-6">
           <h3 className="font-serif text-xl text-gray-900 mb-5 text-center border-b pb-4">
-            {content.inquiry_heading || 'Or Submit an Inquiry Directly'}
+            {content.enquiry_heading || 'Or Submit an enquiry Directly'}
           </h3>
           
           {formSuccess ? (
@@ -270,12 +270,12 @@ export default function HomePage() {
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                 <Send className="w-6 h-6" />
               </div>
-              <h4 className="font-serif text-xl font-bold">Inquiry Sent Successfully</h4>
+              <h4 className="font-serif text-xl font-bold">enquiry Sent Successfully</h4>
               <p className="text-sm text-gray-600">Thank you. We will be in touch shortly to confirm availability.</p>
               <button onClick={() => setFormSuccess(false)} className="mt-4 px-6 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-full">Send Another</button>
             </div>
           ) : (
-            <form onSubmit={handleInquirySubmit} className="space-y-4">
+            <form onSubmit={handleenquirySubmit} className="space-y-4">
               {formError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">{formError}</div>}
               
               {bookingFields.map((field) => (
@@ -332,7 +332,7 @@ export default function HomePage() {
                   disabled={submittingForm}
                   className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
                 >
-                  {submittingForm ? 'Sending Inquiry...' : 'Submit Inquiry'}
+                  {submittingForm ? 'Sending enquiry...' : 'Submit enquiry'}
                 </button>
               </div>
             </form>
