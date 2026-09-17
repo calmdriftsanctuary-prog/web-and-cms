@@ -17,16 +17,17 @@ export async function GET(request: Request) {
     }
 
     const now = new Date();
-    const targetStart = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
-    const targetEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    // Target appointments that ended at least 2 hours ago (with a safe lookback window up to 26 hours ago to catch any delayed runs)
+    const targetLatestEnd = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
+    const targetEarliestEnd = new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString();
 
     const { data: bookings, error: fetchErr } = await supabase
       .from('bookings')
       .select('*, treatments(title)')
       .eq('status', 'completed')
       .eq('review_email_sent', false)
-      .gte('end_time', targetStart)
-      .lte('end_time', targetEnd);
+      .gte('end_time', targetEarliestEnd)
+      .lte('end_time', targetLatestEnd);
 
     if (fetchErr) throw fetchErr;
     if (!bookings || bookings.length === 0) {
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       .single();
 
     const subject = template?.subject || 'Thank you for visiting Calm Drift Sanctuary!';
-    let content = template?.content || 'Dear {{client_name}},\n\nThank you for visiting us for your {{treatment_title}}. We would love to hear your feedback!';
+    let content = template?.content || 'Dear {{client_name}},\n\nThank you for visiting Calm Drift Sanctuary for your {{treatment_title}}. We would love to hear your feedback!';
 
     let sentCount = 0;
 
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
             <div style="white-space: pre-line; line-height: 1.6;">${personalisedContent}</div>
             <br/>
             <div style="text-align: center; margin-top: 30px;">
-              <a href="https://calmdriftsanctuary.co.uk/review" style="background-color: #6B8E70; color: white; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; font-weight: bold;">Leave a Review</a>
+              <a href="https://calmdriftsanctuary.co.uk/review" style="background-color: #693F00; color: white; padding: 12px 24px; text-decoration: none; border-radius: 9999px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; font-weight: bold;">Leave a Review</a>
             </div>
           </div>
         `,

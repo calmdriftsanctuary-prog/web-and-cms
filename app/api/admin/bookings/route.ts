@@ -226,15 +226,15 @@ export async function POST(request: Request) {
 
     if (type === 'send_consultation_email') {
       const { email, name, bookingId } = body;
-      const consultationUrl = bookingId ? `https://calmdriftsanctuary.co.uk/consultation/${bookingId}` : 'https://calmdriftsanctuary.co.uk';
+      const consultationUrl = bookingId ? `https://calmdriftsanctuary.co.uk/consultation/${bookingId}` : 'https://calmdriftsanctuary.co.uk/consultation';
 
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
         to: [email],
-        subject: 'Please Complete Your Sanctuary Consultation Form',
+        subject: 'Please Complete Your Calm Drift Sanctuary Consultation Form',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
-            <h2 style="color: #6B8E70;">Consultation Form Request</h2>
+            <h2 style="color: #693F00;">Consultation Form Request</h2>
             <p>Dear ${name},</p>
             <p>As part of your preparation for your upcoming visit, please complete your intake consultation form.</p>
             <p>You can fill it out securely online prior to your arrival by clicking below:</p>
@@ -244,8 +244,8 @@ export async function POST(request: Request) {
             <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
               <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                 <tr>
-                  <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
-                    <a href="${consultationUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600; background-color: #6B8E70;">Complete Digital Consultation</a>
+                  <td align="center" bgcolor="#693F00" style="border-radius: 9999px;">
+                    <a href="${consultationUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #693F00; display: inline-block; font-weight: 600; background-color: #693F00;">Complete Digital Consultation</a>
                   </td>
                 </tr>
               </table>
@@ -406,6 +406,8 @@ export async function POST(request: Request) {
 
           const clientName = booking.client_name || 'Client';
           const treatmentTitle = booking.treatments?.title || 'Treatment';
+          const treatmentDuration = booking.treatments?.duration_minutes ? `${booking.treatments.duration_minutes} minutes` : '';
+          const treatmentPrice = booking.treatments?.price_gbp !== undefined ? `£${booking.price_override ?? booking.treatments.price_gbp}` : '';
 
           let emailSubject = dbTemplate?.subject || 'Your [Treatment Title] at Calm Drift Sanctuary Confirmed';
           emailSubject = emailSubject
@@ -415,7 +417,7 @@ export async function POST(request: Request) {
 
           let rawContent = dbTemplate?.content || `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
-              <h2 style="color: #6B8E70;">Appointment Confirmed</h2>
+              <h2 style="color: #693F00;">Appointment Confirmed</h2>
               <p>Dear [Client Name],</p>
               <p>Your appointment for <strong>[Treatment Title]</strong> on [Date & Time] has been officially confirmed.</p>
             </div>
@@ -429,6 +431,8 @@ export async function POST(request: Request) {
 
           emailHtml += `
             <div style="margin: 20px 0; padding: 15px; background: #FAF9F6; border-radius: 8px; border: 1px solid #E5E7EB;">
+              <p style="margin: 0 0 5px 0; font-size: 13px;"><strong>Duration:</strong> ${treatmentDuration}</p>
+              <p style="margin: 0 0 5px 0; font-size: 13px;"><strong>Price:</strong> ${treatmentPrice}</p>
               <p style="margin: 0; font-size: 13px;"><strong>Location / what3words:</strong> ///converged.archives.downturn</p>
             </div>
           `;
@@ -451,8 +455,8 @@ export async function POST(request: Request) {
               <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
                 <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                   <tr>
-                    <td align="center" bgcolor="#6B8E70" style="border-radius: 9999px;">
-                      <a href="${finalUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #6B8E70; display: inline-block; font-weight: 600; background-color: #6B8E70;">${buttonText}</a>
+                    <td align="center" bgcolor="#693F00" style="border-radius: 9999px;">
+                      <a href="${finalUrl}" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; border: 1px solid #693F00; display: inline-block; font-weight: 600; background-color: #693F00;">${buttonText}</a>
                     </td>
                   </tr>
                 </table>
@@ -514,10 +518,10 @@ export async function POST(request: Request) {
           subject: 'Appointment Rescheduled - Calm Drift Sanctuary',
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2C332B;">
-              <h2 style="color: #6B8E70;">Appointment Rescheduled</h2>
+              <h2 style="color: #693F00;">Appointment Rescheduled</h2>
               <p>Dear ${booking.client_name},</p>
               <p>Your appointment has been successfully updated to a new time slot:</p>
-              <p style="background: #FAF9F6; padding: 15px; border-radius: 8px; border-left: 4px solid #6B8E70;">
+              <p style="background: #FAF9F6; padding: 15px; border-radius: 8px; border-left: 4px solid #693F00;">
                 <strong>New Date & Time:</strong> ${newTimeFormatted}<br/>
                 <strong>Treatment:</strong> ${treatmentTitle || 'Treatment'}
               </p>
