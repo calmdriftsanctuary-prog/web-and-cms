@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       if (process.env.RESEND_API_KEY) {
         try {
           await resend.emails.send({
-            from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
+            from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
             to: ['calmdriftsanctuary@gmail.com'],
             subject: `New Contact Enquiry: ${resolvedName}`,
             html: `
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
 
       try {
         await resend.emails.send({
-          from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: ['calmdriftsanctuary@gmail.com'],
           subject: `New Booking: ${resolvedName} - ${treatment.title}`,
           html: `
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
 
       try {
         await resend.emails.send({
-          from: 'Calm Drift Sanctuary <onboarding@resend.dev>',
+          from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
           to: [resolvedEmail],
           subject: `Booking Confirmed: ${treatment.title} at Calm Drift Sanctuary`,
           html: `
