@@ -58,6 +58,16 @@ interface ClientRecord {
   bookingsCount: number;
 }
 
+// Helper function to format UTC time strings correctly without browser hour shifting
+const formatUTCTime = (isoString: string) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export default function AdminCalendarPage() {
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('day');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -172,11 +182,11 @@ export default function AdminCalendarPage() {
     if (selectedBooking && selectedBooking.start_time) {
       const start = new Date(selectedBooking.start_time);
       if (!isNaN(start.getTime())) {
-        const year = start.getFullYear();
-        const month = String(start.getMonth() + 1).padStart(2, '0');
-        const day = String(start.getDate()).padStart(2, '0');
-        const hours = String(start.getHours()).padStart(2, '0');
-        const minutes = String(start.getMinutes()).padStart(2, '0');
+        const year = start.getUTCFullYear();
+        const month = String(start.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(start.getUTCDate()).padStart(2, '0');
+        const hours = String(start.getUTCHours()).padStart(2, '0');
+        const minutes = String(start.getUTCMinutes()).padStart(2, '0');
 
         setEditDate(`${year}-${month}-${day}`);
         setEditTime(`${hours}:${minutes}`);
@@ -192,13 +202,13 @@ export default function AdminCalendarPage() {
     if (selectedBlockTime) {
       const start = new Date(selectedBlockTime.start_time);
       const end = new Date(selectedBlockTime.end_time);
-      const year = start.getFullYear();
-      const month = String(start.getMonth() + 1).padStart(2, '0');
-      const day = String(start.getDate()).padStart(2, '0');
+      const year = start.getUTCFullYear();
+      const month = String(start.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(start.getUTCDate()).padStart(2, '0');
 
       setEditBlockDate(`${year}-${month}-${day}`);
-      setEditBlockStart(start.toTimeString().slice(0, 5));
-      setEditBlockEnd(end.toTimeString().slice(0, 5));
+      setEditBlockStart(String(start.getUTCHours()).padStart(2, '0') + ':' + String(start.getUTCMinutes()).padStart(2, '0'));
+      setEditBlockEnd(String(end.getUTCHours()).padStart(2, '0') + ':' + String(end.getUTCMinutes()).padStart(2, '0'));
       setEditBlockReason(selectedBlockTime.reason);
     }
   }, [selectedBlockTime]);
@@ -249,8 +259,8 @@ export default function AdminCalendarPage() {
     e.preventDefault();
     if (!selectedBlockTime) return;
 
-    const startIso = new Date(`${editBlockDate}T${editBlockStart}:00`).toISOString();
-    const endIso = new Date(`${editBlockDate}T${editBlockEnd}:00`).toISOString();
+    const startIso = new Date(`${editBlockDate}T${editBlockStart}:00Z`).toISOString();
+    const endIso = new Date(`${editBlockDate}T${editBlockEnd}:00Z`).toISOString();
 
     const res = await fetch('/api/admin/blocked-times', {
       method: 'POST',
@@ -312,7 +322,7 @@ export default function AdminCalendarPage() {
     e.preventDefault();
     if (!selectedBooking || !editDate || !editTime) return;
 
-    const startDateTime = new Date(`${editDate}T${editTime}:00`);
+    const startDateTime = new Date(`${editDate}T${editTime}:00Z`);
     const treatment = treatments.find(t => t.id === editTreatmentId);
     const duration = treatment ? treatment.duration_minutes : 60;
     const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
@@ -377,7 +387,7 @@ export default function AdminCalendarPage() {
 
     const treatment = treatments.find(t => t.id === selectedTreatmentId);
     const duration = treatment ? treatment.duration_minutes : 60;
-    const startDateTime = new Date(`${bookingDateStr}T${manualTime}:00`);
+    const startDateTime = new Date(`${bookingDateStr}T${manualTime}:00Z`);
     const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
 
     setIsSubmittingBooking(true);
@@ -506,12 +516,12 @@ export default function AdminCalendarPage() {
                             onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
                             className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#693F00] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
                           >
-                            {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {b.client_name}
+                            {formatUTCTime(b.start_time)} - {b.client_name}
                           </div>
                         ))}
                         {dayBlocks.map(bt => {
-                          const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                          const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                          const startTime = formatUTCTime(bt.start_time);
+                          const endTime = formatUTCTime(bt.end_time);
                           return (
                             <div
                               key={bt.id}
@@ -549,14 +559,14 @@ export default function AdminCalendarPage() {
                     <div key={idx} className="p-2 border rounded-xl bg-[#FAF9F6] space-y-2 overflow-y-auto">
                       {dayBookings.map(b => (
                         <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#693F00] ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-emerald-50' : ''}`}>
-                          <p className="font-bold text-[#693F00]">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="font-bold text-[#693F00]">{formatUTCTime(b.start_time)}</p>
                           <p className="font-serif text-sm truncate">{b.client_name}</p>
                           <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title || 'Custom Appointment'}</p>
                         </div>
                       ))}
                       {dayBlocks.map(bt => {
-                        const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const startTime = formatUTCTime(bt.start_time);
+                        const endTime = formatUTCTime(bt.end_time);
                         return (
                           <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 cursor-pointer hover:bg-amber-100 ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
                             <p className="font-bold">{startTime} - {endTime}</p>
@@ -574,8 +584,8 @@ export default function AdminCalendarPage() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
 
               {blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
-                const startTime = new Date(bt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const endTime = new Date(bt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const startTime = formatUTCTime(bt.start_time);
+                const endTime = formatUTCTime(bt.end_time);
                 return (
                   <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
                     <div>
@@ -594,7 +604,7 @@ export default function AdminCalendarPage() {
                   <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
                     <div>
                       <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title || 'Custom Appointment'})</p>
-                      <p className="text-xs text-[#6B7280]">Time: {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="text-xs text-[#6B7280]">Time: {formatUTCTime(b.start_time)}</p>
                     </div>
                     <span className="text-xs text-[#693F00]">View &rarr;</span>
                   </div>
@@ -674,7 +684,7 @@ export default function AdminCalendarPage() {
                     {selectedBooking.price_override !== undefined && selectedBooking.price_override !== null && (
                       <p className="text-emerald-700 italic">Price overridden (Reason: {selectedBooking.override_reason})</p>
                     )}
-                    <p><strong>Time:</strong> {selectedBooking.start_time ? new Date(selectedBooking.start_time).toLocaleString('en-GB') : 'N/A'}</p>
+                    <p><strong>Time:</strong> {selectedBooking.start_time ? new Date(selectedBooking.start_time).toLocaleDateString('en-GB') + ' ' + formatUTCTime(selectedBooking.start_time) : 'N/A'}</p>
                     <p className="font-semibold text-[#2C332B]">
                       Marketing Opt-In: <span className={selectedBooking.marketing_opt_in ? 'text-emerald-700 font-bold' : 'text-gray-500 font-normal'}>{selectedBooking.marketing_opt_in ? 'Yes (Opted In)' : 'No Consent'}</span>
                     </p>
