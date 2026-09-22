@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     const serialNumber = `cds-${Math.random().toString(36).substring(2, 10)}`;
 
-    // 2. Call Wallet Pass Provider API & log raw response
+    // 2. Call Wallet Pass Provider API using the exact inline payload structure
     let appleUrl = '';
     let googleUrl = '';
 
@@ -52,11 +52,33 @@ export async function POST(request: Request) {
           'Authorization': `Bearer ${process.env.WALLET_API_KEY}`
         },
         body: JSON.stringify({
-          serialNumber: serialNumber,
           barcodeValue: serialNumber,
+          barcodeFormat: 'QR',
+          logoText: 'Calm Drift Sanctuary',
+          organizationName: 'Calm Drift Sanctuary',
+          colorPreset: 'dark',
+          primaryFields: [
+            {
+              label: 'CARD',
+              value: 'Loyalty Card'
+            }
+          ],
           secondaryFields: [
-            { key: 'MEMBER', label: 'MEMBER', value: name },
-            { key: 'VISITS', label: 'VISITS', value: '0/8' }
+            {
+              label: 'MEMBER',
+              value: name
+            },
+            {
+              label: 'VISITS',
+              value: '0/8'
+            }
+          ],
+          backFields: [
+            {
+              label: 'Notifications',
+              value: ' ',
+              changeMessage: '%@'
+            }
           ]
         })
       });
@@ -72,6 +94,7 @@ export async function POST(request: Request) {
         console.error('Failed to parse WalletWallet JSON response');
       }
       
+      // Extract the URLs from the response object
       appleUrl = passData.appleUrl || passData.applePassUrl || passData.url || '';
       googleUrl = passData.googleUrl || passData.googleSaveUrl || passData.saveUrl || '';
     }
