@@ -251,6 +251,38 @@ export default function AdminLoyaltyPage() {
           </table>
         </div>
       </div>
+
+      {/* Scan History Audit Log */}
+      <div className="bg-white p-6 sm:p-8 rounded-2xl border shadow-sm space-y-4">
+        <h2 className="font-serif text-xl">recent scan history audit log</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b text-gray-500">
+              <tr>
+                <th className="pb-3 font-semibold">client email</th>
+                <th className="pb-3 font-semibold">action type</th>
+                <th className="pb-3 font-semibold">stamp change</th>
+                <th className="pb-3 font-semibold">timestamp</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {history.map((h) => (
+                <tr key={h.id} className="hover:bg-gray-50">
+                  <td className="py-3 text-gray-900">{h.client_email}</td>
+                  <td className="py-3 font-semibold text-[#693F00]">{h.action_type}</td>
+                  <td className="py-3 text-gray-600">{h.previous_stamps} &rarr; {h.new_stamps}</td>
+                  <td className="py-3 text-gray-400">{new Date(h.scanned_at).toLocaleString()}</td>
+                </tr>
+              ))}
+              {history.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-gray-400">no scan history recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   );
 }
