@@ -6,6 +6,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Simple memory cache to block duplicate rapid scans within 3 seconds
+const recentScans = new Map<string, number>();
+
 export async function POST(request: Request) {
   try {
     const { identifier } = await request.json();
@@ -14,12 +17,17 @@ export async function POST(request: Request) {
     }
 
     let cleanId = identifier.trim().toLowerCase();
-
-    // If the QR code scanned a full hosted URL (e.g. https://api.walletwallet.dev/p/cds-xyz123), extract the serial part at the end
     if (cleanId.includes('/p/')) {
       const parts = cleanId.split('/p/');
       cleanId = parts[parts.length - 1].trim();
     }
+
+    // Cooldown check: prevent double scanning the same pass within 3 seconds
+    const now = Date.now();
+    if (recentScans.has(cleanId) && now - recentScans.get(cleanId)! < 3000) {
+      return NextResponse.json({ error: 'scan already processed a moment ago. please wait.' }, { status: 429 });
+    }
+    recentScans.set(cleanId, now);
 
     // Query matching pass serial, email, or phone
     const { data: client, error: fetchErr } = await supabase
@@ -64,7 +72,7 @@ export async function POST(request: Request) {
         .eq('id', client.id);
     }
 
-    // Write permanent record to audit history log
+    // Write audit history log
     await supabase.from('loyalty_scan_history').insert([{
       pass_serial: client.pass_serial,
       client_email: client.client_email,
@@ -73,7 +81,7 @@ export async function POST(request: Request) {
       new_stamps: newStamps
     }]);
 
-    // Push live update to Apple/Google Wallet pass via provider API
+    // Push live update to Apple/Google Wallet pass
     if (process.env.WALLET_API_KEY) {
       await fetch(`https://api.walletwallet.dev/api/passes/${client.pass_serial}`, {
         method: 'PUT',
@@ -87,21 +95,10 @@ export async function POST(request: Request) {
           logoText: 'Calm Drift Sanctuary',
           organizationName: 'Calm Drift Sanctuary',
           colorPreset: 'dark',
-          primaryFields: [
-            {
-              label: 'CARD',
-              value: 'Loyalty Card'
-            }
-          ],
+          primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
           secondaryFields: [
-            {
-              label: 'MEMBER',
-              value: client.client_name
-            },
-            {
-              label: 'VISITS',
-              value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue
-            }
+            { label: 'MEMBER', value: client.client_name },
+            { label: 'VISITS', value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue }
           ]
         })
       });
