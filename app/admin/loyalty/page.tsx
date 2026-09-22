@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Camera, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -34,9 +34,7 @@ export default function AdminLoyaltyPage() {
 
   // Camera scanner states
   const [scanning, setScanning] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const scannerInstance = React.useRef<any>(null);
 
   const loadLoyaltyData = async () => {
     try {
@@ -51,6 +49,16 @@ export default function AdminLoyaltyPage() {
 
   useEffect(() => {
     loadLoyaltyData();
+
+    // Dynamically load html5-qrcode script from CDN
+    if (!document.getElementById('html5-qrcode-script')) {
+      const script = document.createElement('script');
+      script.id = 'html5-qrcode-script';
+      script.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
     return () => {
       stopCamera();
     };
@@ -83,67 +91,46 @@ export default function AdminLoyaltyPage() {
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = () => {
     setScanning(true);
     setResultMessage(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      mediaStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        requestAnimationFrame(scanTick);
+
+    const checkLib = setInterval(() => {
+      if ((window as any).Html5Qrcode) {
+        clearInterval(checkLib);
+        
+        if (!scannerInstance.current) {
+          scannerInstance.current = new (window as any).Html5Qrcode('qr-reader');
+        }
+
+        scannerInstance.current.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText: string) => {
+            processScan(decodedText);
+          },
+          (errorMessage: string) => {
+            // Scanning frame misses can be ignored safely
+          }
+        ).catch((err: any) => {
+          console.error('Failed to start scanner:', err);
+          setResultMessage({ error: 'unable to start camera. check permissions.' });
+          setScanning(false);
+        });
       }
-    } catch (err) {
-      console.error('Camera access error:', err);
-      setResultMessage({ error: 'unable to access camera. please check permissions.' });
-      setScanning(false);
-    }
+    }, 200);
   };
 
   const stopCamera = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
+    if (scannerInstance.current) {
+      scannerInstance.current.stop().then(() => {
+        scannerInstance.current.clear();
+        scannerInstance.current = null;
+      }).catch(() => {
+        scannerInstance.current = null;
+      });
     }
     setScanning(false);
-  };
-
-  const scanTick = async () => {
-    if (!videoRef.current || !canvasRef.current || !mediaStreamRef.current || !scanning) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        try {
-          // Use native BarcodeDetector if available
-          if ('BarcodeDetector' in window) {
-            const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-            const barcodes = await barcodeDetector.detect(video);
-            if (barcodes.length > 0) {
-              const scannedValue = barcodes[0].rawValue;
-              processScan(scannedValue);
-              return;
-            }
-          }
-        } catch (e) {
-          // Fallback loop continuation
-        }
-      }
-    }
-
-    if (mediaStreamRef.current && scanning) {
-      requestAnimationFrame(scanTick);
-    }
   };
 
   return (
@@ -169,20 +156,8 @@ export default function AdminLoyaltyPage() {
         </div>
         <p className="text-xs text-gray-500">scan a client's pass QR code using the camera, or type their email, phone, or pass serial manually below.</p>
 
-        {/* Hidden canvas for frame processing */}
-        <canvas ref={canvasRef} className="hidden" />
-
-        {scanning && (
-          <div className="relative bg-black rounded-xl overflow-hidden aspect-video max-w-md mx-auto flex items-center justify-center">
-            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-            <div className="absolute inset-0 border-2 border-[#693F00]/50 pointer-events-none flex items-center justify-center">
-              <div className="w-48 h-48 border-2 border-dashed border-white/80 rounded-lg animate-pulse"></div>
-            </div>
-            <div className="absolute bottom-3 bg-black/70 text-white text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
-              align qr code inside box
-            </div>
-          </div>
-        )}
+        {/* QR Scanner Viewport container */}
+        <div id="qr-reader" className={`w-full max-w-md mx-auto rounded-xl overflow-hidden ${scanning ? 'block' : 'hidden'}`}></div>
 
         <form onSubmit={(e) => { e.preventDefault(); processScan(identifier); }} className="space-y-4">
           <div>
