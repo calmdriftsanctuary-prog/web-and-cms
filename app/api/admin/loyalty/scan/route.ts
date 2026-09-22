@@ -8,17 +8,28 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { identifier } = await request.json(); // email, phone, or pass_serial
-    const cleanId = identifier.trim().toLowerCase();
+    const { identifier } = await request.json();
+    if (!identifier) {
+      return NextResponse.json({ error: 'identifier is required.' }, { status: 400 });
+    }
 
+    let cleanId = identifier.trim().toLowerCase();
+
+    // If the QR code scanned a full hosted URL (e.g. https://api.walletwallet.dev/p/cds-xyz123), extract the serial part at the end
+    if (cleanId.includes('/p/')) {
+      const parts = cleanId.split('/p/');
+      cleanId = parts[parts.length - 1].trim();
+    }
+
+    // Query matching pass serial, email, or phone
     const { data: client, error: fetchErr } = await supabase
       .from('loyalty_cards')
       .select('*')
-      .or(`client_email.eq.${cleanId},client_phone.eq.${cleanId},pass_serial.eq.${cleanId}`)
+      .or(`pass_serial.eq.${cleanId},client_email.eq.${cleanId},client_phone.eq.${cleanId}`)
       .single();
 
     if (fetchErr || !client) {
-      return NextResponse.json({ error: 'client pass not found in crm' }, { status: 404 });
+      return NextResponse.json({ error: `client pass not found in crm (scanned: ${cleanId})` }, { status: 404 });
     }
 
     const currentStamps = client.stamps_count;
@@ -26,7 +37,7 @@ export async function POST(request: Request) {
     let actionType = 'stamp_added';
     let passDisplayValue = '';
 
-    // Check if they reached the 9th scan (8 stamps completed, 9th visit triggers reward)
+    // 9th visit check (8 stamps complete, 9th scan triggers reward)
     if (currentStamps >= 8) {
       newStamps = 0;
       actionType = 'reward_redeemed';
@@ -71,11 +82,25 @@ export async function POST(request: Request) {
           'Authorization': `Bearer ${process.env.WALLET_API_KEY}`
         },
         body: JSON.stringify({
+          barcodeValue: client.pass_serial,
+          barcodeFormat: 'QR',
+          logoText: 'Calm Drift Sanctuary',
+          organizationName: 'Calm Drift Sanctuary',
+          colorPreset: 'dark',
           primaryFields: [
-            { 
-              key: 'stamps', 
-              label: 'stamps', 
-              value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue 
+            {
+              label: 'CARD',
+              value: 'Loyalty Card'
+            }
+          ],
+          secondaryFields: [
+            {
+              label: 'MEMBER',
+              value: client.client_name
+            },
+            {
+              label: 'VISITS',
+              value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue
             }
           ]
         })
