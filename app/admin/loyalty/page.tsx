@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { Camera, CheckCircle, RefreshCw } from 'lucide-react';
 
 interface LoyaltyCard {
   id: string;
@@ -27,9 +28,14 @@ export default function AdminLoyaltyPage() {
   const [identifier, setIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultMessage, setResultMessage] = useState<any>(null);
-
+  
   const [cards, setCards] = useState<LoyaltyCard[]>([]);
   const [history, setHistory] = useState<ScanHistory[]>([]);
+
+  // Camera scanner states
+  const [scanning, setScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const loadLoyaltyData = async () => {
     try {
@@ -44,18 +50,22 @@ export default function AdminLoyaltyPage() {
 
   useEffect(() => {
     loadLoyaltyData();
+    return () => {
+      stopCamera();
+    };
   }, []);
 
-  const handleScan = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const processScan = async (code: string) => {
+    if (!code || loading) return;
     setLoading(true);
     setResultMessage(null);
+    setIdentifier(code);
 
     try {
       const res = await fetch('/api/admin/loyalty/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier })
+        body: JSON.stringify({ identifier: code })
       });
 
       const data = await res.json();
@@ -64,10 +74,60 @@ export default function AdminLoyaltyPage() {
       setResultMessage(data);
       setIdentifier('');
       loadLoyaltyData();
+      stopCamera();
     } catch (err: any) {
       setResultMessage({ error: err.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startCamera = async () => {
+    setScanning(true);
+    setResultMessage(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        requestAnimationFrame(scanTick);
+      }
+    } catch (err) {
+      console.error('Camera access error:', err);
+      setResultMessage({ error: 'unable to access camera. please check permissions.' });
+      setScanning(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setScanning(false);
+  };
+
+  const scanTick = async () => {
+    if (!videoRef.current || !mediaStreamRef.current) return;
+
+    if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+      try {
+        if ('BarcodeDetector' in window) {
+          const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+          const barcodes = await barcodeDetector.detect(videoRef.current);
+          if (barcodes.length > 0) {
+            const scannedValue = barcodes[0].rawValue;
+            processScan(scannedValue);
+            return;
+          }
+        }
+      } catch (e) {
+        // Fallback or continue scanning loop
+      }
+    }
+    if (mediaStreamRef.current) {
+      requestAnimationFrame(scanTick);
     }
   };
 
@@ -82,17 +142,35 @@ export default function AdminLoyaltyPage() {
 
       {/* Scanner Box */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border shadow-sm space-y-4">
-        <h2 className="font-serif text-xl">scan client pass</h2>
-        <p className="text-xs text-gray-500">enter client email, phone number, or pass serial to add a stamp or process a 9th visit reward.</p>
+        <div className="flex justify-between items-center">
+          <h2 className="font-serif text-xl">scan client pass</h2>
+          <button
+            onClick={scanning ? stopCamera : startCamera}
+            className="px-4 py-2 bg-[#693F00] text-white text-xs uppercase rounded-full font-semibold flex items-center space-x-2"
+          >
+            <Camera className="w-4 h-4" />
+            <span>{scanning ? 'stop camera scanner' : 'open camera scanner'}</span>
+          </button>
+        </div>
+        <p className="text-xs text-gray-500">use your camera to scan a client's pass QR code, or type their email, phone, or pass serial manually.</p>
 
-        <form onSubmit={handleScan} className="space-y-4">
+        {scanning && (
+          <div className="relative bg-black rounded-xl overflow-hidden aspect-video max-w-md mx-auto flex items-center justify-center">
+            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+            <div className="absolute inset-0 border-2 border-[#693F00]/50 pointer-events-none flex items-center justify-center">
+              <div className="w-48 h-48 border-2 border-dashed border-white/80 rounded-lg"></div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={(e) => { e.preventDefault(); processScan(identifier); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold mb-1">client email or phone number</label>
+            <label className="block text-xs font-semibold mb-1">client email, phone, or pass serial</label>
             <input
               type="text"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g. client@email.com or 07123456789"
+              placeholder="e.g. cds-xyz123 or client@email.com"
               className="w-full p-3 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
               required
             />
@@ -135,9 +213,9 @@ export default function AdminLoyaltyPage() {
                 <th className="pb-3 font-semibold">client name</th>
                 <th className="pb-3 font-semibold">email</th>
                 <th className="pb-3 font-semibold">phone</th>
+                <th className="pb-3 font-semibold">serial</th>
                 <th className="pb-3 font-semibold">stamps</th>
                 <th className="pb-3 font-semibold">total visits</th>
-                <th className="pb-3 font-semibold">rewards claimed</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -146,50 +224,14 @@ export default function AdminLoyaltyPage() {
                   <td className="py-3 font-medium text-gray-900">{c.client_name}</td>
                   <td className="py-3 text-gray-600">{c.client_email}</td>
                   <td className="py-3 text-gray-600">{c.client_phone}</td>
+                  <td className="py-3 font-mono text-gray-500">{c.pass_serial}</td>
                   <td className="py-3 font-bold text-[#693F00]">{c.stamps_count}/8</td>
                   <td className="py-3">{c.total_visits}</td>
-                  <td className="py-3">{c.rewards_redeemed}</td>
                 </tr>
               ))}
               {cards.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-gray-400">no loyalty profiles registered yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Audit History Log */}
-      <div className="bg-white p-6 sm:p-8 rounded-2xl border shadow-sm space-y-4">
-        <h2 className="font-serif text-xl">scan audit history log</h2>
-        <div className="overflow-x-auto max-h-80 overflow-y-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b text-gray-500 sticky top-0 bg-white">
-              <tr>
-                <th className="pb-3 font-semibold">timestamp</th>
-                <th className="pb-3 font-semibold">client email</th>
-                <th className="pb-3 font-semibold">action</th>
-                <th className="pb-3 font-semibold">progress change</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {history.map((h) => (
-                <tr key={h.id} className="hover:bg-gray-50">
-                  <td className="py-3 text-gray-500">{new Date(h.scanned_at).toLocaleString('en-GB')}</td>
-                  <td className="py-3 text-gray-900">{h.client_email}</td>
-                  <td className="py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] ${h.action_type === 'reward_redeemed' ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-100 text-emerald-800'}`}>
-                      {h.action_type.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="py-3">{h.previous_stamps} &rarr; {h.new_stamps}</td>
-                </tr>
-              ))}
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-gray-400">no scan history recorded yet.</td>
                 </tr>
               )}
             </tbody>
