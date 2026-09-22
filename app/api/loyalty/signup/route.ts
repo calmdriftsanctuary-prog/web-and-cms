@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     const serialNumber = `cds-${Math.random().toString(36).substring(2, 10)}`;
 
-    // 2. Call Wallet Pass Provider API with correct field mapping
+    // 2. Call Wallet Pass Provider API & log raw response
     let appleUrl = '';
     let googleUrl = '';
 
@@ -61,14 +61,22 @@ export async function POST(request: Request) {
         })
       });
       
-      const passData = await passRes.json();
-      console.log('WalletWallet Response:', passData);
+      const responseText = await passRes.text();
+      console.log('WalletWallet Status:', passRes.status);
+      console.log('WalletWallet Raw Response:', responseText);
+
+      let passData: any = {};
+      try {
+        passData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse WalletWallet JSON response');
+      }
       
       appleUrl = passData.appleUrl || passData.applePassUrl || passData.url || '';
       googleUrl = passData.googleUrl || passData.googleSaveUrl || passData.saveUrl || '';
     }
 
-    // 3. Save mapping in Supabase (Fixed -> to .)
+    // 3. Save mapping in Supabase
     const { error: insertErr } = await supabase.from('loyalty_cards').insert([{
       client_name: name,
       client_email: cleanEmail,
