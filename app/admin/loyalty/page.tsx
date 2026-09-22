@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Camera, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -34,7 +34,7 @@ export default function AdminLoyaltyPage() {
 
   // Camera scanner states
   const [scanning, setScanning] = useState(false);
-  const scannerInstance = React.useRef<any>(null);
+  const scannerRef = useRef<any>(null);
 
   const loadLoyaltyData = async () => {
     try {
@@ -95,40 +95,44 @@ export default function AdminLoyaltyPage() {
     setResultMessage(null);
 
     const checkLib = setInterval(() => {
-      if ((window as any).Html5Qrcode) {
+      const Html5Qrcode = (window as any).Html5Qrcode;
+      if (Html5Qrcode) {
         clearInterval(checkLib);
-        
-        if (!scannerInstance.current) {
-          scannerInstance.current = new (window as any).Html5Qrcode('qr-reader');
+
+        if (!scannerRef.current) {
+          scannerRef.current = new Html5Qrcode('realtime-reader');
         }
 
-        scannerInstance.current.start(
+        scannerRef.current.start(
           { facingMode: 'environment' },
-          { fps: 20, qrbox: { width: 280, height: 280 } },
+          {
+            fps: 15,
+            qrbox: { width: 250, height: 250 }
+          },
           (decodedText: string) => {
             if (decodedText) {
               processScan(decodedText);
             }
           },
           (errorMessage: string) => {
-            // Ignore frame misses
+            // Quietly ignore frame search misses
           }
         ).catch((err: any) => {
-          console.error('Failed to start scanner:', err);
-          setResultMessage({ error: 'unable to start camera. check permissions.' });
+          console.error('Camera start error:', err);
+          setResultMessage({ error: 'unable to access camera. check permissions.' });
           setScanning(false);
         });
       }
-    }, 100);
+    }, 150);
   };
 
   const stopCamera = () => {
-    if (scannerInstance.current) {
-      scannerInstance.current.stop().then(() => {
-        scannerInstance.current.clear();
-        scannerInstance.current = null;
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current.clear();
+        scannerRef.current = null;
       }).catch(() => {
-        scannerInstance.current = null;
+        scannerRef.current = null;
       });
     }
     setScanning(false);
@@ -152,13 +156,16 @@ export default function AdminLoyaltyPage() {
             className="px-4 py-2 bg-[#693F00] text-white text-xs uppercase rounded-full font-semibold flex items-center space-x-2"
           >
             <Camera className="w-4 h-4" />
-            <span>{scanning ? 'stop camera scanner' : 'open camera scanner'}</span>
+            <span>{scanning ? 'stop camera scanner' : 'open live camera'}</span>
           </button>
         </div>
-        <p className="text-xs text-gray-500">scan a client's pass QR code using the camera, or type their email, phone, or pass serial manually below.</p>
+        <p className="text-xs text-gray-500">hold the client pass QR code in front of the camera for real-time detection, or enter details manually below.</p>
 
-        {/* QR Scanner Viewport container */}
-        <div id="qr-reader" className={`w-full max-w-md mx-auto rounded-xl overflow-hidden ${scanning ? 'block' : 'hidden'}`}></div>
+        {/* Real-time camera view target */}
+        <div 
+          id="realtime-reader" 
+          className={`w-full max-w-md mx-auto rounded-xl overflow-hidden bg-black ${scanning ? 'block' : 'hidden'}`}
+        ></div>
 
         <form onSubmit={(e) => { e.preventDefault(); processScan(identifier); }} className="space-y-4">
           <div>
