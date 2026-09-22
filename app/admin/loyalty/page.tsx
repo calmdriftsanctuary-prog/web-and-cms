@@ -87,7 +87,9 @@ export default function AdminLoyaltyPage() {
     setScanning(true);
     setResultMessage(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
       mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -110,23 +112,35 @@ export default function AdminLoyaltyPage() {
   };
 
   const scanTick = async () => {
-    if (!videoRef.current || !mediaStreamRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !mediaStreamRef.current || !scanning) return;
 
-    if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-      try {
-        if ('BarcodeDetector' in window) {
-          const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-          const barcodes = await barcodeDetector.detect(videoRef.current);
-          if (barcodes.length > 0) {
-            const scannedValue = barcodes[0].rawValue;
-            processScan(scannedValue);
-            return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        try {
+          // Use native BarcodeDetector if available
+          if ('BarcodeDetector' in window) {
+            const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+            const barcodes = await barcodeDetector.detect(video);
+            if (barcodes.length > 0) {
+              const scannedValue = barcodes[0].rawValue;
+              processScan(scannedValue);
+              return;
+            }
           }
+        } catch (e) {
+          // Fallback loop continuation
         }
-      } catch (e) {
-        // Continue loop if frame detection fails temporarily
       }
     }
+
     if (mediaStreamRef.current && scanning) {
       requestAnimationFrame(scanTick);
     }
@@ -154,6 +168,9 @@ export default function AdminLoyaltyPage() {
           </button>
         </div>
         <p className="text-xs text-gray-500">scan a client's pass QR code using the camera, or type their email, phone, or pass serial manually below.</p>
+
+        {/* Hidden canvas for frame processing */}
+        <canvas ref={canvasRef} className="hidden" />
 
         {scanning && (
           <div className="relative bg-black rounded-xl overflow-hidden aspect-video max-w-md mx-auto flex items-center justify-center">
