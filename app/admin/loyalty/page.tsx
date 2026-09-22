@@ -35,6 +35,7 @@ export default function AdminLoyaltyPage() {
   // Camera scanner states
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef<any>(null);
+  const isProcessingRef = useRef(false);
 
   const loadLoyaltyData = async () => {
     try {
@@ -64,10 +65,14 @@ export default function AdminLoyaltyPage() {
   }, []);
 
   const processScan = async (code: string) => {
-    if (!code || loading) return;
+    if (!code || isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setLoading(true);
     setResultMessage(null);
     setIdentifier(code);
+
+    // Instantly kill camera scanner on first capture
+    await stopCamera();
 
     try {
       const res = await fetch('/api/admin/loyalty/scan', {
@@ -82,17 +87,18 @@ export default function AdminLoyaltyPage() {
       setResultMessage(data);
       setIdentifier('');
       loadLoyaltyData();
-      stopCamera();
     } catch (err: any) {
       setResultMessage({ error: err.message });
     } finally {
       setLoading(false);
+      isProcessingRef.current = false;
     }
   };
 
   const startCamera = () => {
     setScanning(true);
     setResultMessage(null);
+    isProcessingRef.current = false;
 
     const checkLib = setInterval(() => {
       const Html5Qrcode = (window as any).Html5Qrcode;
@@ -106,34 +112,37 @@ export default function AdminLoyaltyPage() {
         scannerRef.current.start(
           { facingMode: 'environment' },
           {
-            fps: 15,
+            fps: 10,
             qrbox: { width: 250, height: 250 }
           },
           (decodedText: string) => {
-            if (decodedText) {
+            if (decodedText && !isProcessingRef.current) {
               processScan(decodedText);
             }
           },
           (errorMessage: string) => {
-            // Quietly ignore frame search misses
+            // Quietly ignore frame misses
           }
         ).catch((err: any) => {
           console.error('Camera start error:', err);
           setResultMessage({ error: 'unable to access camera. check permissions.' });
           setScanning(false);
+          isProcessingRef.current = false;
         });
       }
     }, 150);
   };
 
-  const stopCamera = () => {
+  const stopCamera = async () => {
     if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
+      try {
+        await scannerRef.current.stop();
         scannerRef.current.clear();
+      } catch (e) {
+        // Already stopped
+      } finally {
         scannerRef.current = null;
-      }).catch(() => {
-        scannerRef.current = null;
-      });
+      }
     }
     setScanning(false);
   };
