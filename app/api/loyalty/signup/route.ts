@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     const serialNumber = `cds-${Math.random().toString(36).substring(2, 10)}`;
 
-    // 2. Call Wallet Pass Provider API
+    // 2. Call Wallet Pass Provider API with correct field mapping
     let appleUrl = '';
     let googleUrl = '';
 
@@ -53,26 +53,23 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           serialNumber: serialNumber,
-          passType: 'loyalty',
-          organizationName: 'calm drift sanctuary',
-          description: 'loyalty stamp card',
-          backgroundColor: '#693F00',
-          foregroundColor: '#ffffff',
-          primaryFields: [
-            { key: 'stamps', label: 'stamps', value: '0/8' }
-          ],
+          barcodeValue: serialNumber,
           secondaryFields: [
-            { key: 'client', label: 'member', value: name }
+            { key: 'MEMBER', label: 'MEMBER', value: name },
+            { key: 'VISITS', label: 'VISITS', value: '0/8' }
           ]
         })
       });
+      
       const passData = await passRes.json();
-      appleUrl = passData.appleUrl || passData.applePassUrl || '';
-      googleUrl = passData.googleUrl || passData.googleSaveUrl || '';
+      console.log('WalletWallet Response:', passData);
+      
+      appleUrl = passData.appleUrl || passData.applePassUrl || passData.url || '';
+      googleUrl = passData.googleUrl || passData.googleSaveUrl || passData.saveUrl || '';
     }
 
     // 3. Save mapping in Supabase
-    const { error: insertErr } = await supabase.from('loyalty_cards').insert([{
+    const { error: insertErr } = await supabase.from('loyalty_cards')->insert([{
       client_name: name,
       client_email: cleanEmail,
       client_phone: cleanPhone,
@@ -112,7 +109,7 @@ async function sendWelcomeEmail(name: string, email: string, appleUrl: string, g
           <h2 style="color:#693F00; margin-top:0; text-transform:lowercase;">welcome to our loyalty program</h2>
           <p style="text-transform:lowercase;">dear ${name},</p>
           <p style="text-transform:lowercase;">thank you for joining calm drift sanctuary rewards. install your digital stamp card directly into your phone wallet below:</p>
-
+          
           <div style="text-align:center; margin:30px 0;">
             ${appleUrl ? `<a href="${appleUrl}" style="background-color:#000000; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:12px; font-weight:bold; display:inline-block; margin-right:10px; text-transform:uppercase;">add to apple wallet</a>` : ''}
             ${googleUrl ? `<a href="${googleUrl}" style="background-color:#693F00; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:50px; font-size:12px; font-weight:bold; display:inline-block; text-transform:uppercase;">save to google wallet</a>` : ''}
