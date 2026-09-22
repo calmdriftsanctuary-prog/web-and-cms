@@ -94,7 +94,8 @@ export async function POST(request: Request) {
           barcodeFormat: 'QR',
           logoText: 'Calm Drift Sanctuary',
           organizationName: 'Calm Drift Sanctuary',
-          colorPreset: 'dark',
+          color: '#693f00',
+          logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
           primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
           secondaryFields: [
             { label: 'MEMBER', value: client.client_name },
