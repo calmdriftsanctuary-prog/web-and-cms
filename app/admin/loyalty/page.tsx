@@ -50,7 +50,6 @@ export default function AdminLoyaltyPage() {
   useEffect(() => {
     loadLoyaltyData();
 
-    // Dynamically load html5-qrcode script from CDN
     if (!document.getElementById('html5-qrcode-script')) {
       const script = document.createElement('script');
       script.id = 'html5-qrcode-script';
@@ -105,12 +104,14 @@ export default function AdminLoyaltyPage() {
 
         scannerInstance.current.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
+          { fps: 20, qrbox: { width: 280, height: 280 } },
           (decodedText: string) => {
-            processScan(decodedText);
+            if (decodedText) {
+              processScan(decodedText);
+            }
           },
           (errorMessage: string) => {
-            // Scanning frame misses can be ignored safely
+            // Ignore frame misses
           }
         ).catch((err: any) => {
           console.error('Failed to start scanner:', err);
@@ -118,7 +119,7 @@ export default function AdminLoyaltyPage() {
           setScanning(false);
         });
       }
-    }, 200);
+    }, 100);
   };
 
   const stopCamera = () => {
