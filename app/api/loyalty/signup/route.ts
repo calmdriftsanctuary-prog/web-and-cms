@@ -38,13 +38,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const serialNumber = `cds-${Math.random().toString(36).substring(2, 10)}`;
+    const localSerial = `cds-${Math.random().toString(36).substring(2, 10)}`;
 
     if (!process.env.WALLET_API_KEY) {
       return NextResponse.json({ error: 'wallet api key is missing on server environment.' }, { status: 500 });
     }
 
-    // 2. Call Wallet Wallet API according to official documentation specs
+    // 2. Call WalletWallet API
     const passRes = await fetch('https://api.walletwallet.dev/api/passes', {
       method: 'POST',
       headers: {
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${process.env.WALLET_API_KEY}`
       },
       body: JSON.stringify({
-        barcodeValue: serialNumber, // Encodes unique serial into QR code for camera scanning
+        barcodeValue: localSerial, 
         barcodeFormat: 'QR',
         logoText: 'Calm Drift Sanctuary',
         organizationName: 'Calm Drift Sanctuary',
@@ -77,9 +77,6 @@ export async function POST(request: Request) {
     });
     
     const responseText = await passRes.text();
-    console.log('WalletWallet Response Status:', passRes.status);
-    console.log('WalletWallet Response Body:', responseText);
-
     let passData: any = {};
     try {
       passData = JSON.parse(responseText);
@@ -87,24 +84,24 @@ export async function POST(request: Request) {
       console.error('Failed to parse WalletWallet JSON response');
     }
 
-    // Map according to official response envelope: { serialNumber, googleSaveUrl, applePass, shareUrl }
     const googleUrl = passData.googleSaveUrl || '';
     const shareUrl = passData.shareUrl || '';
     
-    // We can use the shareUrl or build direct links. 
-    // WalletWallet provides googleSaveUrl for Android, and shareUrl handles cross-device landing page automatically.
+    // Capture the exact serial generated and returned by WalletWallet
+    const assignedSerial = passData.serialNumber || localSerial;
+    
     if (!passRes.ok || !googleUrl) {
       return NextResponse.json({ error: `wallet provider failed to generate pass: ${responseText}` }, { status: 502 });
     }
 
-    // 3. Save mapping in Supabase with pass serial and links
+    // 3. Save mapping in Supabase using the exact WalletWallet assigned serial
     const { error: insertErr } = await supabase.from('loyalty_cards').insert([{
       client_name: name,
       client_email: cleanEmail,
       client_phone: cleanPhone,
-      pass_serial: passData.serialNumber || serialNumber,
+      pass_serial: assignedSerial,
       stamps_count: 0,
-      apple_pass_url: shareUrl, // shareUrl automatically handles Apple, Google, and desktop QR code view
+      apple_pass_url: shareUrl,
       google_pass_url: googleUrl
     }]);
 
