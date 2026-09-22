@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         barcodeFormat: 'QR',
         logoText: 'Calm Drift Sanctuary',
         organizationName: 'Calm Drift Sanctuary',
-        color: '#2C332B',
+        color: '#693f00',
         logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
         primaryFields: [
           {
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
           barcodeFormat: 'QR',
           logoText: 'Calm Drift Sanctuary',
           organizationName: 'Calm Drift Sanctuary',
-          color: '#2C332B',
+          color: '#693f00',
           logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
           primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
           secondaryFields: [
