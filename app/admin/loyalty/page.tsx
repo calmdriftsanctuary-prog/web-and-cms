@@ -35,6 +35,7 @@ export default function AdminLoyaltyPage() {
   // Camera scanner states
   const [scanning, setScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const loadLoyaltyData = async () => {
@@ -123,10 +124,10 @@ export default function AdminLoyaltyPage() {
           }
         }
       } catch (e) {
-        // Fallback or continue scanning loop
+        // Continue loop if frame detection fails temporarily
       }
     }
-    if (mediaStreamRef.current) {
+    if (mediaStreamRef.current && scanning) {
       requestAnimationFrame(scanTick);
     }
   };
@@ -152,13 +153,16 @@ export default function AdminLoyaltyPage() {
             <span>{scanning ? 'stop camera scanner' : 'open camera scanner'}</span>
           </button>
         </div>
-        <p className="text-xs text-gray-500">use your camera to scan a client's pass QR code, or type their email, phone, or pass serial manually.</p>
+        <p className="text-xs text-gray-500">scan a client's pass QR code using the camera, or type their email, phone, or pass serial manually below.</p>
 
         {scanning && (
           <div className="relative bg-black rounded-xl overflow-hidden aspect-video max-w-md mx-auto flex items-center justify-center">
             <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
             <div className="absolute inset-0 border-2 border-[#693F00]/50 pointer-events-none flex items-center justify-center">
-              <div className="w-48 h-48 border-2 border-dashed border-white/80 rounded-lg"></div>
+              <div className="w-48 h-48 border-2 border-dashed border-white/80 rounded-lg animate-pulse"></div>
+            </div>
+            <div className="absolute bottom-3 bg-black/70 text-white text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
+              align qr code inside box
             </div>
           </div>
         )}
