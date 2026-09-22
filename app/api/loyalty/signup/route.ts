@@ -38,13 +38,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const localSerial = `cds-${Math.random().toString(36).substring(2, 10)}`;
+    const serialNumber = `cds-${Math.random().toString(36).substring(2, 10)}`;
 
     if (!process.env.WALLET_API_KEY) {
       return NextResponse.json({ error: 'wallet api key is missing on server environment.' }, { status: 500 });
     }
 
-    // 2. Call WalletWallet API
+    // 2. Call WalletWallet API with explicit styling, brand color, and logo attributes
     const passRes = await fetch('https://api.walletwallet.dev/api/passes', {
       method: 'POST',
       headers: {
@@ -52,11 +52,13 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${process.env.WALLET_API_KEY}`
       },
       body: JSON.stringify({
-        barcodeValue: localSerial, 
+        serialNumber: serialNumber,
+        barcodeValue: serialNumber,
         barcodeFormat: 'QR',
         logoText: 'Calm Drift Sanctuary',
         organizationName: 'Calm Drift Sanctuary',
-        colorPreset: 'dark',
+        color: '#2C332B', // Custom brand dark neutral tone matching your aesthetic
+        logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png', // Replace with your live hosted logo URL if available
         primaryFields: [
           {
             label: 'CARD',
@@ -86,20 +88,18 @@ export async function POST(request: Request) {
 
     const googleUrl = passData.googleSaveUrl || '';
     const shareUrl = passData.shareUrl || '';
-    
-    // Capture the exact serial generated and returned by WalletWallet
-    const assignedSerial = passData.serialNumber || localSerial;
+    const finalSerial = passData.serialNumber || serialNumber;
     
     if (!passRes.ok || !googleUrl) {
       return NextResponse.json({ error: `wallet provider failed to generate pass: ${responseText}` }, { status: 502 });
     }
 
-    // 3. Save mapping in Supabase using the exact WalletWallet assigned serial
+    // 3. Save mapping in Supabase
     const { error: insertErr } = await supabase.from('loyalty_cards').insert([{
       client_name: name,
       client_email: cleanEmail,
       client_phone: cleanPhone,
-      pass_serial: assignedSerial,
+      pass_serial: finalSerial,
       stamps_count: 0,
       apple_pass_url: shareUrl,
       google_pass_url: googleUrl
