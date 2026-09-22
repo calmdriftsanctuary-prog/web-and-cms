@@ -68,8 +68,8 @@ export async function POST(request: Request) {
       googleUrl = passData.googleUrl || passData.googleSaveUrl || passData.saveUrl || '';
     }
 
-    // 3. Save mapping in Supabase
-    const { error: insertErr } = await supabase.from('loyalty_cards')->insert([{
+    // 3. Save mapping in Supabase (Fixed -> to .)
+    const { error: insertErr } = await supabase.from('loyalty_cards').insert([{
       client_name: name,
       client_email: cleanEmail,
       client_phone: cleanPhone,
