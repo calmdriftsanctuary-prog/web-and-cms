@@ -22,9 +22,9 @@ export async function POST(request: Request) {
 
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
     const voucherCode = `CDS-VCH-${randomHex}`;
-    const issuedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toLowerCase();
+    const issuedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    // 1. Insert into Supabase (storing purchaser email/name or recipient as needed)
+    // 1. Insert into Supabase
     const { error: insertErr } = await supabase.from('vouchers').insert([{
       code: voucherCode,
       recipient_name: recipientName,
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 300, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Generate PDF over Canva background
+    // 3. Generate PDF over Landscape A4 Background (Width: 841.89, Height: 595.28)
     const pdfDoc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
     const chunks: Buffer[] = [];
 
@@ -61,17 +61,18 @@ export async function POST(request: Request) {
     pdfDoc.registerFont('CustomSerif', fontToUse);
     pdfDoc.font('CustomSerif').fillColor('#2C332B');
 
-    // Box 1: Treatment Title
-    pdfDoc.fontSize(18).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 65, 315, { width: 450, align: 'center' });
+    // Adjusted coordinates for clean alignment on the background template
+    // Treatment or Value text line
+    pdfDoc.fontSize(20).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 80, 240, { width: 420, align: 'center' });
 
-    // Box 2: Issued Date
-    pdfDoc.fontSize(13).text(issuedDate, 140, 467, { width: 170, align: 'center' });
+    // Issued Date line
+    pdfDoc.fontSize(12).text(issuedDate, 115, 375, { width: 140, align: 'center' });
 
-    // Box 3: Voucher Reference
-    pdfDoc.fontSize(14).fillColor('#693F00').text(voucherCode, 260, 523, { width: 200, align: 'center' });
+    // Voucher Reference line
+    pdfDoc.fontSize(13).fillColor('#693F00').text(voucherCode, 230, 435, { width: 180, align: 'center' });
 
-    // Box 4: QR Code
-    pdfDoc.image(qrBuffer, 665, 410, { width: 115, height: 115 });
+    // QR Code Position
+    pdfDoc.image(qrBuffer, 660, 375, { width: 110, height: 110 });
 
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
