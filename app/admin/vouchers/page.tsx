@@ -98,7 +98,7 @@ export default function AdminVouchersPage() {
     }
   };
 
-  // Step 1: Look up voucher on scan or manual entry
+  // Step 1: Look up voucher on scan or manual entry (does NOT deduct balance yet)
   const lookupVoucher = async (code: string) => {
     if (!code || isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -129,7 +129,7 @@ export default function AdminVouchersPage() {
     }
   };
 
-  // Step 2: Confirm redemption with the custom amount entered AFTER scanning
+  // Step 2: Confirm redemption with custom amount entered AFTER scanning
   const confirmRedemption = async () => {
     if (!scannedVoucher) return;
     setLoading(true);
