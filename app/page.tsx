@@ -235,9 +235,9 @@ export default function HomePage() {
         <div className="text-center mb-6">
           <Link
             href="/loyalty/signup"
-            className="inline-block px-8 py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full font-semibold hover:bg-[#523100] transition shadow-sm"
+            className="inline-block px-8 py-3 bg-[#693F00] text-white text-xs lowercase tracking-widest rounded-full font-semibold hover:bg-[#523100] transition shadow-sm"
           >
-            join our digital loyalty program &larr;
+            join our digital loyalty program &rarr;
           </Link>
         </div>
 
