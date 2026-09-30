@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+import fs from 'fs';
+import path from 'path';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,124 +41,50 @@ export async function POST(request: Request) {
 
     if (insertErr) throw insertErr;
 
-    // 2. Generate QR Code as Data URL
+    // 2. Generate QR Code Buffer
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 300, margin: 1 });
+    const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const bgImageUrl = `${protocol}://${host}/voucher-bng.png`;
+    // 3. Generate PDF using PDFKit (A4 Landscape: 841.89 x 595.28)
+    const pdfDoc = new PDFDocument({ size: [841.89, 595.28], margin: 0 });
+    const chunks: Buffer[] = [];
+
+    pdfDoc.on('data', (chunk) => chunks.push(chunk));
+    
+    const pdfBufferPromise = new Promise<Buffer>((resolve) => {
+      pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+
+    const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
+    if (fs.existsSync(bgPath)) {
+      pdfDoc.image(bgPath, 0, 0, { width: 841.89, height: 595.28 });
+    }
+
+    const fontPath = path.join(process.cwd(), 'public', 'TheSeasons.ttf');
+    const fontToUse = fs.existsSync(fontPath) ? fontPath : 'Times-Roman';
+
+    pdfDoc.registerFont('CustomSerif', fontToUse);
+    pdfDoc.font('CustomSerif').fillColor('#2C332B');
 
     const displayTitle = treatmentTitle || `£${valueGbp} Gift Voucher`;
 
-    // 3. Build HTML Template with absolute CSS overlaying on the Canva background
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            @font-face {
-              font-family: 'TheSeasons';
-              src: url('${protocol}://${host}/TheSeasons.ttf');
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              width: 1122px;
-              height: 794px; /* A4 Landscape at 96 DPI */
-              -webkit-print-color-adjust: exact;
-            }
-            .voucher-container {
-              position: relative;
-              width: 1122px;
-              height: 794px;
-              background-image: url('${bgImageUrl}');
-              background-size: cover;
-              background-position: center;
-              font-family: 'TheSeasons', 'Times New Roman', serif;
-              color: #2C332B;
-            }
-            /* 1. Treatment Title Box */
-            .box-title {
-              position: absolute;
-              top: 45%;
-              left: 7.5%;
-              width: 50%;
-              text-align: center;
-              font-size: 24px;
-              font-weight: bold;
-            }
-            /* 2. Issued Date Box */
-            .box-date {
-              position: absolute;
-              top: 63.5%;
-              left: 17%;
-              width: 20%;
-              text-align: center;
-              font-size: 18px;
-            }
-            /* 3. Voucher Reference Box */
-            .box-ref {
-              position: absolute;
-              top: 70.8%;
-              left: 33.5%;
-              width: 22%;
-              text-align: center;
-              font-size: 20px;
-              font-weight: bold;
-              color: #693F00;
-              letter-spacing: 1px;
-            }
-            /* 4. QR Code Box */
-            .box-qr {
-              position: absolute;
-              top: 56.5%;
-              left: 80.2%;
-              width: 135px;
-              height: 135px;
-            }
-            .box-qr img {
-              width: 100%;
-              height: 100%;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="voucher-container">
-            <div class="box-title">${displayTitle}</div>
-            <div class="box-date">${currentDate}</div>
-            <div class="box-ref">${voucherCode}</div>
-            <div class="box-qr"><img src="${qrDataUrl}" /></div>
-          </div>
-        </body>
-      </html>
-    `;
+    // Exact coordinate mapping for PDFKit over A4 landscape background
+    // 1. Treatment Title Box
+    pdfDoc.fontSize(18).text(displayTitle, 65, 332, { width: 440, align: 'center', lineBreak: false });
 
-    // 4. Render PDF using Puppeteer Core + Sparticuz Chromium
-    const isLocal = process.env.NODE_ENV === 'development';
-    
-    const browser = await puppeteer.launch({
-      args: isLocal ? ['--no-sandbox'] : chromium.args,
-      executablePath: isLocal 
-        ? (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
-        : await chromium.executablePath(),
-      headless: true,
-    });
+    // 2. Issued Date Box
+    pdfDoc.fontSize(12).text(currentDate, 135, 468, { width: 160, align: 'center', lineBreak: false });
 
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1122, height: 794 });
-    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
-    
-    const pdfUint8 = await page.pdf({
-      printBackground: true,
-      format: 'A4',
-      landscape: true,
-    });
-    await browser.close();
+    // 3. Voucher Reference Code Box
+    pdfDoc.fontSize(13).fillColor('#693F00').text(voucherCode, 265, 523, { width: 195, align: 'center', lineBreak: false });
 
-    const pdfBuffer = Buffer.from(pdfUint8);
+    // 4. QR Code Box
+    pdfDoc.image(qrBuffer, 663, 412, { width: 112, height: 112 });
 
-    // 5. Send Email via Resend with Receipt & Voucher PDF
+    pdfDoc.end();
+    const pdfBuffer = await pdfBufferPromise;
+
+    // 4. Send Email via Resend with Receipt & Voucher PDF
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
