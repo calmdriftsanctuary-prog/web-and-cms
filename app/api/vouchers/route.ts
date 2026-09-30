@@ -41,12 +41,13 @@ export async function POST(request: Request) {
 
     if (insertErr) throw insertErr;
 
-    // 2. Generate QR Code Buffer
-    const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 300, margin: 1 });
+    // 2. Generate QR Code Buffer (High res for 188x188px display)
+    const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 500, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Generate PDF using PDFKit (A4 Landscape: 841.89 x 595.28)
-    const pdfDoc = new PDFDocument({ size: [841.89, 595.28], margin: 0 });
+    // 3. Generate PDF using PDFKit matching high-res dimensions
+    // Scaled canvas width/height to accommodate your coordinate grid cleanly
+    const pdfDoc = new PDFDocument({ size: [2000, 1414], margin: 0 });
     const chunks: Buffer[] = [];
 
     pdfDoc.on('data', (chunk) => chunks.push(chunk));
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
 
     const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
     if (fs.existsSync(bgPath)) {
-      pdfDoc.image(bgPath, 0, 0, { width: 841.89, height: 595.28 });
+      pdfDoc.image(bgPath, 0, 0, { width: 2000, height: 1414 });
     }
 
     const fontPath = path.join(process.cwd(), 'public', 'TheSeasons.ttf');
@@ -68,18 +69,18 @@ export async function POST(request: Request) {
 
     const displayTitle = treatmentTitle || `£${valueGbp} Gift Voucher`;
 
-    // Exact coordinate mapping for PDFKit over A4 landscape background
-    // 1. Treatment Title Box
-    pdfDoc.fontSize(18).text(displayTitle, 65, 332, { width: 440, align: 'center', lineBreak: false });
+    // -- EXACT COORDINATES & SIZES SPECIFIED --
+    // 1. Treatment Name (Size 80px, X: 131, Y: 373, Left-aligned)
+    pdfDoc.fontSize(80).text(displayTitle, 131, 373, { width: 1500, align: 'left', lineBreak: false });
 
-    // 2. Issued Date Box
-    pdfDoc.fontSize(12).text(currentDate, 135, 468, { width: 160, align: 'center', lineBreak: false });
+    // 2. Issued Date (Size 36px, X: 240, Y: 544, Left-aligned)
+    pdfDoc.fontSize(36).text(currentDate, 240, 544, { width: 600, align: 'left', lineBreak: false });
 
-    // 3. Voucher Reference Code Box
-    pdfDoc.fontSize(13).fillColor('#693F00').text(voucherCode, 265, 523, { width: 195, align: 'center', lineBreak: false });
+    // 3. Voucher Reference (Size 37px, X: 460, Y: 1116, Left-aligned)
+    pdfDoc.fontSize(37).fillColor('#693F00').text(voucherCode, 460, 1116, { width: 800, align: 'left', lineBreak: false });
 
-    // 4. QR Code Box
-    pdfDoc.image(qrBuffer, 663, 412, { width: 112, height: 112 });
+    // 4. QR Code (188x188 px, X: 1449, Y: 947)
+    pdfDoc.image(qrBuffer, 1449, 947, { width: 188, height: 188 });
 
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
