@@ -17,6 +17,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, vouchers: vouchers || [] });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('List Vouchers Error:', err);
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
