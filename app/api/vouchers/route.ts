@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import QRCode from 'qrcode';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -132,11 +133,18 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    // 4. Render PDF using Puppeteer
+    // 4. Render PDF using Puppeteer Core + Sparticuz Chromium (Serverless compatible)
+    const isLocal = process.env.NODE_ENV === 'development';
+    
     const browser = await puppeteer.launch({
+      args: isLocal ? ['--no-sandbox'] : chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: isLocal 
+        ? (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
+        : await chromium.executablePath(),
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
     
