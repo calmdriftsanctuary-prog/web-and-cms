@@ -45,13 +45,12 @@ export async function POST(request: Request) {
     const newRemainingBalance = Number((voucher.remaining_value_gbp - requestedAmount).toFixed(2));
     const shouldDeactivate = newRemainingBalance === 0;
 
-    // 3. Update voucher balance and active status in Supabase
+    // 3. Update voucher balance and active status in Supabase (omitting updated_at to prevent schema cache errors)
     const { error: updateErr } = await supabase
       .from('vouchers')
       .update({
         remaining_value_gbp: newRemainingBalance,
-        is_active: !shouldDeactivate,
-        updated_at: new Date().toISOString()
+        is_active: !shouldDeactivate
       })
       .eq('id', voucher.id);
 

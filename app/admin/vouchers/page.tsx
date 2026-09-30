@@ -19,8 +19,9 @@ export default function AdminVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
   const [codeQuery, setCodeQuery] = useState('');
-  const [redeemAmount, setRedeemAmount] = useState('');
-  const [scanResult, setScanResult] = useState<any>(null);
+  const [scannedVoucher, setScannedVoucher] = useState<any>(null);
+  const [partialAmount, setPartialAmount] = useState('');
+  const [actionMessage, setActionMessage] = useState<any>(null);
 
   // New Voucher Form States
   const [purchaserName, setPurchaserName] = useState('');
@@ -97,43 +98,77 @@ export default function AdminVouchersPage() {
     }
   };
 
-  const processRedemption = async (code: string, amount: string) => {
+  // Step 1: Look up voucher on scan or manual entry
+  const lookupVoucher = async (code: string) => {
     if (!code || isProcessingRef.current) return;
     isProcessingRef.current = true;
     setLoading(true);
-    setScanResult(null);
+    setScannedVoucher(null);
+    setActionMessage(null);
     setCodeQuery(code);
 
     await stopCamera();
 
     try {
-      const res = await fetch('/api/admin/vouchers/redeem', {
+      const res = await fetch('/api/admin/vouchers/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code, 
-          amount: amount ? Number(amount) : undefined 
-        })
+        body: JSON.stringify({ code })
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to redeem voucher');
+      if (!res.ok) throw new Error(data.error || 'Voucher not found');
 
-      setScanResult(data);
-      setCodeQuery('');
-      setRedeemAmount('');
-      loadVouchers();
+      setScannedVoucher(data.voucher);
+      setPartialAmount(data.voucher.remaining_value_gbp.toString()); // Default to full remaining balance
     } catch (err: any) {
-      setScanResult({ error: err.message });
+      setActionMessage({ error: err.message });
     } finally {
       setLoading(false);
       isProcessingRef.current = false;
     }
   };
 
+  // Step 2: Confirm redemption with the custom amount entered AFTER scanning
+  const confirmRedemption = async () => {
+    if (!scannedVoucher) return;
+    setLoading(true);
+    setActionMessage(null);
+
+    try {
+      const res = await fetch('/api/admin/vouchers/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code: scannedVoucher.code, 
+          amount: Number(partialAmount) 
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to redeem voucher');
+
+      setActionMessage({
+        success: true,
+        redeemedAmount: data.redeemedAmount,
+        remainingBalance: data.remainingBalance,
+        recipientName: data.recipientName
+      });
+      setScannedVoucher(null);
+      setCodeQuery('');
+      setPartialAmount('');
+      loadVouchers();
+    } catch (err: any) {
+      setActionMessage({ error: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startCamera = () => {
     setScanning(true);
-    setScanResult(null);
+    setScannedVoucher(null);
+    setActionMessage(null);
     isProcessingRef.current = false;
 
     const checkLib = setInterval(() => {
@@ -153,13 +188,13 @@ export default function AdminVouchersPage() {
           },
           (decodedText: string) => {
             if (decodedText && !isProcessingRef.current) {
-              processRedemption(decodedText, redeemAmount);
+              lookupVoucher(decodedText);
             }
           },
           () => {}
         ).catch((err: any) => {
           console.error('Camera start error:', err);
-          setScanResult({ error: 'Unable to access camera.' });
+          setActionMessage({ error: 'Unable to access camera.' });
           setScanning(false);
           isProcessingRef.current = false;
         });
@@ -283,11 +318,11 @@ export default function AdminVouchersPage() {
               {scanning ? 'stop camera' : 'open camera'}
             </button>
           </div>
-          <p className="text-xs text-gray-500">scan voucher QR code or enter code manually. specify amount to redeem partially or leave blank for full balance.</p>
+          <p className="text-xs text-gray-500">scan QR code or enter code to check balance, then specify redemption amount.</p>
 
           <div id="voucher-reader" className={`w-full rounded-xl overflow-hidden bg-black ${scanning ? 'block' : 'hidden'}`}></div>
 
-          <form onSubmit={(e) => { e.preventDefault(); processRedemption(codeQuery, redeemAmount); }} className="space-y-3">
+          <form onSubmit={(e) => { e.preventDefault(); lookupVoucher(codeQuery); }} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold mb-1">voucher reference code</label>
               <input
@@ -299,36 +334,59 @@ export default function AdminVouchersPage() {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">amount to redeem (£) [optional]</label>
-              <input
-                type="number"
-                step="0.01"
-                value={redeemAmount}
-                onChange={(e) => setRedeemAmount(e.target.value)}
-                placeholder="leave blank for full balance"
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
-              />
-            </div>
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition disabled:opacity-50"
             >
-              {loading ? 'processing redemption...' : 'redeem voucher'}
+              {loading ? 'looking up voucher...' : 'scan / lookup voucher'}
             </button>
           </form>
 
-          {scanResult && (
-            <div className={`p-3 rounded-xl text-xs font-medium ${scanResult.error ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
-              {scanResult.error ? (
-                <p>error: {scanResult.error}</p>
+          {/* Scanned Voucher Found: Prompt for Amount */}
+          {scannedVoucher && (
+            <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
+              <div>
+                <p className="font-bold text-sm text-[#693F00]">voucher found!</p>
+                <p className="text-xs">recipient: {scannedVoucher.recipient_name}</p>
+                <p className="text-xs font-semibold">remaining balance: £{scannedVoucher.remaining_value_gbp}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">enter amount to redeem (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  max={scannedVoucher.remaining_value_gbp}
+                  value={partialAmount}
+                  onChange={(e) => setPartialAmount(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-sm bg-white focus:outline-none focus:border-[#693F00]"
+                  required
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={confirmRedemption}
+                disabled={loading}
+                className="w-full py-2.5 bg-emerald-700 text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-emerald-800 transition disabled:opacity-50"
+              >
+                {loading ? 'processing...' : `confirm deduction of £${partialAmount || 0}`}
+              </button>
+            </div>
+          )}
+
+          {/* Action Success / Error Feedback */}
+          {actionMessage && (
+            <div className={`p-3 rounded-xl text-xs font-medium ${actionMessage.error ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+              {actionMessage.error ? (
+                <p>error: {actionMessage.error}</p>
               ) : (
                 <div className="space-y-1">
                   <p className="font-bold">success: voucher redeemed!</p>
-                  <p>recipient: {scanResult.recipientName}</p>
-                  <p>amount redeemed: £{scanResult.redeemedAmount}</p>
-                  <p>remaining balance: £{scanResult.remainingBalance}</p>
+                  <p>recipient: {actionMessage.recipientName}</p>
+                  <p>amount deducted: £{actionMessage.redeemedAmount}</p>
+                  <p>remaining balance: £{actionMessage.remainingBalance}</p>
                 </div>
               )}
             </div>
