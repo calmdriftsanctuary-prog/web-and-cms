@@ -22,8 +22,9 @@ export default function AdminVouchersPage() {
   const [scanResult, setScanResult] = useState<any>(null);
 
   // New Voucher Form States
+  const [purchaserName, setPurchaserName] = useState('');
+  const [purchaserEmail, setPurchaserEmail] = useState('');
   const [recipientName, setRecipientName] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
   const [treatmentTitle, setTreatmentTitle] = useState('');
   const [valueGbp, setValueGbp] = useState('');
   const [issuing, setIssuing] = useState(false);
@@ -70,8 +71,9 @@ export default function AdminVouchersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          purchaserName,
+          purchaserEmail,
           recipientName,
-          recipientEmail,
           treatmentTitle,
           valueGbp: Number(valueGbp)
         })
@@ -81,8 +83,9 @@ export default function AdminVouchersPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to issue voucher');
 
       setIssueSuccess(`Voucher successfully issued: ${data.voucherCode}`);
+      setPurchaserName('');
+      setPurchaserEmail('');
       setRecipientName('');
-      setRecipientEmail('');
       setTreatmentTitle('');
       setValueGbp('');
       loadVouchers();
@@ -190,11 +193,33 @@ export default function AdminVouchersPage() {
             <PlusCircle className="w-5 h-5 text-[#693F00]" />
             <span>issue new voucher</span>
           </h2>
-          <p className="text-xs text-gray-500">generates customized PDF voucher, emails recipient, and logs into CRM.</p>
+          <p className="text-xs text-gray-500">generates customized PDF voucher, emails purchaser, and logs into CRM.</p>
 
           {issueSuccess && <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200">{issueSuccess}</div>}
 
           <form onSubmit={handleIssueVoucher} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold mb-1">purchaser name</label>
+              <input
+                type="text"
+                required
+                value={purchaserName}
+                onChange={(e) => setPurchaserName(e.target.value)}
+                placeholder="e.g. jack dawson"
+                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">purchaser email</label>
+              <input
+                type="email"
+                required
+                value={purchaserEmail}
+                onChange={(e) => setPurchaserEmail(e.target.value)}
+                placeholder="e.g. purchaser@email.com"
+                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
+              />
+            </div>
             <div>
               <label className="block text-xs font-semibold mb-1">recipient name</label>
               <input
@@ -203,17 +228,6 @@ export default function AdminVouchersPage() {
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
                 placeholder="e.g. charlotte dawson"
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">recipient email</label>
-              <input
-                type="email"
-                required
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="e.g. client@email.com"
                 className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
               />
             </div>

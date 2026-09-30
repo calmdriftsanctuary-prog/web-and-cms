@@ -15,21 +15,20 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { recipientName, recipientEmail, treatmentTitle, valueGbp } = await request.json();
-    if (!recipientName || !recipientEmail || !valueGbp) {
-      return NextResponse.json({ error: 'recipientName, recipientEmail, and valueGbp are required.' }, { status: 400 });
+    const { purchaserName, purchaserEmail, recipientName, treatmentTitle, valueGbp } = await request.json();
+    if (!purchaserName || !purchaserEmail || !recipientName || !valueGbp) {
+      return NextResponse.json({ error: 'purchaserName, purchaserEmail, recipientName, and valueGbp are required.' }, { status: 400 });
     }
 
-    // Generate unique reference code, e.g. CDS-VCH-XXXX
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
     const voucherCode = `CDS-VCH-${randomHex}`;
     const issuedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toLowerCase();
 
-    // 1. Insert into Supabase
+    // 1. Insert into Supabase (storing purchaser email/name or recipient as needed)
     const { error: insertErr } = await supabase.from('vouchers').insert([{
       code: voucherCode,
       recipient_name: recipientName,
-      recipient_email: recipientEmail.trim().toLowerCase(),
+      recipient_email: purchaserEmail.trim().toLowerCase(),
       initial_value_gbp: Number(valueGbp),
       remaining_value_gbp: Number(valueGbp),
       is_active: true
@@ -37,11 +36,11 @@ export async function POST(request: Request) {
 
     if (insertErr) throw insertErr;
 
-    // 2. Generate QR Code as a data URL buffer
+    // 2. Generate QR Code
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 300, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Generate PDF over the Canva background
+    // 3. Generate PDF over Canva background
     const pdfDoc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
     const chunks: Buffer[] = [];
 
@@ -51,42 +50,44 @@ export async function POST(request: Request) {
       pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
-    // Load background image from public folder
     const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
     if (fs.existsSync(bgPath)) {
-      // A4 Landscape dimensions in points: ~841.89 x 595.28
       pdfDoc.image(bgPath, 0, 0, { width: 841.89, height: 595.28 });
     }
 
-    // Configure text styling to match your dark brown branding (#693f00 or dark charcoal)
-    pdfDoc.fillColor('#2C332B');
+    const fontPath = path.join(process.cwd(), 'public', 'TheSeasons.ttf');
+    const fontToUse = fs.existsSync(fontPath) ? fontPath : 'Times-Roman';
 
-    // Box 1: Treatment Title (approx coordinates for top white box)
-    pdfDoc.fontSize(16).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 65, 185, { width: 450, align: 'center' });
+    pdfDoc.registerFont('CustomSerif', fontToUse);
+    pdfDoc.font('CustomSerif').fillColor('#2C332B');
 
-    // Box 2: Issued Date (approx coordinates for Issued: box)
-    pdfDoc.fontSize(12).text(issuedDate, 175, 298, { width: 140, align: 'center' });
+    // Box 1: Treatment Title
+    pdfDoc.fontSize(18).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 65, 315, { width: 450, align: 'center' });
 
-    // Box 3: Voucher Reference (approx coordinates for bottom left box)
-    pdfDoc.fontSize(14).fillColor('#693F00').text(voucherCode, 315, 523, { width: 180, align: 'center' });
+    // Box 2: Issued Date
+    pdfDoc.fontSize(13).text(issuedDate, 140, 467, { width: 170, align: 'center' });
 
-    // Box 4: QR Code (approx coordinates for bottom right white box)
+    // Box 3: Voucher Reference
+    pdfDoc.fontSize(14).fillColor('#693F00').text(voucherCode, 260, 523, { width: 200, align: 'center' });
+
+    // Box 4: QR Code
     pdfDoc.image(qrBuffer, 665, 410, { width: 115, height: 115 });
 
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
 
-    // 4. Send Email via Resend with attached PDF
+    // 4. Send Email via Resend to Purchaser
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
-        to: [recipientEmail.trim().toLowerCase()],
+        to: [purchaserEmail.trim().toLowerCase()],
         subject: `Your Gift Voucher - Calm Drift Sanctuary`,
         html: `
           <div style="font-family:sans-serif; color:#2C332B; padding:25px; background:#FAF9F6; border-radius:12px; max-width:600px; margin:0 auto;">
             <h2 style="color:#693F00; margin-top:0; text-transform:lowercase;">your gift voucher is ready</h2>
-            <p style="text-transform:lowercase;">dear ${recipientName},</p>
-            <p style="text-transform:lowercase;">attached is your digital gift voucher for calm drift sanctuary. you can print it out or present it on your phone when you visit.</p>
+            <p style="text-transform:lowercase;">dear ${purchaserName},</p>
+            <p style="text-transform:lowercase;">thank you for purchasing a gift voucher for ${recipientName}. attached is your digital gift voucher PDF.</p>
+            <p style="text-transform:lowercase;">this voucher can be printed or presented digitally at point of treatment.</p>
             <p style="text-transform:lowercase; font-weight:bold; margin:20px 0;">voucher reference: ${voucherCode}</p>
             <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px; text-transform:lowercase;">warm regards,<br>the calm drift sanctuary team</p>
           </div>

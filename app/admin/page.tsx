@@ -809,6 +809,9 @@ export default function AdminDashboard() {
               <Link href="/admin/loyalty" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
                 Loyalty ↗
               </Link>
+              <Link href="/admin/vouchers" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#693F00] hover:text-[#2C332B] transition">
+                Vouchers ↗
+              </Link>
               <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 CRM
               </button>
