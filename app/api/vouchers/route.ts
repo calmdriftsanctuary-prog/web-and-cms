@@ -133,12 +133,11 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    // 4. Render PDF using Puppeteer Core + Sparticuz Chromium (Serverless compatible)
+    // 4. Render PDF using Puppeteer Core + Sparticuz Chromium
     const isLocal = process.env.NODE_ENV === 'development';
     
     const browser = await puppeteer.launch({
       args: isLocal ? ['--no-sandbox'] : chromium.args,
-      defaultViewport: chromium.defaultViewport,
       executablePath: isLocal 
         ? (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
         : await chromium.executablePath(),
@@ -146,6 +145,7 @@ export async function POST(request: Request) {
     });
 
     const page = await browser.newPage();
+    await page.setViewport({ width: 1122, height: 794 });
     await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
     
     const pdfUint8 = await page.pdf({
