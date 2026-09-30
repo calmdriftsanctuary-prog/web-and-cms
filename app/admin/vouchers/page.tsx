@@ -98,7 +98,7 @@ export default function AdminVouchersPage() {
     }
   };
 
-  // Step 1: Look up voucher on scan or manual entry (does NOT deduct balance yet)
+  // Step 1: Look up voucher on scan or manual entry
   const lookupVoucher = async (code: string) => {
     if (!code || isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -120,7 +120,7 @@ export default function AdminVouchersPage() {
       if (!res.ok) throw new Error(data.error || 'Voucher not found');
 
       setScannedVoucher(data.voucher);
-      setPartialAmount(data.voucher.remaining_value_gbp.toString()); // Default to full remaining balance
+      setPartialAmount(data.voucher.remaining_value_gbp.toString());
     } catch (err: any) {
       setActionMessage({ error: err.message });
     } finally {
@@ -165,39 +165,43 @@ export default function AdminVouchersPage() {
     }
   };
 
-  const startCamera = () => {
+  const startCamera = async () => {
+    await stopCamera(); // Ensure prior instance is fully torn down
     setScanning(true);
     setScannedVoucher(null);
     setActionMessage(null);
     isProcessingRef.current = false;
 
-    const checkLib = setInterval(() => {
+    const checkLib = setInterval(async () => {
       const Html5Qrcode = (window as any).Html5Qrcode;
       if (Html5Qrcode) {
         clearInterval(checkLib);
 
-        if (!scannerRef.current) {
-          scannerRef.current = new Html5Qrcode('voucher-reader');
-        }
+        try {
+          if (!scannerRef.current) {
+            scannerRef.current = new Html5Qrcode('voucher-reader');
+          }
 
-        scannerRef.current.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-          },
-          (decodedText: string) => {
-            if (decodedText && !isProcessingRef.current) {
-              lookupVoucher(decodedText);
-            }
-          },
-          () => {}
-        ).catch((err: any) => {
+          await scannerRef.current.start(
+            { facingMode: 'environment' },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 }
+            },
+            (decodedText: string) => {
+              if (decodedText && !isProcessingRef.current) {
+                lookupVoucher(decodedText);
+              }
+            },
+            () => {}
+          );
+        } catch (err: any) {
           console.error('Camera start error:', err);
           setActionMessage({ error: 'Unable to access camera.' });
           setScanning(false);
           isProcessingRef.current = false;
-        });
+          scannerRef.current = null;
+        }
       }
     }, 150);
   };
@@ -205,9 +209,12 @@ export default function AdminVouchersPage() {
   const stopCamera = async () => {
     if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
-        scannerRef.current.clear();
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
       } catch (e) {
+        // Suppress teardown warnings
       } finally {
         scannerRef.current = null;
       }
