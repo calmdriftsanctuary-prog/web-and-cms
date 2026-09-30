@@ -41,13 +41,16 @@ export async function POST(request: Request) {
 
     if (insertErr) throw insertErr;
 
-    // 2. Generate QR Code Buffer (High res for 188x188px display)
+    // 2. Generate QR Code Buffer
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 500, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Generate PDF using PDFKit matching high-res dimensions
-    // Scaled canvas width/height to accommodate your coordinate grid cleanly
-    const pdfDoc = new PDFDocument({ size: [2000, 1414], margin: 0 });
+    // 3. Match PDF dimensions exactly to your Photoshop canvas pixels
+    // (If your Photoshop file is a different resolution, e.g. 1920x1080, change these two numbers below)
+    const pw = 2480;
+    const ph = 1754;
+
+    const pdfDoc = new PDFDocument({ size: [pw, ph], margin: 0 });
     const chunks: Buffer[] = [];
 
     pdfDoc.on('data', (chunk) => chunks.push(chunk));
@@ -56,9 +59,12 @@ export async function POST(request: Request) {
       pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
+    // Draw background image to cover the entire canvas perfectly
     const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
     if (fs.existsSync(bgPath)) {
-      pdfDoc.image(bgPath, 0, 0, { width: 2000, height: 1414 });
+      pdfDoc.image(bgPath, 0, 0, { width: pw, height: ph });
+    } else {
+      console.error('CRITICAL: voucher-bng.png not found at path:', bgPath);
     }
 
     const fontPath = path.join(process.cwd(), 'public', 'TheSeasons.ttf');
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
 
     const displayTitle = treatmentTitle || `£${valueGbp} Gift Voucher`;
 
-    // -- EXACT COORDINATES & SIZES SPECIFIED --
+    // -- YOUR EXACT PHOTOSHOP COORDINATES & SIZES --
     // 1. Treatment Name (Size 80px, X: 131, Y: 373, Left-aligned)
     pdfDoc.fontSize(80).text(displayTitle, 131, 373, { width: 1500, align: 'left', lineBreak: false });
 
