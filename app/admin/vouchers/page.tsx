@@ -36,10 +36,25 @@ export default function AdminVouchersPage() {
   const scannerRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
+  // Safe fetch helper that intercepts non-JSON responses to prevent Safari/WebKit pattern matching crashes
+  const safeFetchJson = async (url: string, options?: RequestInit) => {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      throw new Error(text.includes('<!DOCTYPE html>') ? 'Server error: Invalid API route response.' : text || `Request failed with status ${res.status}`);
+    }
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `Request failed with status ${res.status}`);
+    }
+    return data;
+  };
+
   const loadVouchers = async () => {
     try {
-      const res = await fetch('/api/admin/vouchers/list');
-      const data = await res.json();
+      const data = await safeFetchJson('/api/admin/vouchers/list');
       if (data.vouchers) setVouchers(data.vouchers);
     } catch (err) {
       console.error('Failed to load vouchers', err);
@@ -58,7 +73,6 @@ export default function AdminVouchersPage() {
     }
   }, []);
 
-  // Effect to handle camera lifecycle cleanly when 'scanning' state changes
   useEffect(() => {
     let isMounted = true;
 
@@ -101,10 +115,9 @@ export default function AdminVouchersPage() {
       }, 300);
 
       return () => {
-        clearStorageTimer(timer);
+        clearTimeout(timer);
       };
     } else {
-      // Cleanup camera when scanning becomes false
       if (scannerRef.current) {
         const scanner = scannerRef.current;
         scannerRef.current = null;
@@ -117,10 +130,6 @@ export default function AdminVouchersPage() {
         } catch (e) {}
       }
     }
-
-    function clearStorageTimer(t: NodeJS.Timeout) {
-      clearTimeout(t);
-    }
   }, [scanning]);
 
   const handleIssueVoucher = async (e: React.FormEvent) => {
@@ -129,7 +138,7 @@ export default function AdminVouchersPage() {
     setIssueSuccess('');
 
     try {
-      const res = await fetch('/api/vouchers', {
+      const data = await safeFetchJson('/api/vouchers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,9 +148,6 @@ export default function AdminVouchersPage() {
           valueGbp: Number(valueGbp)
         })
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to issue voucher');
 
       setIssueSuccess(`Voucher successfully issued: ${data.voucherCode}`);
       setPurchaserName('');
@@ -160,7 +166,7 @@ export default function AdminVouchersPage() {
     if (!decodedText || isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    setScanning(false); // Shuts down camera and unmounts reader element safely
+    setScanning(false);
     await lookupVoucherCode(decodedText);
     isProcessingRef.current = false;
   };
@@ -173,14 +179,11 @@ export default function AdminVouchersPage() {
     setCodeQuery(code);
 
     try {
-      const res = await fetch('/api/admin/vouchers/lookup', {
+      const data = await safeFetchJson('/api/admin/vouchers/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code })
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Voucher not found');
 
       setScannedVoucher(data.voucher);
       setPartialAmount(data.voucher.remaining_value_gbp.toString());
@@ -197,7 +200,7 @@ export default function AdminVouchersPage() {
     setActionMessage(null);
 
     try {
-      const res = await fetch('/api/admin/vouchers/redeem', {
+      const data = await safeFetchJson('/api/admin/vouchers/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -205,9 +208,6 @@ export default function AdminVouchersPage() {
           amount: Number(partialAmount) 
         })
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to redeem voucher');
 
       setActionMessage({
         success: true,
@@ -320,7 +320,6 @@ export default function AdminVouchersPage() {
           </div>
           <p className="text-xs text-gray-500">open camera to scan QR code or enter code manually. balance will display to enter redemption amount.</p>
 
-          {/* Conditional rendering ensures container only mounts when scanning is true */}
           {scanning && (
             <div id="voucher-reader" className="w-full rounded-xl overflow-hidden bg-black"></div>
           )}
@@ -346,7 +345,6 @@ export default function AdminVouchersPage() {
             </button>
           </form>
 
-          {/* Scanned / Looked Up Voucher Found: Prompt for Amount */}
           {scannedVoucher && (
             <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
               <div>
@@ -379,7 +377,6 @@ export default function AdminVouchersPage() {
             </div>
           )}
 
-          {/* Action Success / Error Feedback */}
           {actionMessage && (
             <div className={`p-3 rounded-xl text-xs font-medium ${actionMessage.error ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
               {actionMessage.error ? (
