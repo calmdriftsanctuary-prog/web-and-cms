@@ -45,10 +45,9 @@ export async function POST(request: Request) {
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 500, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Match PDF dimensions exactly to your Photoshop canvas pixels
-    // (If your Photoshop file is a different resolution, e.g. 1920x1080, change these two numbers below)
-    const pw = 2480;
-    const ph = 1754;
+    // 3. Exact Photoshop Canvas Resolution (1684 x 1191)
+    const pw = 1684;
+    const ph = 1191;
 
     const pdfDoc = new PDFDocument({ size: [pw, ph], margin: 0 });
     const chunks: Buffer[] = [];
@@ -59,7 +58,7 @@ export async function POST(request: Request) {
       pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
-    // Draw background image to cover the entire canvas perfectly
+    // Draw background image to cover the 1684x1191 canvas perfectly
     const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
     if (fs.existsSync(bgPath)) {
       pdfDoc.image(bgPath, 0, 0, { width: pw, height: ph });
@@ -75,15 +74,15 @@ export async function POST(request: Request) {
 
     const displayTitle = treatmentTitle || `£${valueGbp} Gift Voucher`;
 
-    // -- YOUR EXACT PHOTOSHOP COORDINATES & SIZES --
+    // -- EXACT PHOTOSHOP COORDINATES & SIZES --
     // 1. Treatment Name (Size 80px, X: 131, Y: 373, Left-aligned)
-    pdfDoc.fontSize(80).text(displayTitle, 131, 373, { width: 1500, align: 'left', lineBreak: false });
+    pdfDoc.fontSize(80).text(displayTitle, 131, 373, { width: 1300, align: 'left', lineBreak: false });
 
     // 2. Issued Date (Size 36px, X: 240, Y: 544, Left-aligned)
-    pdfDoc.fontSize(36).text(currentDate, 240, 544, { width: 600, align: 'left', lineBreak: false });
+    pdfDoc.fontSize(36).text(currentDate, 240, 544, { width: 500, align: 'left', lineBreak: false });
 
     // 3. Voucher Reference (Size 37px, X: 460, Y: 1116, Left-aligned)
-    pdfDoc.fontSize(37).fillColor('#693F00').text(voucherCode, 460, 1116, { width: 800, align: 'left', lineBreak: false });
+    pdfDoc.fontSize(37).fillColor('#693F00').text(voucherCode, 460, 1116, { width: 600, align: 'left', lineBreak: false });
 
     // 4. QR Code (188x188 px, X: 1449, Y: 947)
     pdfDoc.image(qrBuffer, 1449, 947, { width: 188, height: 188 });
