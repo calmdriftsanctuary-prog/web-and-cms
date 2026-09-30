@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'wallet api key is missing on server environment.' }, { status: 500 });
     }
 
-    // 2. Call WalletWallet API (Omit server-owned serialNumber from request body)
+    // 2. Call WalletWallet API (Using colorPreset 'dark' to comply with plan limits)
     const passRes = await fetch('https://api.walletwallet.dev/api/passes', {
       method: 'POST',
       headers: {
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         barcodeFormat: 'QR',
         logoText: 'Calm Drift Sanctuary',
         organizationName: 'Calm Drift Sanctuary',
-        color: '#693f00',
+        colorPreset: 'dark',
         logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
         primaryFields: [
           {
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
           barcodeFormat: 'QR',
           logoText: 'Calm Drift Sanctuary',
           organizationName: 'Calm Drift Sanctuary',
-          color: '#693f00',
+          colorPreset: 'dark',
           logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
           primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
           secondaryFields: [
