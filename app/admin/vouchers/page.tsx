@@ -23,7 +23,7 @@ export default function AdminVouchersPage() {
   const [partialAmount, setPartialAmount] = useState('');
   const [actionMessage, setActionMessage] = useState<any>(null);
 
-  // New Voucher Form States (treatmentTitle removed)
+  // New Voucher Form States
   const [purchaserName, setPurchaserName] = useState('');
   const [purchaserEmail, setPurchaserEmail] = useState('');
   const [recipientName, setRecipientName] = useState('');
@@ -58,7 +58,13 @@ export default function AdminVouchersPage() {
     }
 
     return () => {
-      stopCamera();
+      // Cleanup on unmount
+      if (scannerRef.current) {
+        try {
+          scannerRef.current.stop().catch(() => {});
+          scannerRef.current.clear().catch(() => {});
+        } catch (e) {}
+      }
     };
   }, []);
 
@@ -167,50 +173,59 @@ export default function AdminVouchersPage() {
     setActionMessage(null);
     isProcessingRef.current = false;
 
-    const checkLib = setInterval(async () => {
+    // Small timeout to allow DOM container to render display block
+    setTimeout(() => {
       const Html5Qrcode = (window as any).Html5Qrcode;
-      if (Html5Qrcode) {
-        clearInterval(checkLib);
+      if (!Html5Qrcode) {
+        setScanning(false);
+        setActionMessage({ error: 'Scanner library still loading. Please try again.' });
+        return;
+      }
 
-        try {
-          if (!scannerRef.current) {
-            scannerRef.current = new Html5Qrcode('voucher-reader');
-          }
+      try {
+        if (!scannerRef.current) {
+          scannerRef.current = new Html5Qrcode('voucher-reader');
+        }
 
-          await scannerRef.current.start(
-            { facingMode: 'environment' },
-            {
-              fps: 10,
-              qrbox: { width: 250, height: 250 }
-            },
-            (decodedText: string) => {
-              if (decodedText && !isProcessingRef.current) {
-                lookupVoucher(decodedText);
-              }
-            },
-            () => {}
-          );
-        } catch (err: any) {
+        scannerRef.current.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          (decodedText: string) => {
+            if (decodedText && !isProcessingRef.current) {
+              lookupVoucher(decodedText);
+            }
+          },
+          () => {}
+        ).catch((err: any) => {
           console.error('Camera start error:', err);
-          setActionMessage({ error: 'Unable to access camera.' });
           setScanning(false);
           isProcessingRef.current = false;
           scannerRef.current = null;
-        }
+          setActionMessage({ error: 'Unable to access camera. Please check permissions.' });
+        });
+      } catch (err: any) {
+        console.error('Scanner init error:', err);
+        setScanning(false);
+        isProcessingRef.current = false;
+        scannerRef.current = null;
       }
-    }, 150);
+    }, 200);
   };
 
   const stopCamera = async () => {
     if (scannerRef.current) {
       try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
+        const scanner = scannerRef.current;
+        scannerRef.current = null; // Clear ref immediately to prevent race conditions
+        if (scanner.isScanning) {
+          await scanner.stop();
         }
-        await scannerRef.current.clear();
+        await scanner.clear();
       } catch (e) {
-      } finally {
-        scannerRef.current = null;
+        // Safely suppress pattern/DOM teardown exceptions
       }
     }
     setScanning(false);
