@@ -15,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { purchaserName, purchaserEmail, recipientName, treatmentTitle, valueGbp } = await request.json();
+    const { purchaserName, purchaserEmail, recipientName, valueGbp } = await request.json();
     if (!purchaserName || !purchaserEmail || !recipientName || !valueGbp) {
       return NextResponse.json({ error: 'purchaserName, purchaserEmail, recipientName, and valueGbp are required.' }, { status: 400 });
     }
@@ -58,7 +58,6 @@ export async function POST(request: Request) {
       pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
-    // Draw background image to cover the 1684x1191 canvas perfectly
     const bgPath = path.join(process.cwd(), 'public', 'voucher-bng.png');
     if (fs.existsSync(bgPath)) {
       pdfDoc.image(bgPath, 0, 0, { width: pw, height: ph });
@@ -72,11 +71,11 @@ export async function POST(request: Request) {
     pdfDoc.registerFont('CustomSerif', fontToUse);
     pdfDoc.font('CustomSerif').fillColor('#2C332B');
 
-    const displayTitle = treatmentTitle || `£${valueGbp} Gift Voucher`;
+    const displayValueText = `£${valueGbp} Gift Voucher`;
 
-    // -- EXACT PHOTOSHOP COORDINATES & SIZES --
-    // 1. Treatment Name (Size 80px, X: 131, Y: 373, Left-aligned)
-    pdfDoc.fontSize(80).text(displayTitle, 131, 373, { width: 1300, align: 'left', lineBreak: false });
+    // -- EXACT PHOTOSHOP COORDINATES & SIZES (Value replaces treatment name) --
+    // 1. Voucher Value (Size 80px, X: 131, Y: 373, Left-aligned)
+    pdfDoc.fontSize(80).text(displayValueText, 131, 373, { width: 1300, align: 'left', lineBreak: false });
 
     // 2. Issued Date (Size 36px, X: 240, Y: 544, Left-aligned)
     pdfDoc.fontSize(36).text(currentDate, 240, 544, { width: 500, align: 'left', lineBreak: false });
@@ -90,7 +89,7 @@ export async function POST(request: Request) {
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
 
-    // 4. Send Email via Resend with Receipt & Voucher PDF
+    // 4. Send Email via Resend with Receipt & Value Voucher PDF
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
@@ -106,15 +105,15 @@ export async function POST(request: Request) {
             <h2 style="color:#693F00; font-size: 18px; text-transform: lowercase; margin-top: 0;">payment receipt & gift voucher confirmation</h2>
             
             <p style="text-transform: lowercase;">dear ${purchaserName},</p>
-            <p style="text-transform: lowercase;">thank you for your purchase! your digital gift voucher for <strong>${recipientName}</strong> is attached as a PDF to this email. below is your official payment receipt and voucher summary.</p>
+            <p style="text-transform: lowercase;">thank you for your purchase! your digital monetary gift voucher for <strong>${recipientName}</strong> (worth £${valueGbp}) is attached as a PDF to this email. below is your official payment receipt and voucher summary.</p>
 
             <div style="background: #ffffff; border: 1px solid #E5E7EB; padding: 20px; border-radius: 12px; margin: 20px 0; font-size: 13px;">
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>receipt reference number:</strong> ${receiptRef}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>date of purchase:</strong> ${currentDate}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>purchaser name:</strong> ${purchaserName}</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>item description:</strong> gift voucher - ${treatmentTitle || `£${valueGbp} treatment`}</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>item description:</strong> monetary gift voucher (£${valueGbp})</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>total amount paid:</strong> £${valueGbp}.00</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>payment method:</strong> bank transfer</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>payment method:</strong> online checkout</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher reference number:</strong> <span style="color:#693F00; font-weight: bold;">${voucherCode}</span></p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher issue date:</strong> ${currentDate}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>expiry date:</strong> ${expiryDate}</p>
@@ -122,12 +121,12 @@ export async function POST(request: Request) {
 
             <div style="margin-top: 20px;">
               <h3 style="font-size: 14px; color: #693F00; text-transform: lowercase; margin-bottom: 5px;">redemption instructions</h3>
-              <p style="font-size: 13px; text-transform: lowercase; margin-top: 0;">to redeem your voucher, please contact us directly via facebook or instagram at @calmdriftsanctuary, online at calmdriftsanctuary.co.uk, or by emailing calmdriftsanctuary@gmail.com. this voucher can be printed or presented digitally at point of treatment.</p>
+              <p style="font-size: 13px; text-transform: lowercase; margin-top: 0;">to redeem your voucher, please contact us directly via facebook or instagram at @calmdriftsanctuary, online at calmdriftsanctuary.co.uk, or by emailing calmdriftsanctuary@gmail.com. this voucher can be used toward any treatments or services, and can be redeemed across multiple visits if a balance remains.</p>
             </div>
 
             <div style="margin-top: 20px; border-top: 1px solid #E5E7EB; padding-top: 15px;">
               <h3 style="font-size: 14px; color: #693F00; text-transform: lowercase; margin-bottom: 5px;">terms and conditions</h3>
-              <p style="font-size: 11px; color: #6b7280; text-transform: lowercase; line-height: 1.5;">gift vouchers are valid for 12 months from the date of issue and must be redeemed within this period. vouchers are non-refundable, non-transferable, and cannot be exchanged for cash or alternative treatments. appointments are subject to availability and must be booked in advance quoting the unique voucher reference. a mandatory pre-treatment consultation form, including a medical screening and liability waiver, must be completed prior to the session. calm drift sanctuary reserves the right to refuse treatment if necessary health disclosures are missing or if a medical contraindication is present. cancellations or rescheduling require at least 24 hours' notice, otherwise the voucher may be rendered void. lost or stolen vouchers cannot be replaced.</p>
+              <p style="font-size: 11px; color: #6b7280; text-transform: lowercase; line-height: 1.5;">gift vouchers are valid for 12 months from the date of issue and must be redeemed within this period. vouchers are non-refundable, non-transferable, and cannot be exchanged for cash. appointments are subject to availability and must be booked in advance quoting the unique voucher reference. a mandatory pre-treatment consultation form, including a medical screening and liability waiver, must be completed prior to any session. calm drift sanctuary reserves the right to refuse treatment if necessary health disclosures are missing or if a medical contraindication is present. cancellations or rescheduling require at least 24 hours' notice, otherwise the voucher may be rendered void. lost or stolen vouchers cannot be replaced.</p>
             </div>
 
             <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px; text-transform:lowercase;">warm regards,<br>the calm drift sanctuary team</p>

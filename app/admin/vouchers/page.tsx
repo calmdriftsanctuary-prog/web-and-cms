@@ -23,11 +23,10 @@ export default function AdminVouchersPage() {
   const [partialAmount, setPartialAmount] = useState('');
   const [actionMessage, setActionMessage] = useState<any>(null);
 
-  // New Voucher Form States
+  // New Voucher Form States (treatmentTitle removed)
   const [purchaserName, setPurchaserName] = useState('');
   const [purchaserEmail, setPurchaserEmail] = useState('');
   const [recipientName, setRecipientName] = useState('');
-  const [treatmentTitle, setTreatmentTitle] = useState('');
   const [valueGbp, setValueGbp] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState('');
@@ -76,7 +75,6 @@ export default function AdminVouchersPage() {
           purchaserName,
           purchaserEmail,
           recipientName,
-          treatmentTitle,
           valueGbp: Number(valueGbp)
         })
       });
@@ -88,7 +86,6 @@ export default function AdminVouchersPage() {
       setPurchaserName('');
       setPurchaserEmail('');
       setRecipientName('');
-      setTreatmentTitle('');
       setValueGbp('');
       loadVouchers();
     } catch (err: any) {
@@ -98,7 +95,6 @@ export default function AdminVouchersPage() {
     }
   };
 
-  // Step 1: Look up voucher on scan or manual entry
   const lookupVoucher = async (code: string) => {
     if (!code || isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -129,7 +125,6 @@ export default function AdminVouchersPage() {
     }
   };
 
-  // Step 2: Confirm redemption with custom amount entered AFTER scanning
   const confirmRedemption = async () => {
     if (!scannedVoucher) return;
     setLoading(true);
@@ -166,7 +161,7 @@ export default function AdminVouchersPage() {
   };
 
   const startCamera = async () => {
-    await stopCamera(); // Ensure prior instance is fully torn down
+    await stopCamera();
     setScanning(true);
     setScannedVoucher(null);
     setActionMessage(null);
@@ -214,7 +209,6 @@ export default function AdminVouchersPage() {
         }
         await scannerRef.current.clear();
       } catch (e) {
-        // Suppress teardown warnings
       } finally {
         scannerRef.current = null;
       }
@@ -238,9 +232,9 @@ export default function AdminVouchersPage() {
         <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
           <h2 className="font-serif text-xl flex items-center gap-2">
             <PlusCircle className="w-5 h-5 text-[#693F00]" />
-            <span>issue new voucher</span>
+            <span>issue new monetary voucher</span>
           </h2>
-          <p className="text-xs text-gray-500">generates customized PDF voucher, emails purchaser, and logs into CRM.</p>
+          <p className="text-xs text-gray-500">generates customized monetary PDF voucher, emails purchaser, and logs into CRM.</p>
 
           {issueSuccess && <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200">{issueSuccess}</div>}
 
@@ -279,18 +273,7 @@ export default function AdminVouchersPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1">treatment title or description</label>
-              <input
-                type="text"
-                required
-                value={treatmentTitle}
-                onChange={(e) => setTreatmentTitle(e.target.value)}
-                placeholder="e.g. 60-minute holistic massage"
-                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">value (£)</label>
+              <label className="block text-xs font-semibold mb-1">voucher monetary value (£)</label>
               <input
                 type="number"
                 required
@@ -325,7 +308,7 @@ export default function AdminVouchersPage() {
               {scanning ? 'stop camera' : 'open camera'}
             </button>
           </div>
-          <p className="text-xs text-gray-500">scan QR code or enter code to check balance, then specify redemption amount.</p>
+          <p className="text-xs text-gray-500">scan QR code or enter code to check balance, then specify partial/full redemption amount.</p>
 
           <div id="voucher-reader" className={`w-full rounded-xl overflow-hidden bg-black ${scanning ? 'block' : 'hidden'}`}></div>
 
