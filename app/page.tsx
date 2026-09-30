@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Script from 'next/script';
+import Link from 'next/link';
 import PromoPopup from '@/components/PromoPopup';
 import { Sparkles, Star, Send } from 'lucide-react';
 
@@ -228,6 +229,16 @@ export default function HomePage() {
           <p className="text-gray-600 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed lowercase">
             {content.booking_subtext ? content.booking_subtext.toLowerCase() : 'to ensure a bespoke and restorative experience, treatments are booked on a personal request basis.'}
           </p>
+        </div>
+
+        {/* Loyalty Program Call to Action Button */}
+        <div className="text-center mb-6">
+          <Link
+            href="/loyalty/signup"
+            className="inline-block px-8 py-3 bg-[#693F00] text-white text-xs uppercase tracking-widest rounded-full font-semibold hover:bg-[#523100] transition shadow-sm"
+          >
+            join our digital loyalty program &larr;
+          </Link>
         </div>
 
         {socialLinks.length > 0 && (
