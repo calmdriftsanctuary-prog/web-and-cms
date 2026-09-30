@@ -114,7 +114,7 @@ export async function POST(request: Request) {
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>purchaser name:</strong> ${purchaserName}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>item description:</strong> gift voucher - ${treatmentTitle || `£${valueGbp} treatment`}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>total amount paid:</strong> £${valueGbp}.00</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>payment method:</strong> online checkout</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>payment method:</strong> bank transfer</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher reference number:</strong> <span style="color:#693F00; font-weight: bold;">${voucherCode}</span></p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher issue date:</strong> ${currentDate}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>expiry date:</strong> ${expiryDate}</p>
