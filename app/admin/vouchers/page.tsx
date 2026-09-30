@@ -19,6 +19,7 @@ export default function AdminVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
   const [codeQuery, setCodeQuery] = useState('');
+  const [redeemAmount, setRedeemAmount] = useState('');
   const [scanResult, setScanResult] = useState<any>(null);
 
   // New Voucher Form States
@@ -96,7 +97,7 @@ export default function AdminVouchersPage() {
     }
   };
 
-  const processRedemption = async (code: string) => {
+  const processRedemption = async (code: string, amount: string) => {
     if (!code || isProcessingRef.current) return;
     isProcessingRef.current = true;
     setLoading(true);
@@ -109,7 +110,10 @@ export default function AdminVouchersPage() {
       const res = await fetch('/api/admin/vouchers/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ 
+          code, 
+          amount: amount ? Number(amount) : undefined 
+        })
       });
 
       const data = await res.json();
@@ -117,6 +121,7 @@ export default function AdminVouchersPage() {
 
       setScanResult(data);
       setCodeQuery('');
+      setRedeemAmount('');
       loadVouchers();
     } catch (err: any) {
       setScanResult({ error: err.message });
@@ -148,7 +153,7 @@ export default function AdminVouchersPage() {
           },
           (decodedText: string) => {
             if (decodedText && !isProcessingRef.current) {
-              processRedemption(decodedText);
+              processRedemption(decodedText, redeemAmount);
             }
           },
           () => {}
@@ -271,17 +276,18 @@ export default function AdminVouchersPage() {
               <span>scan & redeem voucher</span>
             </h2>
             <button
+              type="button"
               onClick={scanning ? stopCamera : startCamera}
               className="px-3 py-1.5 bg-[#693F00] text-white text-xs uppercase rounded-full font-semibold"
             >
               {scanning ? 'stop camera' : 'open camera'}
             </button>
           </div>
-          <p className="text-xs text-gray-500">scan voucher QR code or enter code manually to redeem.</p>
+          <p className="text-xs text-gray-500">scan voucher QR code or enter code manually. specify amount to redeem partially or leave blank for full balance.</p>
 
           <div id="voucher-reader" className={`w-full rounded-xl overflow-hidden bg-black ${scanning ? 'block' : 'hidden'}`}></div>
 
-          <form onSubmit={(e) => { e.preventDefault(); processRedemption(codeQuery); }} className="space-y-3">
+          <form onSubmit={(e) => { e.preventDefault(); processRedemption(codeQuery, redeemAmount); }} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold mb-1">voucher reference code</label>
               <input
@@ -291,6 +297,17 @@ export default function AdminVouchersPage() {
                 placeholder="e.g. CDS-VCH-A1B2C3"
                 className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">amount to redeem (£) [optional]</label>
+              <input
+                type="number"
+                step="0.01"
+                value={redeemAmount}
+                onChange={(e) => setRedeemAmount(e.target.value)}
+                placeholder="leave blank for full balance"
+                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
               />
             </div>
             <button
@@ -310,6 +327,7 @@ export default function AdminVouchersPage() {
                 <div className="space-y-1">
                   <p className="font-bold">success: voucher redeemed!</p>
                   <p>recipient: {scanResult.recipientName}</p>
+                  <p>amount redeemed: £{scanResult.redeemedAmount}</p>
                   <p>remaining balance: £{scanResult.remainingBalance}</p>
                 </div>
               )}
