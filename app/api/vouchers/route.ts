@@ -61,18 +61,18 @@ export async function POST(request: Request) {
     pdfDoc.registerFont('CustomSerif', fontToUse);
     pdfDoc.font('CustomSerif').fillColor('#2C332B');
 
-    // Adjusted coordinates for clean alignment on the background template
-    // Treatment or Value text line
-    pdfDoc.fontSize(20).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 80, 240, { width: 420, align: 'center' });
+    // -- EXACT CANVA TEMPLATE BOX MAPPING --
+    // 1. Treatment Title Box (Large upper box)
+    pdfDoc.fontSize(18).text(treatmentTitle || `£${valueGbp} Gift Voucher`, 65, 332, { width: 440, align: 'center' });
 
-    // Issued Date line
-    pdfDoc.fontSize(12).text(issuedDate, 115, 375, { width: 140, align: 'center' });
+    // 2. Issued Date Box (Next to "Issued:")
+    pdfDoc.fontSize(12).text(issuedDate, 135, 468, { width: 160, align: 'center' });
 
-    // Voucher Reference line
-    pdfDoc.fontSize(13).fillColor('#693F00').text(voucherCode, 230, 435, { width: 180, align: 'center' });
+    // 3. Voucher Reference Code Box (Bottom left)
+    pdfDoc.fontSize(13).fillColor('#693F00').text(voucherCode, 265, 523, { width: 195, align: 'center' });
 
-    // QR Code Position
-    pdfDoc.image(qrBuffer, 660, 375, { width: 110, height: 110 });
+    // 4. QR Code Box (Bottom right rounded white box)
+    pdfDoc.image(qrBuffer, 663, 412, { width: 112, height: 112 });
 
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
