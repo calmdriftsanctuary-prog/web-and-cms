@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'wallet api key is missing on server environment.' }, { status: 500 });
     }
 
-    // 2. Call WalletWallet API (Using colorPreset 'dark' to comply with plan limits)
+    // 2. Call WalletWallet API (Omitting logoURL to comply with plan limits)
     const passRes = await fetch('https://api.walletwallet.dev/api/passes', {
       method: 'POST',
       headers: {
@@ -54,7 +54,6 @@ export async function POST(request: Request) {
         logoText: 'Calm Drift Sanctuary',
         organizationName: 'Calm Drift Sanctuary',
         colorPreset: 'dark',
-        logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
         primaryFields: [
           {
             label: 'CARD',
@@ -82,12 +81,6 @@ export async function POST(request: Request) {
       console.error('Failed to parse WalletWallet JSON response');
     }
 
-    // Log exact error response from WalletWallet if it fails
-    if (!passRes.ok) {
-      console.error('WalletWallet API error status:', passRes.status);
-      console.error('WalletWallet API error response text:', responseText);
-    }
-
     const googleUrl = passData.googleSaveUrl || '';
     const shareUrl = passData.shareUrl || '';
     
@@ -108,7 +101,6 @@ export async function POST(request: Request) {
           logoText: 'Calm Drift Sanctuary',
           organizationName: 'Calm Drift Sanctuary',
           colorPreset: 'dark',
-          logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
           primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
           secondaryFields: [
             { label: 'MEMBER', value: name },
