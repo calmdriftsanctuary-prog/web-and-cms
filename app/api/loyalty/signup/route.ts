@@ -82,6 +82,12 @@ export async function POST(request: Request) {
       console.error('Failed to parse WalletWallet JSON response');
     }
 
+    // Log exact error response from WalletWallet if it fails
+    if (!passRes.ok) {
+      console.error('WalletWallet API error status:', passRes.status);
+      console.error('WalletWallet API error response text:', responseText);
+    }
+
     const googleUrl = passData.googleSaveUrl || '';
     const shareUrl = passData.shareUrl || '';
     
@@ -90,7 +96,7 @@ export async function POST(request: Request) {
     
     // Also, now that we have the server-generated serial, update the pass barcodeValue so it encodes its own valid serial for scanning!
     if (serverSerial && process.env.WALLET_API_KEY) {
-      await fetch(`https://api.walletwallet.dev/api/passes/${serverSerial}`, {
+      const putRes = await fetch(`https://api.walletwallet.dev/api/passes/${serverSerial}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -110,6 +116,11 @@ export async function POST(request: Request) {
           ]
         })
       });
+
+      if (!putRes.ok) {
+        const putErrorText = await putRes.text();
+        console.error('WalletWallet PUT update error:', putErrorText);
+      }
     }
 
     if (!passRes.ok || !googleUrl || !serverSerial) {
