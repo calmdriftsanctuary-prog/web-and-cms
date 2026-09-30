@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Camera, CheckCircle, PlusCircle, Search } from 'lucide-react';
+import { Camera, PlusCircle } from 'lucide-react';
 
 interface Voucher {
   id: string;
@@ -58,7 +58,6 @@ export default function AdminVouchersPage() {
     }
 
     return () => {
-      // Cleanup on unmount
       if (scannerRef.current) {
         try {
           scannerRef.current.stop().catch(() => {});
@@ -101,15 +100,37 @@ export default function AdminVouchersPage() {
     }
   };
 
-  const lookupVoucher = async (code: string) => {
-    if (!code || isProcessingRef.current) return;
+  // Triggered instantly when QR code is recognized by the camera
+  const handleScanSuccess = async (decodedText: string) => {
+    if (!decodedText || isProcessingRef.current) return;
     isProcessingRef.current = true;
+
+    // 1. Instantly stop the camera feed safely before API call
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
+      } catch (e) {
+        // Suppress pattern matching DOM exceptions
+      } finally {
+        scannerRef.current = null;
+      }
+    }
+    setScanning(false);
+
+    // 2. Lookup voucher details to display remaining balance & prompt for amount
+    await lookupVoucherCode(decodedText);
+    isProcessingRef.current = false;
+  };
+
+  const lookupVoucherCode = async (code: string) => {
+    if (!code) return;
     setLoading(true);
     setScannedVoucher(null);
     setActionMessage(null);
     setCodeQuery(code);
-
-    await stopCamera();
 
     try {
       const res = await fetch('/api/admin/vouchers/lookup', {
@@ -122,12 +143,11 @@ export default function AdminVouchersPage() {
       if (!res.ok) throw new Error(data.error || 'Voucher not found');
 
       setScannedVoucher(data.voucher);
-      setPartialAmount(data.voucher.remaining_value_gbp.toString());
+      setPartialAmount(data.voucher.remaining_value_gbp.toString()); // default to full remaining balance
     } catch (err: any) {
       setActionMessage({ error: err.message });
     } finally {
       setLoading(false);
-      isProcessingRef.current = false;
     }
   };
 
@@ -173,8 +193,7 @@ export default function AdminVouchersPage() {
     setActionMessage(null);
     isProcessingRef.current = false;
 
-    // Small timeout to allow DOM container to render display block
-    setTimeout(() => {
+    setTimeout(async () => {
       const Html5Qrcode = (window as any).Html5Qrcode;
       if (!Html5Qrcode) {
         setScanning(false);
@@ -183,34 +202,28 @@ export default function AdminVouchersPage() {
       }
 
       try {
-        if (!scannerRef.current) {
-          scannerRef.current = new Html5Qrcode('voucher-reader');
-        }
+        const container = document.getElementById('voucher-reader');
+        if (container) container.innerHTML = '';
 
-        scannerRef.current.start(
+        scannerRef.current = new Html5Qrcode('voucher-reader');
+
+        await scannerRef.current.start(
           { facingMode: 'environment' },
           {
             fps: 10,
             qrbox: { width: 250, height: 250 }
           },
           (decodedText: string) => {
-            if (decodedText && !isProcessingRef.current) {
-              lookupVoucher(decodedText);
-            }
+            handleScanSuccess(decodedText);
           },
           () => {}
-        ).catch((err: any) => {
-          console.error('Camera start error:', err);
-          setScanning(false);
-          isProcessingRef.current = false;
-          scannerRef.current = null;
-          setActionMessage({ error: 'Unable to access camera. Please check permissions.' });
-        });
+        );
       } catch (err: any) {
-        console.error('Scanner init error:', err);
+        console.error('Camera start error:', err);
         setScanning(false);
         isProcessingRef.current = false;
         scannerRef.current = null;
+        setActionMessage({ error: 'Unable to access camera. Please check permissions.' });
       }
     }, 200);
   };
@@ -219,15 +232,15 @@ export default function AdminVouchersPage() {
     if (scannerRef.current) {
       try {
         const scanner = scannerRef.current;
-        scannerRef.current = null; // Clear ref immediately to prevent race conditions
+        scannerRef.current = null;
         if (scanner.isScanning) {
           await scanner.stop();
         }
         await scanner.clear();
-      } catch (e) {
-        // Safely suppress pattern/DOM teardown exceptions
-      }
+      } catch (e) {}
     }
+    const container = document.getElementById('voucher-reader');
+    if (container) container.innerHTML = '';
     setScanning(false);
   };
 
@@ -323,11 +336,11 @@ export default function AdminVouchersPage() {
               {scanning ? 'stop camera' : 'open camera'}
             </button>
           </div>
-          <p className="text-xs text-gray-500">scan QR code or enter code to check balance, then specify partial/full redemption amount.</p>
+          <p className="text-xs text-gray-500">open camera to scan QR code or enter code manually. balance will display to enter redemption amount.</p>
 
           <div id="voucher-reader" className={`w-full rounded-xl overflow-hidden bg-black ${scanning ? 'block' : 'hidden'}`}></div>
 
-          <form onSubmit={(e) => { e.preventDefault(); lookupVoucher(codeQuery); }} className="space-y-3">
+          <form onSubmit={(e) => { e.preventDefault(); lookupVoucherCode(codeQuery); }} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold mb-1">voucher reference code</label>
               <input
@@ -344,15 +357,15 @@ export default function AdminVouchersPage() {
               disabled={loading}
               className="w-full py-3 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-[#523100] transition disabled:opacity-50"
             >
-              {loading ? 'looking up voucher...' : 'scan / lookup voucher'}
+              {loading ? 'looking up voucher...' : 'lookup voucher code'}
             </button>
           </form>
 
-          {/* Scanned Voucher Found: Prompt for Amount */}
+          {/* Scanned / Looked Up Voucher Found: Prompt for Amount */}
           {scannedVoucher && (
             <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
               <div>
-                <p className="font-bold text-sm text-[#693F00]">voucher found!</p>
+                <p className="font-bold text-sm text-[#693F00]">voucher recognized successfully!</p>
                 <p className="text-xs">recipient: {scannedVoucher.recipient_name}</p>
                 <p className="text-xs font-semibold">remaining balance: £{scannedVoucher.remaining_value_gbp}</p>
               </div>
