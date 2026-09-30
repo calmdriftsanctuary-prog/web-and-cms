@@ -42,7 +42,6 @@ export async function POST(request: Request) {
     // 2. Generate QR Code as Data URL
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 300, margin: 1 });
 
-    // Get base URL for local assets/images if needed, or convert background to base64
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
     const host = request.headers.get('host') || 'localhost:3000';
     const bgImageUrl = `${protocol}://${host}/voucher-bng.png`;
@@ -139,7 +138,7 @@ export async function POST(request: Request) {
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
     
     const pdfUint8 = await page.pdf({
       printBackground: true,
