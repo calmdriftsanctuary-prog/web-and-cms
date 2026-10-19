@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { clientEmail, clientName } = body;
+    const { clientEmail, clientName, treatmentTitle, bookingDate } = body;
 
     if (!clientEmail) {
       return NextResponse.json({ error: 'Client email is required to send a review request.' }, { status: 400 });
@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     }
 
     const resendClient = new Resend(apiKey);
+
+    const treatmentDisplay = treatmentTitle ? `your recent ${treatmentTitle} session` : `your recent visit`;
+    const dateDisplay = bookingDate ? ` on ${bookingDate}` : ``;
 
     // Send Review Request Email via Resend
     const emailResponse = await resendClient.emails.send({
@@ -40,7 +43,7 @@ export async function POST(request: Request) {
           <h2 style="color:#693F00; font-size: 18px; text-transform: lowercase; margin-top: 0;">how was your experience?</h2>
           
           <p style="text-transform: lowercase;">dear ${clientName || 'valued client'},</p>
-          <p style="text-transform: lowercase;">thank you for visiting calm drift sanctuary recently. we hope you felt completely relaxed and refreshed during your time with us.</p>
+          <p style="text-transform: lowercase;">thank you for joining us for ${treatmentDisplay}${dateDisplay} at calm drift sanctuary. we hope you felt completely relaxed and refreshed during your time with us.</p>
 
           <p style="text-transform: lowercase;">as a small independent studio, word of mouth means everything to us. if you have a spare moment, we would love to hear your feedback.</p>
 
