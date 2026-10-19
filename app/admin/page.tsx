@@ -484,13 +484,18 @@ export default function AdminDashboard() {
   const handleSendReviewEmail = async (clientEmail: string, clientName: string, bookingId?: string) => {
     if (!confirm(`Send review request email to ${clientName} (${clientEmail})?`)) return;
     try {
+      const matchedBooking = bookings.find(b => b.id === bookingId);
+      const treatmentTitle = matchedBooking?.treatments?.title || '';
+      const bookingDate = matchedBooking?.start_time ? formatUKDateTime(matchedBooking.start_time) : '';
+
       const res = await fetch('/api/admin/crm/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientEmail,
           clientName,
-          bookingId
+          treatmentTitle,
+          bookingDate
         }),
       });
       const data = await res.json();
@@ -811,8 +816,30 @@ export default function AdminDashboard() {
             <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center gap-1">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Mobile Dropdown Menu Selector */}
+            <div className="block md:hidden w-full">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as any)}
+                className="w-full p-3 bg-white border border-[#E5E7EB] rounded-2xl text-xs font-semibold uppercase tracking-wider text-[#2C332B] shadow-sm focus:outline-none focus:border-[#693F00]"
+              >
+                <option value="crm">CRM Client Records</option>
+                <option value="cms">Treatments & Pricing</option>
+                <option value="links">Link Generator</option>
+                <option value="reports">Financial Reports</option>
+                <option value="reviews">Reviews Moderation</option>
+                <option value="popup">Promotional Popup</option>
+                <option value="gallery">Gallery CMS</option>
+                <option value="social">Social Links CMS</option>
+                <option value="forms">Form Builder</option>
+                <option value="templates">Email Templates</option>
+                <option value="content">Website Copy CMS</option>
+              </select>
+            </div>
+
+            {/* Desktop Pill Navigation */}
+            <div className="hidden md:flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center gap-1">
               <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
                 Calendar ↗
               </Link>
@@ -855,6 +882,13 @@ export default function AdminDashboard() {
               <button onClick={() => setActiveTab('content')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'content' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 Copy CMS
               </button>
+            </div>
+
+            {/* Quick Links for Mobile Sub-pages */}
+            <div className="flex md:hidden items-center justify-between gap-2 px-1">
+              <Link href="/admin/calendar" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline">Calendar ↗</Link>
+              <Link href="/admin/loyalty" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline">Loyalty ↗</Link>
+              <Link href="/admin/vouchers" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] underline">Vouchers ↗</Link>
             </div>
           </div>
         </header>
