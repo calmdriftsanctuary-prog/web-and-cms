@@ -24,16 +24,20 @@ export async function POST(request: Request) {
     const voucherCode = `CDS-VCH-${randomHex}`;
     const receiptRef = `CDS-RCP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     
-    // Use custom start date if provided, otherwise default to today
-    const voucherStartDate = startDate ? new Date(startDate) : new Date();
+    // 1. Current actual date for purchase / receipt
+    const todayDateObj = new Date();
+    const formattedPurchaseDate = todayDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    // 2. Custom start date (defaults to today if not provided)
+    const voucherStartDate = startDate ? new Date(startDate) : todayDateObj;
     const formattedStartDate = voucherStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     
-    // Expiry date is exactly 12 months after start date
+    // 3. Expiry date is exactly 12 months after the start date
     const expiryDateObj = new Date(voucherStartDate);
     expiryDateObj.setFullYear(expiryDateObj.getFullYear() + 1);
     const formattedExpiryDate = expiryDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    // 1. Insert into Supabase
+    // 4. Insert into Supabase
     const { error: insertErr } = await supabase.from('vouchers').insert([{
       code: voucherCode,
       recipient_name: recipientName,
@@ -45,11 +49,11 @@ export async function POST(request: Request) {
 
     if (insertErr) throw insertErr;
 
-    // 2. Generate QR Code Buffer
+    // 5. Generate QR Code Buffer
     const qrDataUrl = await QRCode.toDataURL(voucherCode, { width: 500, margin: 1 });
     const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-    // 3. Exact Photoshop Canvas Resolution (1684 x 1191)
+    // 6. Exact Photoshop Canvas Resolution (1684 x 1191)
     const pw = 1684;
     const ph = 1191;
 
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
     pdfDoc.end();
     const pdfBuffer = await pdfBufferPromise;
 
-    // 4. Send Email via Resend with Receipt & Value Voucher PDF
+    // 7. Send Email via Resend with Receipt & Value Voucher PDF
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
@@ -113,7 +117,7 @@ export async function POST(request: Request) {
 
             <div style="background: #ffffff; border: 1px solid #E5E7EB; padding: 20px; border-radius: 12px; margin: 20px 0; font-size: 13px;">
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>receipt reference number:</strong> ${receiptRef}</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>date of purchase:</strong> ${formattedStartDate}</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>date of purchase:</strong> ${formattedPurchaseDate}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>purchaser name:</strong> ${purchaserName}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>item description:</strong> monetary gift voucher (£${valueGbp})</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>total amount paid:</strong> £${valueGbp}.00</p>
