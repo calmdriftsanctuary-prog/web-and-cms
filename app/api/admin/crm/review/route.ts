@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { clientId, clientEmail, clientName } = body;
+    const { clientEmail, clientName } = body;
 
     if (!clientEmail) {
       return NextResponse.json({ error: 'Client email is required to send a review request.' }, { status: 400 });
@@ -44,10 +42,10 @@ export async function POST(request: Request) {
           <p style="text-transform: lowercase;">dear ${clientName || 'valued client'},</p>
           <p style="text-transform: lowercase;">thank you for visiting calm drift sanctuary recently. we hope you felt completely relaxed and refreshed during your time with us.</p>
 
-          <p style="text-transform: lowercase;">as a small independent studio, word of mouth means everything to us. if you have a spare moment, we would love to hear your feedback or see a review.</p>
+          <p style="text-transform: lowercase;">as a small independent studio, word of mouth means everything to us. if you have a spare moment, we would love to hear your feedback.</p>
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://g.page/r/YOUR_GOOGLE_REVIEW_LINK" style="background-color: #693F00; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 50px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">leave us a google review</a>
+            <a href="https://calmdriftsanctuary.co.uk/review" style="background-color: #693F00; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 50px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">leave us a review</a>
           </div>
 
           <p style="text-transform: lowercase; font-size: 13px;">if there is anything we could have done to make your visit even better, please feel free to reply directly to this email.</p>
