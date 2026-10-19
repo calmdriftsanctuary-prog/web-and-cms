@@ -483,12 +483,22 @@ export default function AdminDashboard() {
 
   const handleSendReviewEmail = async (clientEmail: string, clientName: string, bookingId?: string) => {
     if (!confirm(`Send review request email to ${clientName} (${clientEmail})?`)) return;
-    await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'send_review_email', email: clientEmail, name: clientName, bookingId }),
-    });
-    alert('Review request email sent successfully!');
+    try {
+      const res = await fetch('/api/admin/crm/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientEmail,
+          clientName,
+          bookingId
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send review email');
+      alert(`Review request successfully sent to ${clientEmail}!`);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
   };
 
   const handleSaveTreatment = async (e: React.FormEvent) => {
