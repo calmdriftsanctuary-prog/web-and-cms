@@ -28,6 +28,7 @@ export default function AdminVouchersPage() {
   const [purchaserEmail, setPurchaserEmail] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [valueGbp, setValueGbp] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState('');
 
@@ -36,7 +37,6 @@ export default function AdminVouchersPage() {
   const scannerRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
-  // Safe fetch helper that intercepts non-JSON responses to prevent Safari/WebKit pattern matching crashes
   const safeFetchJson = async (url: string, options?: RequestInit) => {
     const res = await fetch(url, options);
     const text = await res.text();
@@ -145,7 +145,8 @@ export default function AdminVouchersPage() {
           purchaserName,
           purchaserEmail,
           recipientName,
-          valueGbp: Number(valueGbp)
+          valueGbp: Number(valueGbp),
+          startDate
         })
       });
 
@@ -154,6 +155,7 @@ export default function AdminVouchersPage() {
       setPurchaserEmail('');
       setRecipientName('');
       setValueGbp('');
+      setStartDate('');
       loadVouchers();
     } catch (err: any) {
       alert(err.message);
@@ -292,6 +294,16 @@ export default function AdminVouchersPage() {
                 placeholder="e.g. 75"
                 className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">voucher start date (optional)</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00]"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">leave blank to default to today. expiry is 12 months after start date.</p>
             </div>
             <button
               type="submit"

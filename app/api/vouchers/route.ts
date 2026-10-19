@@ -15,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { purchaserName, purchaserEmail, recipientName, valueGbp } = await request.json();
+    const { purchaserName, purchaserEmail, recipientName, valueGbp, startDate } = await request.json();
     if (!purchaserName || !purchaserEmail || !recipientName || !valueGbp) {
       return NextResponse.json({ error: 'purchaserName, purchaserEmail, recipientName, and valueGbp are required.' }, { status: 400 });
     }
@@ -23,11 +23,15 @@ export async function POST(request: Request) {
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
     const voucherCode = `CDS-VCH-${randomHex}`;
     const receiptRef = `CDS-RCP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const currentDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     
-    const expiryDateObj = new Date();
+    // Use custom start date if provided, otherwise default to today
+    const voucherStartDate = startDate ? new Date(startDate) : new Date();
+    const formattedStartDate = voucherStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    
+    // Expiry date is exactly 12 months after start date
+    const expiryDateObj = new Date(voucherStartDate);
     expiryDateObj.setFullYear(expiryDateObj.getFullYear() + 1);
-    const expiryDate = expiryDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const formattedExpiryDate = expiryDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
     // 1. Insert into Supabase
     const { error: insertErr } = await supabase.from('vouchers').insert([{
@@ -73,12 +77,12 @@ export async function POST(request: Request) {
 
     const displayValueText = `£${valueGbp} Gift Voucher`;
 
-    // -- EXACT PHOTOSHOP COORDINATES & SIZES (Value replaces treatment name) --
+    // -- EXACT PHOTOSHOP COORDINATES & SIZES --
     // 1. Voucher Value (Size 80px, X: 131, Y: 373, Left-aligned)
     pdfDoc.fontSize(80).text(displayValueText, 131, 373, { width: 1300, align: 'left', lineBreak: false });
 
-    // 2. Issued Date (Size 36px, X: 240, Y: 544, Left-aligned)
-    pdfDoc.fontSize(36).text(currentDate, 240, 544, { width: 500, align: 'left', lineBreak: false });
+    // 2. Start Date (Size 36px, X: 240, Y: 544, Left-aligned)
+    pdfDoc.fontSize(36).text(formattedStartDate, 240, 544, { width: 500, align: 'left', lineBreak: false });
 
     // 3. Voucher Reference (Size 37px, X: 460, Y: 1116, Left-aligned)
     pdfDoc.fontSize(37).fillColor('#693F00').text(voucherCode, 460, 1116, { width: 600, align: 'left', lineBreak: false });
@@ -109,14 +113,14 @@ export async function POST(request: Request) {
 
             <div style="background: #ffffff; border: 1px solid #E5E7EB; padding: 20px; border-radius: 12px; margin: 20px 0; font-size: 13px;">
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>receipt reference number:</strong> ${receiptRef}</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>date of purchase:</strong> ${currentDate}</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>date of purchase:</strong> ${formattedStartDate}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>purchaser name:</strong> ${purchaserName}</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>item description:</strong> monetary gift voucher (£${valueGbp})</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>total amount paid:</strong> £${valueGbp}.00</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>payment method:</strong> online checkout</p>
               <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher reference number:</strong> <span style="color:#693F00; font-weight: bold;">${voucherCode}</span></p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher issue date:</strong> ${currentDate}</p>
-              <p style="margin: 6px 0; text-transform: lowercase;"><strong>expiry date:</strong> ${expiryDate}</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>voucher start date:</strong> ${formattedStartDate}</p>
+              <p style="margin: 6px 0; text-transform: lowercase;"><strong>expiry date:</strong> ${formattedExpiryDate}</p>
             </div>
 
             <div style="margin-top: 20px;">
@@ -126,7 +130,7 @@ export async function POST(request: Request) {
 
             <div style="margin-top: 20px; border-top: 1px solid #E5E7EB; padding-top: 15px;">
               <h3 style="font-size: 14px; color: #693F00; text-transform: lowercase; margin-bottom: 5px;">terms and conditions</h3>
-              <p style="font-size: 11px; color: #6b7280; text-transform: lowercase; line-height: 1.5;">gift vouchers are valid for 12 months from the date of issue and must be redeemed within this period. vouchers are non-refundable, non-transferable, and cannot be exchanged for cash. appointments are subject to availability and must be booked in advance quoting the unique voucher reference. a mandatory pre-treatment consultation form, including a medical screening and liability waiver, must be completed prior to any session. calm drift sanctuary reserves the right to refuse treatment if necessary health disclosures are missing or if a medical contraindication is present. cancellations or rescheduling require at least 24 hours' notice, otherwise the voucher may be rendered void. lost or stolen vouchers cannot be replaced.</p>
+              <p style="font-size: 11px; color: #6b7280; text-transform: lowercase; line-height: 1.5;">gift vouchers are valid for 12 months from the start date and must be redeemed within this period. vouchers are non-refundable, non-transferable, and cannot be exchanged for cash. appointments are subject to availability and must be booked in advance quoting the unique voucher reference. a mandatory pre-treatment consultation form, including a medical screening and liability waiver, must be completed prior to any session. calm drift sanctuary reserves the right to refuse treatment if necessary health disclosures are missing or if a medical contraindication is present. cancellations or rescheduling require at least 24 hours' notice, otherwise the voucher may be rendered void. lost or stolen vouchers cannot be replaced.</p>
             </div>
 
             <p style="font-size:12px; color:#6b7280; margin-top:30px; border-top:1px solid #E5E7EB; padding-top:15px; text-transform:lowercase;">warm regards,<br>the calm drift sanctuary team</p>
