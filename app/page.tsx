@@ -409,7 +409,7 @@ export default function HomePage() {
                     <p className="text-xs sm:text-sm text-gray-700 italic leading-relaxed">"{rev.comment.toLowerCase()}"</p>
                   </div>
                   <div className="text-xs font-semibold tracking-wider text-[#693F00] lowercase">
-                    — {rev.client_name.toLowerCase()}
+                    — verified client
                   </div>
                 </div>
               ))}
