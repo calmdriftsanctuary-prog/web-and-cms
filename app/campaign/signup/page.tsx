@@ -91,10 +91,14 @@ export default function CampaignSignupPage() {
               />
             </div>
 
+            <p className="text-[11px] text-gray-500 leading-relaxed pt-1">
+              by submitting this form, you are opting in to receive marketing communications and updates from calm drift sanctuary. you can unsubscribe at any time.
+            </p>
+
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3.5 bg-[#693F00] text-white text-xs font-semibold tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50"
+              className="w-full py-3.5 bg-[#693F00] text-white text-xs font-semibold tracking-widest rounded-full hover:bg-[#523100] transition shadow-sm disabled:opacity-50 mt-2"
             >
               {submitting ? 'subscribing...' : 'subscribe to updates'}
             </button>
