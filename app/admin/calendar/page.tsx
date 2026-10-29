@@ -500,12 +500,16 @@ export default function AdminCalendarPage() {
           {loading ? (
             <p className="text-xs text-gray-400 py-12 text-center">Loading schedule...</p>
           ) : viewMode === 'month' ? (
-            /* MONTH VIEW - STACKED CARDS */
+            /* MONTH VIEW - STACKED CARDS (CHRONOLOGICAL SORT) */
             <div className="space-y-4">
               {getMonthDays(year, month).map((dayObj) => {
                 const dateStr = dayObj.toISOString().split('T')[0];
-                const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
+                const dayBookings = bookings
+                  .filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled')
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                const dayBlocks = blockedTimes
+                  .filter(bt => bt.start_time && bt.start_time.startsWith(dateStr))
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
                 const isToday = new Date().toISOString().startsWith(dateStr);
 
                 if (dayBookings.length === 0 && dayBlocks.length === 0) return null; // Keep month view clean by showing active days
@@ -578,12 +582,16 @@ export default function AdminCalendarPage() {
               )}
             </div>
           ) : viewMode === 'week' ? (
-            /* WEEK VIEW - STACKED CARDS */
+            /* WEEK VIEW - STACKED CARDS (CHRONOLOGICAL SORT) */
             <div className="space-y-4">
               {getWeekDays(currentDate).map((dayObj, idx) => {
                 const dateStr = dayObj.toISOString().split('T')[0];
-                const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
+                const dayBookings = bookings
+                  .filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled')
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                const dayBlocks = blockedTimes
+                  .filter(bt => bt.start_time && bt.start_time.startsWith(dateStr))
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
                 const isToday = dayObj.toDateString() === new Date().toDateString();
 
                 return (
@@ -651,54 +659,60 @@ export default function AdminCalendarPage() {
               })}
             </div>
           ) : (
-            /* DAY VIEW */
+            /* DAY VIEW (CHRONOLOGICAL SORT) */
             <div className="space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
 
-              {blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).map(bt => {
-                const startTime = formatUTCTime(bt.start_time);
-                const endTime = formatUTCTime(bt.end_time);
-                return (
-                  <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className="p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-amber-900">Blocked Time: {startTime} - {endTime}</p>
-                      <p className="text-xs text-amber-800 italic">{bt.reason}</p>
+              {blockedTimes
+                .filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0]))
+                .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                .map(bt => {
+                  const startTime = formatUTCTime(bt.start_time);
+                  const endTime = formatUTCTime(bt.end_time);
+                  return (
+                    <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className="p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-amber-900">Blocked Time: {startTime} - {endTime}</p>
+                        <p className="text-xs text-amber-800 italic">{bt.reason}</p>
+                      </div>
+                      <span className="text-xs text-amber-900 font-semibold">Edit &rarr;</span>
                     </div>
-                    <span className="text-xs text-amber-900 font-semibold">Edit &rarr;</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
               {bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 && blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).length === 0 ? (
                 <p className="text-xs text-gray-400 py-8">No appointments or blocked times scheduled for this date.</p>
               ) : (
-                bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => {
-                  const isPendingLink = b.status === 'pending_link' || (b.notes && b.notes.includes('Generated Link'));
-                  return (
-                    <div
-                      key={b.id}
-                      onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
-                      className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition ${
-                        isPendingLink ? 'bg-red-50/40 border-red-200 hover:bg-red-50' : 'bg-white border-[#E5E7EB] hover:border-[#693F00]'
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <span className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${isPendingLink ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-serif text-lg text-[#2C332B]">{b.client_name}</p>
-                            <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${isPendingLink ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                              {isPendingLink ? 'Pending Link' : 'Confirmed'}
-                            </span>
+                bookings
+                  .filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled')
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                  .map(b => {
+                    const isPendingLink = b.status === 'pending_link' || (b.notes && b.notes.includes('Generated Link'));
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
+                        className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition ${
+                          isPendingLink ? 'bg-red-50/40 border-red-200 hover:bg-red-50' : 'bg-white border-[#E5E7EB] hover:border-[#693F00]'
+                        }`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <span className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${isPendingLink ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-serif text-lg text-[#2C332B]">{b.client_name}</p>
+                              <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${isPendingLink ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                {isPendingLink ? 'Pending Link' : 'Confirmed'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#693F00] font-medium">{b.treatments?.title || 'Custom Appointment'} ({b.treatments?.duration_minutes || 60} mins)</p>
+                            <p className="text-xs text-[#6B7280]">Time: {formatUTCTime(b.start_time)}</p>
                           </div>
-                          <p className="text-xs text-[#693F00] font-medium">{b.treatments?.title || 'Custom Appointment'} ({b.treatments?.duration_minutes || 60} mins)</p>
-                          <p className="text-xs text-[#6B7280]">Time: {formatUTCTime(b.start_time)}</p>
                         </div>
+                        <span className="text-xs text-[#693F00] font-semibold">View &rarr;</span>
                       </div>
-                      <span className="text-xs text-[#693F00] font-semibold">View &rarr;</span>
-                    </div>
-                  );
-                })
+                    );
+                  })
               )}
             </div>
           )}
