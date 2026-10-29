@@ -231,15 +231,6 @@ export default function AdminCalendarPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-  const getFirstDayOfMonth = (y: number, m: number) => {
-    let day = new Date(y, m, 1).getDay();
-    return day === 0 ? 6 : day - 1;
-  };
-
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDayIndex = getFirstDayOfMonth(year, month);
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const getWeekDays = (date: Date) => {
     const d = new Date(date);
@@ -254,6 +245,17 @@ export default function AdminCalendarPage() {
     }
     return week;
   };
+
+  const getMonthDays = (y: number, m: number) => {
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const days = [];
+    for (let i = 1; i <= lastDay; i++) {
+      days.push(new Date(y, m, i));
+    }
+    return days;
+  };
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const handleUpdateBlockedTime = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,8 +468,8 @@ export default function AdminCalendarPage() {
           </div>
         </header>
 
-        {/* Calendar Navigation Bar */}
-        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm">
+        {/* Calendar Navigation Bar & Legend */}
+        <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm gap-4">
           <div className="flex items-center space-x-3">
             <button onClick={handlePrev} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></button>
             <h2 className="font-serif text-xl text-[#2C332B]">
@@ -477,7 +479,20 @@ export default function AdminCalendarPage() {
             </h2>
             <button onClick={handleNext} className="p-2 border rounded-xl hover:bg-gray-50"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 bg-[#FAF9F6] border rounded-xl text-xs uppercase font-semibold">Today</button>
+
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 text-xs">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                <span className="text-gray-600 uppercase font-medium">Pending Link</span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                <span className="text-gray-600 uppercase font-medium">Confirmed</span>
+              </div>
+            </div>
+            <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 bg-[#FAF9F6] border rounded-xl text-xs uppercase font-semibold">Today</button>
+          </div>
         </div>
 
         {/* Main Calendar View Area */}
@@ -485,40 +500,132 @@ export default function AdminCalendarPage() {
           {loading ? (
             <p className="text-xs text-gray-400 py-12 text-center">Loading schedule...</p>
           ) : viewMode === 'month' ? (
-            <div>
-              <div className="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-              </div>
-              <div className="grid grid-cols-7 gap-2">
-                {Array.from({ length: firstDayIndex }).map((_, i) => (
-                  <div key={`empty-${i}`} className="h-36 bg-[#FAF9F6]/40 rounded-xl border border-transparent"></div>
-                ))}
+            /* MONTH VIEW - STACKED CARDS */
+            <div className="space-y-4">
+              {getMonthDays(year, month).map((dayObj) => {
+                const dateStr = dayObj.toISOString().split('T')[0];
+                const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
+                const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
+                const isToday = new Date().toISOString().startsWith(dateStr);
 
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const dayNum = i + 1;
-                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                  const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                  const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
-                  const isToday = new Date().toISOString().startsWith(dateStr);
+                if (dayBookings.length === 0 && dayBlocks.length === 0) return null; // Keep month view clean by showing active days
 
-                  return (
-                    <div key={dayNum} className={`h-36 p-2 rounded-xl border flex flex-col justify-between overflow-y-auto ${isToday ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-[#E5E7EB] bg-white'}`}>
-                      <div className="flex justify-between items-center">
-                        <span className={`text-xs font-bold ${isToday ? 'bg-[#693F00] text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-[#2C332B]'}`}>{dayNum}</span>
-                        {(dayBookings.length > 0 || dayBlocks.length > 0) && (
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 rounded font-semibold">{dayBookings.length + dayBlocks.length}</span>
-                        )}
-                      </div>
-                      <div className="space-y-1 mt-1">
-                        {dayBookings.map(b => (
+                return (
+                  <div key={dateStr} className={`p-4 rounded-2xl border space-y-3 ${isToday ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-stone-200'}`}>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <h4 className="font-serif text-sm font-bold text-[#2C332B] flex items-center space-x-2">
+                        <span>{dayObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        {isToday && <span className="text-[10px] bg-[#693F00] text-white px-2 py-0.5 rounded-full uppercase font-bold">Today</span>}
+                      </h4>
+                      <span className="text-xs text-stone-500 font-medium">{dayBookings.length + dayBlocks.length} item(s)</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {dayBookings.map(b => {
+                        const isPendingLink = b.status === 'pending_link' || (b.notes && b.notes.includes('Generated Link'));
+                        return (
                           <div
                             key={b.id}
                             onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
-                            className={`text-[10px] p-1 rounded truncate cursor-pointer transition ${selectedBooking?.id === b.id ? 'bg-[#693F00] text-white' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'}`}
+                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs cursor-pointer transition ${
+                              isPendingLink ? 'bg-red-50/40 border-red-200 hover:bg-red-50' : 'bg-[#FAF9F6] border-stone-200 hover:border-[#693F00]'
+                            }`}
                           >
-                            {formatUTCTime(b.start_time)} - {b.client_name}
+                            <div className="flex items-center space-x-2.5">
+                              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isPendingLink ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                              <div>
+                                <span className="font-semibold text-stone-900">{formatUTCTime(b.start_time)}</span>
+                                <span className="mx-2 text-stone-300">|</span>
+                                <span className="font-medium text-stone-800">{b.client_name}</span>
+                                <span className="text-stone-500 ml-2">({b.treatments?.title || 'Custom Appointment'})</span>
+                              </div>
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${isPendingLink ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {isPendingLink ? 'Pending Link' : 'Confirmed'}
+                            </span>
                           </div>
-                        ))}
+                        );
+                      })}
+
+                      {dayBlocks.map(bt => {
+                        const startTime = formatUTCTime(bt.start_time);
+                        const endTime = formatUTCTime(bt.end_time);
+                        return (
+                          <div
+                            key={bt.id}
+                            onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }}
+                            className="p-3 rounded-xl border bg-amber-50 border-amber-200 text-amber-900 cursor-pointer hover:bg-amber-100 flex items-center justify-between text-xs"
+                          >
+                            <div>
+                              <span className="font-bold">{startTime} - {endTime}</span>
+                              <span className="mx-2">|</span>
+                              <span className="italic">{bt.reason}</span>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 uppercase rounded-full font-bold bg-amber-100 text-amber-800">Blocked Time</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {getMonthDays(year, month).every(d => {
+                const dateStr = d.toISOString().split('T')[0];
+                return bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr)).length === 0 &&
+                       blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr)).length === 0;
+              }) && (
+                <p className="text-xs text-gray-400 py-12 text-center italic">No appointments or events scheduled for this month.</p>
+              )}
+            </div>
+          ) : viewMode === 'week' ? (
+            /* WEEK VIEW - STACKED CARDS */
+            <div className="space-y-4">
+              {getWeekDays(currentDate).map((dayObj, idx) => {
+                const dateStr = dayObj.toISOString().split('T')[0];
+                const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
+                const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
+                const isToday = dayObj.toDateString() === new Date().toDateString();
+
+                return (
+                  <div key={idx} className={`p-5 rounded-2xl border space-y-3 ${isToday ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-stone-200 bg-white'}`}>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <h4 className="font-serif text-base text-[#2C332B] flex items-center space-x-2">
+                        <span>{dayObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        {isToday && <span className="text-[10px] bg-[#693F00] text-white px-2 py-0.5 rounded-full uppercase font-bold">Today</span>}
+                      </h4>
+                      <span className="text-xs text-stone-500 font-medium">{dayBookings.length + dayBlocks.length} item(s)</span>
+                    </div>
+
+                    {dayBookings.length === 0 && dayBlocks.length === 0 ? (
+                      <p className="text-xs text-stone-400 italic py-2">No appointments scheduled for this day.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {dayBookings.map(b => {
+                          const isPendingLink = b.status === 'pending_link' || (b.notes && b.notes.includes('Generated Link'));
+                          return (
+                            <div
+                              key={b.id}
+                              onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs cursor-pointer transition ${
+                                isPendingLink ? 'bg-red-50/40 border-red-200 hover:bg-red-50' : 'bg-[#FAF9F6] border-stone-200 hover:border-[#693F00]'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2.5">
+                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isPendingLink ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                                <div>
+                                  <span className="font-semibold text-stone-900">{formatUTCTime(b.start_time)}</span>
+                                  <span className="mx-2 text-stone-300">|</span>
+                                  <span className="font-medium text-stone-800">{b.client_name}</span>
+                                  <span className="text-stone-500 ml-2">({b.treatments?.title || 'Custom Appointment'})</span>
+                                </div>
+                              </div>
+                              <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${isPendingLink ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                {isPendingLink ? 'Pending Link' : 'Confirmed'}
+                              </span>
+                            </div>
+                          );
+                        })}
+
                         {dayBlocks.map(bt => {
                           const startTime = formatUTCTime(bt.start_time);
                           const endTime = formatUTCTime(bt.end_time);
@@ -526,60 +633,25 @@ export default function AdminCalendarPage() {
                             <div
                               key={bt.id}
                               onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }}
-                              className={`text-[10px] p-1 rounded bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer hover:bg-amber-100 transition ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}
+                              className="p-3 rounded-xl border bg-amber-50 border-amber-200 text-amber-900 cursor-pointer hover:bg-amber-100 flex items-center justify-between text-xs"
                             >
-                              <p className="font-bold">{startTime} - {endTime}</p>
-                              <p className="truncate italic">{bt.reason}</p>
+                              <div>
+                                <span className="font-bold">{startTime} - {endTime}</span>
+                                <span className="mx-2">|</span>
+                                <span className="italic">{bt.reason}</span>
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 uppercase rounded-full font-bold bg-amber-100 text-amber-800">Blocked Time</span>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : viewMode === 'week' ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-[#6B7280] border-b pb-2">
-                {getWeekDays(currentDate).map((day, idx) => (
-                  <div key={idx}>
-                    <p>{day.toLocaleDateString('en-GB', { weekday: 'short' })}</p>
-                    <p className="text-sm font-bold text-[#2C332B]">{day.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-2 min-h-[450px]">
-                {getWeekDays(currentDate).map((day, idx) => {
-                  const dateStr = day.toISOString().split('T')[0];
-                  const dayBookings = bookings.filter(b => b.start_time && b.start_time.startsWith(dateStr) && b.status !== 'cancelled');
-                  const dayBlocks = blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(dateStr));
-
-                  return (
-                    <div key={idx} className="p-2 border rounded-xl bg-[#FAF9F6] space-y-2 overflow-y-auto">
-                      {dayBookings.map(b => (
-                        <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-2 bg-white border rounded-lg text-xs cursor-pointer shadow-sm hover:border-[#693F00] ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-emerald-50' : ''}`}>
-                          <p className="font-bold text-[#693F00]">{formatUTCTime(b.start_time)}</p>
-                          <p className="font-serif text-sm truncate">{b.client_name}</p>
-                          <p className="text-[10px] text-gray-500 truncate">{b.treatments?.title || 'Custom Appointment'}</p>
-                        </div>
-                      ))}
-                      {dayBlocks.map(bt => {
-                        const startTime = formatUTCTime(bt.start_time);
-                        const endTime = formatUTCTime(bt.end_time);
-                        return (
-                          <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 cursor-pointer hover:bg-amber-100 ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
-                            <p className="font-bold">{startTime} - {endTime}</p>
-                            <p className="italic text-[10px]">{bt.reason}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
+                );
+              })}
             </div>
           ) : (
+            /* DAY VIEW */
             <div className="space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Schedule for {currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
 
@@ -587,7 +659,7 @@ export default function AdminCalendarPage() {
                 const startTime = formatUTCTime(bt.start_time);
                 const endTime = formatUTCTime(bt.end_time);
                 return (
-                  <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className={`p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center ${selectedBlockTime?.id === bt.id ? 'ring-2 ring-amber-600' : ''}`}>
+                  <div key={bt.id} onClick={() => { setSelectedBooking(null); setSelectedBlockTime(bt); }} className="p-4 rounded-xl border bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100 flex justify-between items-center">
                     <div>
                       <p className="font-bold text-amber-900">Blocked Time: {startTime} - {endTime}</p>
                       <p className="text-xs text-amber-800 italic">{bt.reason}</p>
@@ -600,15 +672,33 @@ export default function AdminCalendarPage() {
               {bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').length === 0 && blockedTimes.filter(bt => bt.start_time && bt.start_time.startsWith(currentDate.toISOString().split('T')[0])).length === 0 ? (
                 <p className="text-xs text-gray-400 py-8">No appointments or blocked times scheduled for this date.</p>
               ) : (
-                bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => (
-                  <div key={b.id} onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }} className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center ${selectedBooking?.id === b.id ? 'border-[#693F00] bg-[#FAF9F6]' : 'border-[#E5E7EB]'}`}>
-                    <div>
-                      <p className="font-serif text-lg text-[#2C332B]">{b.client_name} ({b.treatments?.title || 'Custom Appointment'})</p>
-                      <p className="text-xs text-[#6B7280]">Time: {formatUTCTime(b.start_time)}</p>
+                bookings.filter(b => b.start_time && b.start_time.startsWith(currentDate.toISOString().split('T')[0]) && b.status !== 'cancelled').map(b => {
+                  const isPendingLink = b.status === 'pending_link' || (b.notes && b.notes.includes('Generated Link'));
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => { setSelectedBlockTime(null); setSelectedBooking(b); }}
+                      className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition ${
+                        isPendingLink ? 'bg-red-50/40 border-red-200 hover:bg-red-50' : 'bg-white border-[#E5E7EB] hover:border-[#693F00]'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <span className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${isPendingLink ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-serif text-lg text-[#2C332B]">{b.client_name}</p>
+                            <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${isPendingLink ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {isPendingLink ? 'Pending Link' : 'Confirmed'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#693F00] font-medium">{b.treatments?.title || 'Custom Appointment'} ({b.treatments?.duration_minutes || 60} mins)</p>
+                          <p className="text-xs text-[#6B7280]">Time: {formatUTCTime(b.start_time)}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-[#693F00] font-semibold">View &rarr;</span>
                     </div>
-                    <span className="text-xs text-[#693F00]">View &rarr;</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -621,7 +711,9 @@ export default function AdminCalendarPage() {
               <div className="flex justify-between items-start border-b pb-3">
                 <div>
                   <h3 className="font-serif text-xl text-[#2C332B]">{selectedBooking.client_name}</h3>
-                  <span className="text-[10px] px-2 py-0.5 uppercase rounded-full bg-emerald-100 text-emerald-700">{selectedBooking.status || 'Confirmed'}</span>
+                  <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${selectedBooking.status === 'pending_link' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {selectedBooking.status === 'pending_link' ? 'Pending Link' : (selectedBooking.status || 'Confirmed')}
+                  </span>
                 </div>
                 <button onClick={() => { setSelectedBooking(null); setIsEditingBooking(false); }} className="text-xs text-gray-400 hover:text-black font-bold text-lg">&times;</button>
               </div>

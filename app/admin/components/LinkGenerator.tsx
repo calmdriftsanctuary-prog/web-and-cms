@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -51,6 +52,23 @@ export default function LinkGenerator() {
     setSelectedTimes((prev) =>
       prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
     );
+  };
+
+  // Format helper for friendly date display (e.g. "Friday, 30 October 2026")
+  const getFormattedDateLabel = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      return d.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   // Calculate final price after discount
@@ -142,7 +160,14 @@ export default function LinkGenerator() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Requested Date</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600">Requested Date</label>
+              {targetDate && (
+                <span className="text-[11px] font-medium text-[#693F00] capitalize">
+                  {getFormattedDateLabel(targetDate)}
+                </span>
+              )}
+            </div>
             <input
               type="date"
               required
