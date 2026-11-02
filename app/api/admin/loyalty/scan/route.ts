@@ -81,28 +81,33 @@ export async function POST(request: Request) {
       new_stamps: newStamps
     }]);
 
-    // Push live update to Apple/Google Wallet pass
-    if (process.env.WALLET_API_KEY) {
-      await fetch(`https://api.walletwallet.dev/api/passes/${client.pass_serial}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.WALLET_API_KEY}`
-        },
-        body: JSON.stringify({
-          barcodeValue: client.pass_serial,
-          barcodeFormat: 'QR',
-          logoText: 'Calm Drift Sanctuary',
-          organizationName: 'Calm Drift Sanctuary',
-          color: '#693f00',
-          logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
-          primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
-          secondaryFields: [
-            { label: 'MEMBER', value: client.client_name },
-            { label: 'VISITS', value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue }
-          ]
-        })
-      });
+    // Push live update to Apple/Google Wallet pass (supports both key variations)
+    const walletApiKey = process.env.WALLETWALLET_API_KEY || process.env.WALLET_API_KEY;
+    if (walletApiKey && client.pass_serial) {
+      try {
+        await fetch(`https://api.walletwallet.dev/api/passes/${client.pass_serial}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${walletApiKey}`
+          },
+          body: JSON.stringify({
+            barcodeValue: client.pass_serial,
+            barcodeFormat: 'QR',
+            logoText: 'Calm Drift Sanctuary',
+            organizationName: 'Calm Drift Sanctuary',
+            color: '#693f00',
+            logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
+            primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
+            secondaryFields: [
+              { label: 'MEMBER', value: client.client_name },
+              { label: 'VISITS', value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue }
+            ]
+          })
+        });
+      } catch (walletErr) {
+        console.error('WalletWallet sync background error:', walletErr);
+      }
     }
 
     return NextResponse.json({ 
