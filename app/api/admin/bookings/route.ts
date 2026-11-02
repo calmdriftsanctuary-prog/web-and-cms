@@ -75,16 +75,16 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      // Fetch all custom booking links to include pending/unconfirmed links in the calendar
-      const { data: linkData, error: linkError } = await supabase
+      // Fetch all custom booking links without failing if relation is missing
+      const { data: linkData } = await supabase
         .from('custom_booking_links')
-        .select('*, treatments(title, price_gbp, duration_minutes)');
+        .select('*');
+
+      const treatmentsMap = new Map((treatmentRes.data || []).map((t: any) => [t.id, t]));
 
       const customLinkBookings = (linkData || []).map((link: any) => {
-        // If a link has multiple available times, use the first one or default to 10:00 AM
-        const targetTimeStr = (link.available_times && link.available_times.length > 0) ? link.available_times[0] : '10:00 AM';
+        const targetTimeStr = (link.available_times && link.available_times.length > 0) ? link.available_times[0] : '10:00';
         
-        // Convert friendly time (e.g. "10:00 AM" or "14:30") to ISO format for calendar placement
         let hours = 10;
         let minutes = 0;
         try {
@@ -109,7 +109,8 @@ export async function GET(request: Request) {
         const startDate = new Date(`${dateBase}T00:00:00Z`);
         startDate.setUTCHours(hours, minutes, 0, 0);
 
-        const durationMins = link.bespoke_duration || link.treatments?.duration_minutes || 60;
+        const matchedTreatment = treatmentsMap.get(link.treatment_id);
+        const durationMins = link.bespoke_duration || matchedTreatment?.duration_minutes || 60;
         const endDate = new Date(startDate.getTime() + durationMins * 60000);
 
         return {
@@ -124,7 +125,7 @@ export async function GET(request: Request) {
           treatment_id: link.treatment_id,
           price_override: link.final_price ?? link.bespoke_price,
           override_reason: link.discount_amount ? `Discount applied: £${link.discount_amount}` : 'Generated Custom Link',
-          treatments: link.treatments || {
+          treatments: matchedTreatment || {
             title: link.bespoke_title || 'Custom Bespoke Package',
             duration_minutes: durationMins,
             price_gbp: link.final_price || 0
@@ -187,7 +188,6 @@ export async function POST(request: Request) {
     const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason, send_email } = body;
 
     if (type === 'generate_link_booking') {
-      // Handles creation of direct link bookings from the admin portal
       const { treatment_id, start_time, client_name, client_email, client_phone, price_override, override_reason } = body;
       const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
