@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     const includeBookings = searchParams.get('bookings');
     const statusFilter = searchParams.get('status');
     const searchQuery = searchParams.get('search');
+    const includeTreatmentsOnly = searchParams.get('treatments');
 
     const [
       treatmentRes,
@@ -56,6 +57,10 @@ export async function GET(request: Request) {
 
     if (treatmentRes.error) throw treatmentRes.error;
 
+    if (includeTreatmentsOnly === 'true') {
+      return NextResponse.json({ treatments: treatmentRes.data || [] });
+    }
+
     let bookings = [];
     if (includeBookings === 'true' || includeBookings === '1') {
       let query = supabase
@@ -70,7 +75,68 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      bookings = (bookingData || []).map((booking: any) => {
+      // Fetch all custom booking links to include pending/unconfirmed links in the calendar
+      const { data: linkData, error: linkError } = await supabase
+        .from('custom_booking_links')
+        .select('*, treatments(title, price_gbp, duration_minutes)');
+
+      const customLinkBookings = (linkData || []).map((link: any) => {
+        // If a link has multiple available times, use the first one or default to 10:00 AM
+        const targetTimeStr = (link.available_times && link.available_times.length > 0) ? link.available_times[0] : '10:00 AM';
+        
+        // Convert friendly time (e.g. "10:00 AM" or "14:30") to ISO format for calendar placement
+        let hours = 10;
+        let minutes = 0;
+        try {
+          if (targetTimeStr.toLowerCase().includes('pm') || targetTimeStr.toLowerCase().includes('am')) {
+            const [timePart, modifier] = targetTimeStr.split(' ');
+            let [h, m] = timePart.split(':').map(Number);
+            if (modifier.toUpperCase() === 'PM' && h < 12) h += 12;
+            if (modifier.toUpperCase() === 'AM' && h === 12) h = 0;
+            hours = h;
+            minutes = m || 0;
+          } else if (targetTimeStr.includes(':')) {
+            const [h, m] = targetTimeStr.split(':').map(Number);
+            hours = h || 10;
+            minutes = m || 0;
+          }
+        } catch {
+          hours = 10;
+          minutes = 0;
+        }
+
+        const dateBase = link.target_date || new Date().toISOString().split('T')[0];
+        const startDate = new Date(`${dateBase}T00:00:00Z`);
+        startDate.setUTCHours(hours, minutes, 0, 0);
+
+        const durationMins = link.bespoke_duration || link.treatments?.duration_minutes || 60;
+        const endDate = new Date(startDate.getTime() + durationMins * 60000);
+
+        return {
+          id: `link-${link.id || link.token}`,
+          client_name: link.client_name || 'Pending Link Client',
+          client_email: link.client_email || 'Awaiting completion',
+          client_phone: link.client_phone || '',
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          status: link.is_used ? 'confirmed' : 'pending_link',
+          notes: `Generated Link (Token: ${link.token})`,
+          treatment_id: link.treatment_id,
+          price_override: link.final_price ?? link.bespoke_price,
+          override_reason: link.discount_amount ? `Discount applied: £${link.discount_amount}` : 'Generated Custom Link',
+          treatments: link.treatments || {
+            title: link.bespoke_title || 'Custom Bespoke Package',
+            duration_minutes: durationMins,
+            price_gbp: link.final_price || 0
+          },
+          consultations: []
+        };
+      });
+
+      // Combine standard bookings and pending custom links
+      const combinedBookings = [...(bookingData || []), ...customLinkBookings];
+
+      bookings = combinedBookings.map((booking: any) => {
         if (booking.consultations && Array.isArray(booking.consultations)) {
           booking.consultations = booking.consultations.map((c: any) => {
             const resp = c.responses || {};
@@ -119,6 +185,35 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { type, id, status, treatment_id, start_time, end_time, notes, trigger_email, price_override, override_reason, send_email } = body;
+
+    if (type === 'generate_link_booking') {
+      // Handles creation of direct link bookings from the admin portal
+      const { treatment_id, start_time, client_name, client_email, client_phone, price_override, override_reason } = body;
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      const { data: treatment } = await supabase.from('treatments').select('*').eq('id', treatment_id).single();
+      const finalPrice = price_override !== undefined && price_override !== null && price_override !== '' ? Number(price_override) : (treatment?.price_gbp || 0);
+
+      const datePart = start_time.split('T')[0];
+      const timePart = start_time.split('T')[1]?.substring(0, 5) || '10:00';
+
+      const { data: newLink, error: linkErr } = await supabase.from('custom_booking_links').insert([{
+        token,
+        client_name: client_name || 'Client',
+        client_email: client_email || '',
+        client_phone: client_phone || '',
+        target_date: datePart,
+        available_times: [timePart],
+        treatment_id: treatment_id || null,
+        final_price: finalPrice,
+        price_override: finalPrice,
+        override_reason: override_reason || 'Admin Link Generator',
+        is_used: false
+      }]).select().single();
+
+      if (linkErr) throw linkErr;
+      return NextResponse.json({ success: true, bookingId: newLink.id, token });
+    }
 
     if (type === 'page_content') {
       const { key, value } = body;
@@ -219,8 +314,14 @@ export async function POST(request: Request) {
     }
 
     if (type === 'delete_booking') {
-      const { error } = await supabase.from('bookings').delete().eq('id', id);
-      if (error) throw error;
+      if (id && String(id).startsWith('link-')) {
+        const actualLinkId = String(id).replace('link-', '');
+        const { error } = await supabase.from('custom_booking_links').delete().eq('id', actualLinkId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('bookings').delete().eq('id', id);
+        if (error) throw error;
+      }
       return NextResponse.json({ success: true });
     }
 
