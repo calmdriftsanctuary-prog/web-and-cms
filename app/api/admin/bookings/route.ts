@@ -75,10 +75,11 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      // Fetch all custom booking links without failing if relation is missing
+      // Fetch ONLY unused/unconfirmed custom booking links to avoid duplicate entries for completed links
       const { data: linkData } = await supabase
         .from('custom_booking_links')
-        .select('*');
+        .select('*')
+        .eq('is_used', false);
 
       const treatmentsMap = new Map((treatmentRes.data || []).map((t: any) => [t.id, t]));
 
@@ -120,7 +121,7 @@ export async function GET(request: Request) {
           client_phone: link.client_phone || '',
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
-          status: link.is_used ? 'confirmed' : 'pending_link',
+          status: 'pending_link',
           notes: `Generated Link (Token: ${link.token})`,
           treatment_id: link.treatment_id,
           price_override: link.final_price ?? link.bespoke_price,
@@ -134,7 +135,7 @@ export async function GET(request: Request) {
         };
       });
 
-      // Combine standard bookings and pending custom links
+      // Combine standard confirmed bookings and strictly unconfirmed pending custom links
       const combinedBookings = [...(bookingData || []), ...customLinkBookings];
 
       bookings = combinedBookings.map((booking: any) => {
