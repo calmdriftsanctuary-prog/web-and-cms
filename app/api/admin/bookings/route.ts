@@ -75,7 +75,6 @@ export async function GET(request: Request) {
       const { data: bookingData, error: bookingError } = await query;
       if (bookingError) throw bookingError;
 
-      // Fetch ONLY unused/unconfirmed custom booking links to avoid duplicate entries for completed links
       const { data: linkData } = await supabase
         .from('custom_booking_links')
         .select('*')
@@ -83,7 +82,15 @@ export async function GET(request: Request) {
 
       const treatmentsMap = new Map((treatmentRes.data || []).map((t: any) => [t.id, t]));
 
-      const customLinkBookings = (linkData || []).map((link: any) => {
+      // Extract existing confirmed booking signatures (name + ISO start time prefix) to prevent duplicates
+      const confirmedSignatures = new Set(
+        (bookingData || []).map((b: any) => `${(b.client_name || '').trim().toLowerCase()}_${(b.start_time || '').substring(0, 16)}`)
+      );
+
+      const seenLinkSignatures = new Set();
+      const customLinkBookings = [];
+
+      for (const link of (linkData || [])) {
         const targetTimeStr = (link.available_times && link.available_times.length > 0) ? link.available_times[0] : '10:00';
         
         let hours = 10;
@@ -110,11 +117,20 @@ export async function GET(request: Request) {
         const startDate = new Date(`${dateBase}T00:00:00Z`);
         startDate.setUTCHours(hours, minutes, 0, 0);
 
+        const signature = `${(link.client_name || '').trim().toLowerCase()}_${startDate.toISOString().substring(0, 16)}`;
+
+        // Skip if a confirmed booking already exists for this client/time, or if we already added this link
+        if (confirmedSignatures.has(signature) || seenLinkSignatures.has(signature)) {
+          continue;
+        }
+
+        seenLinkSignatures.add(signature);
+
         const matchedTreatment = treatmentsMap.get(link.treatment_id);
         const durationMins = link.bespoke_duration || matchedTreatment?.duration_minutes || 60;
         const endDate = new Date(startDate.getTime() + durationMins * 60000);
 
-        return {
+        customLinkBookings.push({
           id: `link-${link.id || link.token}`,
           client_name: link.client_name || 'Pending Link Client',
           client_email: link.client_email || 'Awaiting completion',
@@ -132,10 +148,9 @@ export async function GET(request: Request) {
             price_gbp: link.final_price || 0
           },
           consultations: []
-        };
-      });
+        });
+      }
 
-      // Combine standard confirmed bookings and strictly unconfirmed pending custom links
       const combinedBookings = [...(bookingData || []), ...customLinkBookings];
 
       bookings = combinedBookings.map((booking: any) => {
