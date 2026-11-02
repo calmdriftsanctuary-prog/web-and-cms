@@ -11,18 +11,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: Request) {
   try {
-    // Look for appointments that finished roughly 2 hours ago (within a 60-minute window)
     const now = new Date();
-    const twoHoursAgoMin = new Date(now.getTime() - 150 * 60 * 1000).toISOString();
-    const twoHoursAgoMax = new Date(now.getTime() - 90 * 60 * 1000).toISOString();
-
-    console.log(`Checking review automation between ${twoHoursAgoMin} and ${twoHoursAgoMax}`);
-
-    // Fetch bookings that haven't had a review email sent yet
+    
+    // Look for bookings that ended roughly 2 hours ago (+/- 45 mins window)
+    // Using your actual database columns: end_time or start_time
     const { data: bookings, error: fetchErr } = await supabase
       .from('bookings')
-      .select('*')
-      .eq('review_email_sent', false);
+      .select('*, treatments(duration_minutes)')
+      .eq('status', 'confirmed'); // or completed if your workflow sets them to completed
 
     if (fetchErr) {
       console.error('Failed to fetch bookings for review automation:', fetchErr);
@@ -36,13 +32,19 @@ export async function GET(request: Request) {
     let sentCount = 0;
 
     for (const booking of bookings) {
-      // Determine appointment timestamp (check common column names like appointment_date, appointment_end, or created_at)
-      const appointmentTimeStr = booking.appointment_end || booking.appointment_date || booking.created_at;
-      if (!appointmentTimeStr || !booking.client_email) continue;
+      // Determine end time: use booking.end_time, or calculate from start_time + treatment duration
+      let endTimeStr = booking.end_time;
+      if (!endTimeStr && booking.start_time) {
+        const durationMins = booking.treatments?.duration_minutes || 60;
+        const startDate = new Date(booking.start_time);
+        endTimeStr = new Date(startDate.getTime() + durationMins * 60000).toISOString();
+      }
 
-      const appointmentTime = new Date(appointmentTimeStr).getTime();
+      if (!endTimeStr || !booking.client_email) continue;
+
+      const appointmentEndTime = new Date(endTimeStr).getTime();
       const targetTime = now.getTime() - (2 * 60 * 60 * 1000); // 2 hours ago
-      const diffMinutes = Math.abs(appointmentTime - targetTime) / (1000 * 60);
+      const diffMinutes = Math.abs(appointmentEndTime - targetTime) / (1000 * 60);
 
       // If appointment concluded roughly 2 hours ago (+/- 45 minutes tolerance)
       if (diffMinutes <= 45) {
@@ -66,9 +68,10 @@ export async function GET(request: Request) {
             `,
           });
 
+          // Update booking status or flag so it doesn't send twice
           await supabase
             .from('bookings')
-            .update({ review_email_sent: true })
+            .update({ status: 'completed' })
             .eq('id', booking.id);
 
           sentCount++;
