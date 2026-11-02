@@ -98,14 +98,14 @@ export async function GET(request: Request) {
     const { data: pastBookings } = await supabase
       .from('bookings')
       .select('*, treatments(*)')
-      .eq('status', 'completed')
-      .eq('review_email_sent', false)
+      .in('status', ['confirmed', 'completed'])
       .gte('end_time', reviewWindowStart)
       .lte('end_time', reviewWindowEnd);
 
     if (pastBookings) {
       for (const booking of pastBookings) {
         if (!booking.client_email) continue;
+        if (booking.review_email_sent === true) continue; // Skip if already sent
 
         const tmpl = templatesMap['review_email'] || {
           subject: 'Thank you for visiting Calm Drift Sanctuary',
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
 
         await supabase
           .from('bookings')
-          .update({ review_email_sent: true })
+          .update({ review_email_sent: true, status: 'completed' })
           .eq('id', booking.id);
       }
     }
