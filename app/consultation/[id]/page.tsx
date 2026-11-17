@@ -208,7 +208,7 @@ export default function ConsultationPage() {
                   type="text"
                   value={medical}
                   onChange={(e) => setMedical(e.target.value)}
-                  placeholder="e.g. bulging disc, none"
+                  placeholder="e.g. recent diagnosis, ongoing problems"
                   className="w-full p-2.5 border rounded-xl text-sm bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#693F00] transition"
                 />
               </div>
