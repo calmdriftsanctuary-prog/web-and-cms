@@ -10,7 +10,7 @@ const supabase = createClient(
 
 const TIME_SLOTS = Array.from({ length: 25 }, (_, i) => {
   const h = Math.floor(i / 2) + 8; // Starts at 08:00
-  const m = i % 2 === 0 ? '00' : '30';
+  const m = i % 2 === 0 ? '00' : '15';
   const ampm = h >= 12 ? 'PM' : 'AM';
   const h12 = h > 12 ? h - 12 : h;
   return `${h12}:${m} ${ampm}`;
