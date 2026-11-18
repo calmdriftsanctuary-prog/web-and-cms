@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -19,6 +25,7 @@ export async function POST(request: Request) {
       timeZone: 'Europe/London'
     });
 
+    // 1. Send email via Resend
     await resend.emails.send({
       from: 'Calm Drift Sanctuary <bookings@calmdriftsanctuary.co.uk>',
       to: [clientEmail],
@@ -47,6 +54,21 @@ export async function POST(request: Request) {
         </div>
       `,
     });
+
+    // 2. Save history record to Supabase
+    const { error: dbErr } = await supabase.from('sent_receipts').insert([{
+      receipt_ref: receiptRef,
+      client_name: clientName,
+      client_email: clientEmail,
+      treatment_title: treatmentTitle,
+      amount_paid: Number(amountPaid),
+      payment_method: paymentMethod,
+      created_at: new Date().toISOString()
+    }]);
+
+    if (dbErr) {
+      console.error('Failed to log receipt history to Supabase:', dbErr);
+    }
 
     return NextResponse.json({ success: true, receiptRef });
   } catch (err: any) {
