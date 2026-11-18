@@ -51,7 +51,7 @@ export default function AdHocReceiptSender() {
               value={formData.clientName}
               onChange={e => setFormData({ ...formData, clientName: e.target.value })}
               required
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#2C332B', fontSize: '14px' }}
             />
           </div>
 
@@ -65,7 +65,7 @@ export default function AdHocReceiptSender() {
               value={formData.clientEmail}
               onChange={e => setFormData({ ...formData, clientEmail: e.target.value })}
               required
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#2C332B', fontSize: '14px' }}
             />
           </div>
 
@@ -79,7 +79,7 @@ export default function AdHocReceiptSender() {
               value={formData.treatmentTitle}
               onChange={e => setFormData({ ...formData, treatmentTitle: e.target.value })}
               required
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#2C332B', fontSize: '14px' }}
             />
           </div>
 
@@ -88,12 +88,12 @@ export default function AdHocReceiptSender() {
               Amount Paid (£)
             </label>
             <input
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', background: '#fff' }}
               type="text"
               placeholder="e.g. 75.00"
               value={formData.amountPaid}
               onChange={e => setFormData({ ...formData, amountPaid: e.target.value })}
               required
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#2C332B', fontSize: '14px' }}
             />
           </div>
 
@@ -104,7 +104,7 @@ export default function AdHocReceiptSender() {
             <select
               value={formData.paymentMethod}
               onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', backgroundColor: '#ffffff', color: '#2C332B', boxSizing: 'border-box', fontSize: '14px' }}
             >
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Cash">Cash</option>
