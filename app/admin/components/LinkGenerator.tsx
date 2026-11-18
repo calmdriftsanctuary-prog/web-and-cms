@@ -8,12 +8,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const TIME_SLOTS = Array.from({ length: 25 }, (_, i) => {
-  const h = Math.floor(i / 2) + 8; // Starts at 08:00
-  const m = i % 2 === 0 ? '00' : '15, 30, 45';
+const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
+  const totalMinutes = 8 * 60 + i * 15; // Starts at 08:00 (480 mins)
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
   const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h > 12 ? h - 12 : h;
-  return `${h12}:${m} ${ampm}`;
+  const minuteStr = m === 0 ? '00' : m.toString();
+  
+  return `${hour12}:${minuteStr} ${ampm}`;
 });
 
 export default function LinkGenerator() {
