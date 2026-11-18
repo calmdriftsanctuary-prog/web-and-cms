@@ -838,16 +838,19 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* Desktop Pill Navigation */}
+           {/* Desktop Pill Navigation */}
             <div className="hidden md:flex flex-wrap bg-white p-1 rounded-full border border-[#E5E7EB] shadow-sm items-center gap-1">
               <Link href="/admin/calendar" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
-                Calendar ↗
+                Calendar ↗️
               </Link>
               <Link href="/admin/loyalty" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#6B7280] hover:text-[#2C332B] transition">
-                Loyalty ↗
+                Loyalty ↗️
               </Link>
               <Link href="/admin/vouchers" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#693F00] hover:text-[#2C332B] transition">
-                Vouchers ↗
+                Vouchers ↗️
+              </Link>
+              <Link href="/admin/receipts" className="px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider text-[#693F00] hover:text-[#2C332B] transition">
+                Receipts ↗️
               </Link>
               <button onClick={() => setActiveTab('crm')} className={`px-3 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${activeTab === 'crm' ? 'bg-[#693F00] text-white' : 'text-[#6B7280]'}`}>
                 CRM
@@ -885,10 +888,11 @@ export default function AdminDashboard() {
             </div>
 
             {/* Quick Links for Mobile Sub-pages */}
-            <div className="flex md:hidden items-center justify-between gap-2 px-1">
-              <Link href="/admin/calendar" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline">Calendar ↗</Link>
-              <Link href="/admin/loyalty" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline">Loyalty ↗</Link>
-              <Link href="/admin/vouchers" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] underline">Vouchers ↗</Link>
+            <div className="flex md:hidden items-center justify-between gap-2 px-1 overflow-x-auto py-1">
+              <Link href="/admin/calendar" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline whitespace-nowrap">Calendar ↗️</Link>
+              <Link href="/admin/loyalty" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] underline whitespace-nowrap">Loyalty ↗️</Link>
+              <Link href="/admin/vouchers" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] underline whitespace-nowrap">Vouchers ↗️</Link>
+              <Link href="/admin/receipts" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] underline whitespace-nowrap">Receipts ↗️</Link>
             </div>
           </div>
         </header>
