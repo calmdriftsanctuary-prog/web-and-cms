@@ -27,6 +27,25 @@ const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
   return `${hour12}:${minuteStr} ${ampm}`;
 });
 
+function buildUniqueClients(rows: Array<{ client_name?: string | null; client_email?: string | null; client_phone?: string | null }>): ExistingClient[] {
+  const map = new Map<string, ExistingClient>();
+  for (const row of rows) {
+    const cleanName = (row.client_name || '').trim();
+    const cleanEmail = (row.client_email || '').trim();
+    if (!cleanName) continue;
+    const uniqueKey = `${cleanName.toLowerCase()}_${cleanEmail.toLowerCase()}`;
+    if (!map.has(uniqueKey)) {
+      map.set(uniqueKey, {
+        key: uniqueKey,
+        name: cleanName,
+        email: cleanEmail,
+        phone: (row.client_phone || '').trim(),
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export default function LinkGenerator() {
   const [clientName, setClientName] = useState('');
   const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
@@ -65,29 +84,26 @@ export default function LinkGenerator() {
         if (treatmentData.length > 0) setSelectedTreatmentId(treatmentData[0].id);
       }
 
-      const { data: bookingData } = await supabase
+      const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
-        .select('client_name, client_email, client_phone')
-        .not('client_name', 'is', null);
+        .select('client_name, client_email, client_phone');
 
-      if (bookingData) {
-        const map = new Map<string, ExistingClient>();
-        for (const row of bookingData) {
-          const cleanName = (row.client_name || '').trim();
-          const cleanEmail = (row.client_email || '').trim();
-          if (!cleanName) continue;
-          const uniqueKey = `${cleanName.toLowerCase()}_${cleanEmail.toLowerCase()}`;
-          if (!map.has(uniqueKey)) {
-            map.set(uniqueKey, {
-              key: uniqueKey,
-              name: cleanName,
-              email: cleanEmail,
-              phone: (row.client_phone || '').trim(),
-            });
+      if (!bookingError && bookingData && bookingData.length > 0) {
+        setExistingClients(buildUniqueClients(bookingData));
+        return;
+      }
+
+      // Fallback to admin API route if direct anon client query is blocked by RLS
+      try {
+        const res = await fetch('/api/admin/bookings?bookings=true');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.bookings)) {
+            setExistingClients(buildUniqueClients(json.bookings));
           }
         }
-        const sorted = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-        setExistingClients(sorted);
+      } catch {
+        // Ignore fallback fetch errors
       }
     }
 
@@ -240,7 +256,10 @@ export default function LinkGenerator() {
       <form onSubmit={handleGenerate} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div ref={clientFieldRef} className="relative">
-            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Client Name</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium uppercase tracking-wider text-stone-600">Client Name</label>
+              <span className="text-[11px] text-stone-400">{existingClients.length} in CRM</span>
+            </div>
             <input
               type="text"
               required
@@ -251,21 +270,30 @@ export default function LinkGenerator() {
               placeholder="Type a new name or search CRM..."
               className="w-full p-3 rounded-xl border border-stone-300 text-sm focus:outline-none focus:border-stone-900"
             />
-            {showSuggestions && filteredClients.length > 0 && (
+            {showSuggestions && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-30">
-                {filteredClients.map((client) => (
-                  <button
-                    key={client.key}
-                    type="button"
-                    onClick={() => handleSelectSuggestion(client)}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-stone-50 flex items-center justify-between gap-2 border-b last:border-b-0 border-stone-100 cursor-pointer"
-                  >
-                    <span className="text-sm font-medium text-stone-900 truncate">{client.name}</span>
-                    {client.email && (
-                      <span className="text-xs text-stone-400 truncate">{client.email}</span>
-                    )}
-                  </button>
-                ))}
+                {filteredClients.length > 0 ? (
+                  filteredClients.map((client) => (
+                    <button
+                      key={client.key}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectSuggestion(client);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 hover:bg-stone-50 flex items-center justify-between gap-2 border-b last:border-b-0 border-stone-100 cursor-pointer"
+                    >
+                      <span className="text-sm font-medium text-stone-900 truncate">{client.name}</span>
+                      {client.email && (
+                        <span className="text-xs text-stone-400 truncate">{client.email}</span>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3.5 py-2.5 text-xs text-stone-500">
+                    No matching CRM client — will create a new record on booking.
+                  </div>
+                )}
               </div>
             )}
           </div>
