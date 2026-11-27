@@ -27,23 +27,71 @@ const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
   return `${hour12}:${minuteStr} ${ampm}`;
 });
 
-function buildUniqueClients(rows: Array<{ client_name?: string | null; client_email?: string | null; client_phone?: string | null }>): ExistingClient[] {
-  const map = new Map<string, ExistingClient>();
+function isAwaitingCompletion(val?: string | null): boolean {
+  return (val || '').trim().toLowerCase() === 'awaiting completion';
+}
+
+function buildUniqueClients(
+  rows: Array<{ client_name?: string | null; client_email?: string | null; client_phone?: string | null }>
+): ExistingClient[] {
+  const byEmail = new Map<string, ExistingClient>();
+  const byNameOnly = new Map<string, ExistingClient>();
+
   for (const row of rows) {
-    const cleanName = (row.client_name || '').trim();
-    const cleanEmail = (row.client_email || '').trim();
-    if (!cleanName) continue;
-    const uniqueKey = `${cleanName.toLowerCase()}_${cleanEmail.toLowerCase()}`;
-    if (!map.has(uniqueKey)) {
-      map.set(uniqueKey, {
-        key: uniqueKey,
-        name: cleanName,
-        email: cleanEmail,
-        phone: (row.client_phone || '').trim(),
-      });
+    const rawName = (row.client_name || '').trim();
+    const rawEmail = (row.client_email || '').trim();
+    const rawPhone = (row.client_phone || '').trim();
+
+    if (!rawName || isAwaitingCompletion(rawName)) continue;
+
+    const cleanEmail = isAwaitingCompletion(rawEmail) ? '' : rawEmail;
+    const cleanPhone = isAwaitingCompletion(rawPhone) ? '' : rawPhone;
+    const emailKey = cleanEmail.toLowerCase();
+    const nameKey = rawName.toLowerCase();
+
+    if (emailKey) {
+      const existing = byEmail.get(emailKey);
+      if (existing) {
+        if (!existing.phone && cleanPhone) existing.phone = cleanPhone;
+        if (!existing.name && rawName) existing.name = rawName;
+      } else {
+        const entry: ExistingClient = {
+          key: `email:${emailKey}`,
+          name: rawName,
+          email: cleanEmail,
+          phone: cleanPhone,
+        };
+        byEmail.set(emailKey, entry);
+      }
+    } else {
+      const existing = byNameOnly.get(nameKey);
+      if (existing) {
+        if (!existing.phone && cleanPhone) existing.phone = cleanPhone;
+      } else {
+        byNameOnly.set(nameKey, {
+          key: `name:${nameKey}`,
+          name: rawName,
+          email: '',
+          phone: cleanPhone,
+        });
+      }
     }
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  // If a name-only entry matches the name of an entry that has an email, merge its phone onto the email entry
+  for (const [nameKey, nameEntry] of byNameOnly.entries()) {
+    const emailMatch = Array.from(byEmail.values()).find(
+      (c) => c.name.trim().toLowerCase() === nameKey
+    );
+    if (emailMatch) {
+      if (!emailMatch.phone && nameEntry.phone) emailMatch.phone = nameEntry.phone;
+      byNameOnly.delete(nameKey);
+    }
+  }
+
+  return [...Array.from(byEmail.values()), ...Array.from(byNameOnly.values())].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 }
 
 export default function LinkGenerator() {
@@ -93,7 +141,6 @@ export default function LinkGenerator() {
         return;
       }
 
-      // Fallback to admin API route if direct anon client query is blocked by RLS
       try {
         const res = await fetch('/api/admin/bookings?bookings=true');
         if (res.ok) {
