@@ -8,6 +8,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+interface ExistingClient {
+  key: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
 const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
   const totalMinutes = 8 * 60 + i * 15; // Starts at 08:00 (480 mins)
   const h = Math.floor(totalMinutes / 60);
@@ -22,6 +29,9 @@ const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
 
 export default function LinkGenerator() {
   const [clientName, setClientName] = useState('');
+  const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
+  const [selectedExistingKey, setSelectedExistingKey] = useState('');
+
   const [targetDate, setTargetDate] = useState('');
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   
@@ -42,15 +52,66 @@ export default function LinkGenerator() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    async function fetchTreatments() {
-      const { data } = await supabase.from('treatments').select('*').order('price_gbp', { ascending: true });
-      if (data) {
-        setTreatments(data);
-        if (data.length > 0) setSelectedTreatmentId(data[0].id);
+    async function fetchInitialData() {
+      const { data: treatmentData } = await supabase
+        .from('treatments')
+        .select('*')
+        .order('price_gbp', { ascending: true });
+
+      if (treatmentData) {
+        setTreatments(treatmentData);
+        if (treatmentData.length > 0) setSelectedTreatmentId(treatmentData[0].id);
+      }
+
+      const { data: bookingData } = await supabase
+        .from('bookings')
+        .select('client_name, client_email, client_phone')
+        .not('client_name', 'is', null);
+
+      if (bookingData) {
+        const map = new Map<string, ExistingClient>();
+        for (const row of bookingData) {
+          const cleanName = (row.client_name || '').trim();
+          const cleanEmail = (row.client_email || '').trim();
+          if (!cleanName) continue;
+          const uniqueKey = `${cleanName.toLowerCase()}_${cleanEmail.toLowerCase()}`;
+          if (!map.has(uniqueKey)) {
+            map.set(uniqueKey, {
+              key: uniqueKey,
+              name: cleanName,
+              email: cleanEmail,
+              phone: (row.client_phone || '').trim(),
+            });
+          }
+        }
+        const sorted = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        setExistingClients(sorted);
       }
     }
-    fetchTreatments();
+
+    fetchInitialData();
   }, []);
+
+  const handleSelectExistingClient = (key: string) => {
+    setSelectedExistingKey(key);
+    if (!key) {
+      return;
+    }
+    const found = existingClients.find((c) => c.key === key);
+    if (found) {
+      setClientName(found.name);
+    }
+  };
+
+  const handleClientNameInput = (val: string) => {
+    setClientName(val);
+    if (selectedExistingKey) {
+      const currentSelected = existingClients.find((c) => c.key === selectedExistingKey);
+      if (!currentSelected || currentSelected.name.toLowerCase() !== val.trim().toLowerCase()) {
+        setSelectedExistingKey('');
+      }
+    }
+  };
 
   const toggleTime = (time: string) => {
     setSelectedTimes((prev) =>
@@ -105,16 +166,24 @@ export default function LinkGenerator() {
     const basePrice = getBasePrice();
     const finalPrice = calculateFinalPrice();
     const discountApplied = basePrice - finalPrice;
+    const matchedExisting = selectedExistingKey
+      ? existingClients.find((c) => c.key === selectedExistingKey)
+      : undefined;
 
     const payload: any = {
       token,
-      client_name: clientName,
+      client_name: clientName.trim(),
       target_date: targetDate,
       available_times: selectedTimes,
       final_price: finalPrice,
       discount_amount: discountApplied > 0 ? discountApplied : 0,
       is_used: false,
     };
+
+    if (matchedExisting) {
+      if (matchedExisting.email) payload.client_email = matchedExisting.email;
+      if (matchedExisting.phone) payload.client_phone = matchedExisting.phone;
+    }
 
     if (isBespoke) {
       payload.bespoke_title = bespokeTitle || 'Bespoke Package';
@@ -151,14 +220,26 @@ export default function LinkGenerator() {
 
       <form onSubmit={handleGenerate} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Client Name</label>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600">Client Name</label>
+            <select
+              value={selectedExistingKey}
+              onChange={(e) => handleSelectExistingClient(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-stone-300 text-xs bg-stone-50 text-stone-700 focus:outline-none focus:border-stone-900"
+            >
+              <option value="">Type a new client name below (or select existing)...</option>
+              {existingClients.map((client) => (
+                <option key={client.key} value={client.key}>
+                  {client.name}{client.email ? ` (${client.email})` : ''}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               required
               value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="e.g. Sarah Jenkins"
+              onChange={(e) => handleClientNameInput(e.target.value)}
+              placeholder="Or type a new client name, e.g. Sarah Jenkins"
               className="w-full p-3 rounded-xl border border-stone-300 text-sm focus:outline-none focus:border-stone-900"
             />
           </div>
