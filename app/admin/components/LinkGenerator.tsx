@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -30,7 +30,9 @@ const TIME_SLOTS = Array.from({ length: 45 }, (_, i) => {
 export default function LinkGenerator() {
   const [clientName, setClientName] = useState('');
   const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
-  const [selectedExistingKey, setSelectedExistingKey] = useState('');
+  const [selectedExistingClient, setSelectedExistingClient] = useState<ExistingClient | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const clientFieldRef = useRef<HTMLDivElement>(null);
 
   const [targetDate, setTargetDate] = useState('');
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
@@ -92,25 +94,41 @@ export default function LinkGenerator() {
     fetchInitialData();
   }, []);
 
-  const handleSelectExistingClient = (key: string) => {
-    setSelectedExistingKey(key);
-    if (!key) {
-      return;
-    }
-    const found = existingClients.find((c) => c.key === key);
-    if (found) {
-      setClientName(found.name);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientFieldRef.current && !clientFieldRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredClients = existingClients.filter((client) => {
+    const q = clientName.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      client.name.toLowerCase().includes(q) ||
+      client.email.toLowerCase().includes(q) ||
+      client.phone.toLowerCase().includes(q)
+    );
+  });
+
+  const handleClientNameChange = (val: string) => {
+    setClientName(val);
+    setShowSuggestions(true);
+    if (
+      selectedExistingClient &&
+      val.trim().toLowerCase() !== selectedExistingClient.name.toLowerCase()
+    ) {
+      setSelectedExistingClient(null);
     }
   };
 
-  const handleClientNameInput = (val: string) => {
-    setClientName(val);
-    if (selectedExistingKey) {
-      const currentSelected = existingClients.find((c) => c.key === selectedExistingKey);
-      if (!currentSelected || currentSelected.name.toLowerCase() !== val.trim().toLowerCase()) {
-        setSelectedExistingKey('');
-      }
-    }
+  const handleSelectSuggestion = (client: ExistingClient) => {
+    setClientName(client.name);
+    setSelectedExistingClient(client);
+    setShowSuggestions(false);
   };
 
   const toggleTime = (time: string) => {
@@ -166,9 +184,10 @@ export default function LinkGenerator() {
     const basePrice = getBasePrice();
     const finalPrice = calculateFinalPrice();
     const discountApplied = basePrice - finalPrice;
-    const matchedExisting = selectedExistingKey
-      ? existingClients.find((c) => c.key === selectedExistingKey)
-      : undefined;
+
+    const matchedClient =
+      selectedExistingClient ||
+      existingClients.find((c) => c.name.toLowerCase() === clientName.trim().toLowerCase());
 
     const payload: any = {
       token,
@@ -180,9 +199,9 @@ export default function LinkGenerator() {
       is_used: false,
     };
 
-    if (matchedExisting) {
-      if (matchedExisting.email) payload.client_email = matchedExisting.email;
-      if (matchedExisting.phone) payload.client_phone = matchedExisting.phone;
+    if (matchedClient) {
+      if (matchedClient.email) payload.client_email = matchedClient.email;
+      if (matchedClient.phone) payload.client_phone = matchedClient.phone;
     }
 
     if (isBespoke) {
@@ -220,28 +239,35 @@ export default function LinkGenerator() {
 
       <form onSubmit={handleGenerate} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600">Client Name</label>
-            <select
-              value={selectedExistingKey}
-              onChange={(e) => handleSelectExistingClient(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-stone-300 text-xs bg-stone-50 text-stone-700 focus:outline-none focus:border-stone-900"
-            >
-              <option value="">Type a new client name below (or select existing)...</option>
-              {existingClients.map((client) => (
-                <option key={client.key} value={client.key}>
-                  {client.name}{client.email ? ` (${client.email})` : ''}
-                </option>
-              ))}
-            </select>
+          <div ref={clientFieldRef} className="relative">
+            <label className="block text-xs font-medium uppercase tracking-wider text-stone-600 mb-1">Client Name</label>
             <input
               type="text"
               required
+              autoComplete="off"
               value={clientName}
-              onChange={(e) => handleClientNameInput(e.target.value)}
-              placeholder="Or type a new client name, e.g. Sarah Jenkins"
+              onFocus={() => setShowSuggestions(true)}
+              onChange={(e) => handleClientNameChange(e.target.value)}
+              placeholder="Type a new name or search CRM..."
               className="w-full p-3 rounded-xl border border-stone-300 text-sm focus:outline-none focus:border-stone-900"
             />
+            {showSuggestions && filteredClients.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-30">
+                {filteredClients.map((client) => (
+                  <button
+                    key={client.key}
+                    type="button"
+                    onClick={() => handleSelectSuggestion(client)}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-stone-50 flex items-center justify-between gap-2 border-b last:border-b-0 border-stone-100 cursor-pointer"
+                  >
+                    <span className="text-sm font-medium text-stone-900 truncate">{client.name}</span>
+                    {client.email && (
+                      <span className="text-xs text-stone-400 truncate">{client.email}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
