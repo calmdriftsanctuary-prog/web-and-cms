@@ -32,6 +32,10 @@ export default function AdminLoyaltyPage() {
   const [cards, setCards] = useState<LoyaltyCard[]>([]);
   const [history, setHistory] = useState<ScanHistory[]>([]);
 
+  // Bulk wallet sync states
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ error?: boolean; text: string } | null>(null);
+
   // Camera scanner states
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef<any>(null);
@@ -63,6 +67,30 @@ export default function AdminLoyaltyPage() {
       stopCamera();
     };
   }, []);
+
+  const handleSyncAllPasses = async () => {
+    setSyncingAll(true);
+    setSyncResult(null);
+
+    try {
+      const res = await fetch('/api/admin/loyalty/sync-all', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed to sync passes');
+
+      setSyncResult({
+        text: `synced ${data.synced} of ${data.total} active passes${data.failed > 0 ? ` (${data.failed} failed)` : ''}.`
+      });
+    } catch (err: any) {
+      setSyncResult({
+        error: true,
+        text: `sync error: ${err.message}`
+      });
+    } finally {
+      setSyncingAll(false);
+    }
+  };
 
   const processScan = async (code: string) => {
     if (!code || isProcessingRef.current) return;
@@ -218,7 +246,25 @@ export default function AdminLoyaltyPage() {
 
       {/* Active Cards Overview */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border shadow-sm space-y-4">
-        <h2 className="font-serif text-xl">active client loyalty profiles ({cards.length})</h2>
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <h2 className="font-serif text-xl">active client loyalty profiles ({cards.length})</h2>
+          <button
+            onClick={handleSyncAllPasses}
+            disabled={syncingAll || cards.length === 0}
+            className="px-4 py-2 bg-[#693F00] text-white text-xs uppercase rounded-full font-semibold flex items-center space-x-2 hover:bg-[#523100] transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingAll ? 'animate-spin' : ''}`} />
+            <span>{syncingAll ? 'pushing refresh...' : 'push refresh to all passes'}</span>
+          </button>
+        </div>
+
+        {syncResult && (
+          <div className={`p-3 rounded-xl text-xs font-medium flex items-center space-x-2 ${syncResult.error ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+            {!syncResult.error && <CheckCircle className="w-4 h-4 shrink-0" />}
+            <span>{syncResult.text}</span>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b text-gray-500">
