@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, Trash2, Plus, ArrowUp, ArrowDown, Calendar as CalendarIcon } from 'lucide-react';
+import { Sparkles, Trash2, Plus, ArrowUp, ArrowDown, Calendar as CalendarIcon, X } from 'lucide-react';
 import { formatUKDateTime } from '@/lib/formatDate';
 import LinkGenerator from './components/LinkGenerator';
 
@@ -167,7 +167,9 @@ function formatUKTime(dateInput: string): string {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'crm' | 'cms' | 'links' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('crm');
+  const [activeTab, setActiveTab] = useState<'overview' | 'crm' | 'cms' | 'links' | 'popup' | 'gallery' | 'social' | 'content' | 'templates' | 'forms' | 'reviews' | 'reports'>('overview');
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -438,11 +440,6 @@ export default function AdminDashboard() {
 
   const clientsList = Object.values(clientsMap);
   const selectedClient = selectedClientKey ? clientsMap[selectedClientKey] : null;
-
-  const handleSelectClientFromBooking = (booking: Booking) => {
-    const key = `${(booking.client_name || '').trim().toLowerCase()}_${(booking.client_email || '').trim().toLowerCase()}`;
-    setSelectedClientKey(key);
-  };
 
   const handleSaveClientDetails = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -855,10 +852,14 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#E5E7EB] pb-6 gap-4">
           <div>
-            <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#693F00]">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className="inline-flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#693F00] hover:underline cursor-pointer"
+            >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Calm Drift Sanctuary Operating Hub</span>
-            </span>
+            </button>
             <h1 className="font-serif text-3xl md:text-4xl text-[#2C332B] mt-1">Practitioner Admin Portal</h1>
           </div>
 
@@ -870,6 +871,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setActiveTab(e.target.value as any)}
                 className="w-full p-3 bg-white border border-[#E5E7EB] rounded-2xl text-xs font-semibold uppercase tracking-wider text-[#2C332B] shadow-sm focus:outline-none focus:border-[#693F00]"
               >
+                <option value="overview">Next 7 Days</option>
                 <option value="crm">CRM Client Records</option>
                 <option value="cms">Treatments & Pricing</option>
                 <option value="links">Link Generator</option>
@@ -943,228 +945,227 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {activeTab === 'crm' && (
-          <div className="space-y-8">
-            {/* Next 7 Days Schedule — Day by Day, Row by Row */}
-            <section className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F4F6] pb-4">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-[#693F00]" />
-                  <div>
-                    <h2 className="font-serif text-2xl text-[#2C332B]">Next 7 Days</h2>
-                    <p className="text-xs text-[#6B7280]">Day-by-day schedule for the week ahead</p>
-                  </div>
-                </div>
-                <Link href="/admin/calendar" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] hover:underline">
-                  Full Calendar View &rarr;
-                </Link>
-              </div>
-
-              {loading ? (
-                <p className="text-xs text-[#6B7280] py-4">Loading upcoming schedule...</p>
-              ) : (
-                <div className="divide-y divide-[#E5E7EB]">
-                  {nextSevenDays.map((day) => (
-                    <div key={day.dateKey} className="py-4 first:pt-1 last:pb-1 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#693F00]">{day.label}</span>
-                        <span className="text-[11px] font-medium text-[#6B7280]">
-                          {day.bookings.length} {day.bookings.length === 1 ? 'appointment' : 'appointments'}
-                        </span>
-                      </div>
-
-                      {day.bookings.length === 0 ? (
-                        <div className="px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-dashed border-[#E5E7EB] text-xs text-[#9CA3AF]">
-                          No appointments booked
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {day.bookings.map((b) => {
-                            const effectivePrice = b.price_override !== null && b.price_override !== undefined
-                              ? Number(b.price_override)
-                              : (b.treatments?.price_gbp || 0);
-
-                            return (
-                              <div
-                                key={b.id}
-                                onClick={() => handleSelectClientFromBooking(b)}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#E5E7EB] hover:border-[#693F00] cursor-pointer transition text-xs"
-                              >
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <span className="font-mono font-semibold text-[#693F00] bg-white px-2.5 py-1 rounded-lg border border-[#E5E7EB]">
-                                    {formatUKTime(b.start_time)}{b.end_time ? ` – ${formatUKTime(b.end_time)}` : ''}
-                                  </span>
-                                  <span className="font-semibold text-sm text-[#2C332B]">{b.client_name}</span>
-                                  <span className="text-[#4B5563]">
-                                    {b.treatments?.title || 'Treatment'}
-                                    {b.treatments?.duration_minutes ? ` (${b.treatments.duration_minutes} mins)` : ''}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-3 self-end sm:self-center">
-                                  <span className="capitalize px-2 py-0.5 rounded-full bg-white border border-[#E5E7EB] text-[11px] text-[#4B5563]">
-                                    {b.status}
-                                  </span>
-                                  <span className="font-semibold text-[#2C332B]">£{effectivePrice}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* CRM Client Records & Profile Drawer */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className={`${selectedClient ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Client Records ({clientsList.length})</h2>
-                <div className="grid gap-3">
-                  {clientsList.map((client) => (
-                    <div key={client.key} onClick={() => setSelectedClientKey(client.key)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientKey === client.key ? 'border-[#693F00] shadow-sm' : 'border-[#E5E7EB]'}`}>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
-                          <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${client.marketingOptIn ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
-                            {client.marketingOptIn ? 'Opted In' : 'No Consent'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend ({client.bookings.length} bookings)</p>
-                      </div>
-                      <span className="text-xs text-[#693F00]">View Profile &rarr;</span>
-                    </div>
-                  ))}
+        {activeTab === 'overview' && (
+          <section className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F4F6] pb-4">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-[#693F00]" />
+                <div>
+                  <h2 className="font-serif text-2xl text-[#2C332B]">Next 7 Days</h2>
+                  <p className="text-xs text-[#6B7280]">Click any appointment to view full details</p>
                 </div>
               </div>
+              <Link href="/admin/calendar" className="text-xs font-semibold uppercase tracking-wider text-[#693F00] hover:underline">
+                Full Calendar View &rarr;
+              </Link>
+            </div>
 
-              {selectedClient && (
-                <div className="bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[10px] uppercase font-semibold text-[#693F00]">Client Profile</span>
-                      <h3 className="font-serif text-2xl text-[#2C332B] mt-0.5">{selectedClient.name}</h3>
-                    </div>
-                    <button onClick={() => setSelectedClientKey(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
-                  </div>
-
-                  <div className="space-y-3 pt-2 border-t text-xs">
-                    <div className="flex justify-between items-center"><span className="text-[#6B7280]">Email:</span><span className="font-medium">{selectedClient.email}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-[#6B7280]">Phone:</span><span className="font-medium">{selectedClient.phone}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-[#6B7280]">Total Spend:</span><span className="font-medium text-[#693F00]">£{selectedClient.totalSpend}</span></div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[#6B7280]">Marketing Opt-In:</span>
-                      <span className={`font-medium ${selectedClient.marketingOptIn ? 'text-emerald-700' : 'text-gray-500'}`}>
-                        {selectedClient.marketingOptIn ? `Yes (${selectedClient.marketingOptInAt ? formatUKDateTime(selectedClient.marketingOptInAt) : 'Recorded'})` : 'No'}
+            {loading ? (
+              <p className="text-xs text-[#6B7280] py-4">Loading upcoming schedule...</p>
+            ) : (
+              <div className="divide-y divide-[#E5E7EB]">
+                {nextSevenDays.map((day) => (
+                  <div key={day.dateKey} className="py-4 first:pt-1 last:pb-1 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#693F00]">{day.label}</span>
+                      <span className="text-[11px] font-medium text-[#6B7280]">
+                        {day.bookings.length} {day.bookings.length === 1 ? 'appointment' : 'appointments'}
                       </span>
                     </div>
-                  </div>
 
-                  <div className="flex space-x-2 pt-2">
-                    <button onClick={() => setEditingClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone })} className="w-1/2 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit Details</button>
-                    <button onClick={() => handleDeleteClient(selectedClient.email, selectedClient.name)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete Client</button>
-                  </div>
-
-                  <div className="pt-4 border-t space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Merge into Another Profile</h4>
-                    <div className="flex space-x-2">
-                      <select
-                        value={mergingTargetKey}
-                        onChange={(e) => setMergingTargetKey(e.target.value)}
-                        className="w-full p-2 border rounded-xl text-xs bg-white"
-                      >
-                        <option value="">Select target client profile...</option>
-                        {clientsList.filter(c => c.key !== selectedClient.key).map(c => (
-                          <option key={c.key} value={c.key}>{c.name} ({c.email})</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => handleMergeProfiles(mergingTargetKey)}
-                        className="px-3 py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-xl font-semibold whitespace-nowrap"
-                      >
-                        Merge
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
-                    </div>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {selectedClient.bookings.map((b) => {
-                        const effectivePrice = b.price_override !== null && b.price_override !== undefined ? Number(b.price_override) : (b.treatments?.price_gbp || 0);
-                        return (
-                          <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between items-center">
-                              <strong>{b.treatments?.title || 'Treatment'}</strong> (£{effectivePrice} {b.price_override !== null && b.price_override !== undefined ? '(Overridden)' : ''})
-                              <div className="flex items-center space-x-3">
-                                <button 
-                                  onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
-                                  className="text-[10px] text-[#693F00] underline hover:text-black"
-                                >
-                                  Send Intake Form
-                                </button>
-                                <button 
-                                  onClick={() => handleSendReviewEmail(selectedClient.email, selectedClient.name, b.id)}
-                                  className="text-[10px] text-amber-700 underline hover:text-black"
-                                >
-                                  Send Review Request
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-gray-500">{formatUKDateTime(b.start_time)} • <span className="capitalize">{b.status}</span></p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Forms</h4>
-                    {selectedClient.consultations.length > 0 ? (
-                      <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
-                        <p><strong>Date of Birth:</strong> {selectedClient.consultations[0].date_of_birth || selectedClient.consultations[0].responses?.['Date of Birth'] || selectedClient.consultations[0].responses?.date_of_birth || 'Not provided'}</p>
-                        <p><strong>Medical:</strong> {selectedClient.consultations[0].medical_conditions || 'None'}</p>
-                        <p><strong>Allergies:</strong> {selectedClient.consultations[0].allergies || 'None'}</p>
-                        <p><strong>Pressure:</strong> {selectedClient.consultations[0].pressure_preference || 'Standard'}</p>
-                        <p><strong>Emergency:</strong> {selectedClient.consultations[0].emergency_contact || 'None'}</p>
-                        <p><strong>Medical Disclaimer:</strong> {selectedClient.consultations[0].medical_disclaimer_accepted || selectedClient.consultations[0].responses?.medical_disclaimer_accepted ? <span className="text-emerald-600 font-medium">✓ Accepted</span> : <span className="text-red-500 font-medium">Not Accepted</span>}</p>
+                    {day.bookings.length === 0 ? (
+                      <div className="px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-dashed border-[#E5E7EB] text-xs text-[#9CA3AF]">
+                        No appointments booked
                       </div>
                     ) : (
-                      <p className="text-xs text-[#6B7280] italic">No consultation form completed yet.</p>
+                      <div className="space-y-2">
+                        {day.bookings.map((b) => {
+                          const effectivePrice = b.price_override !== null && b.price_override !== undefined
+                            ? Number(b.price_override)
+                            : (b.treatments?.price_gbp || 0);
+
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => setSelectedBooking(b)}
+                              className="w-full text-left flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#E5E7EB] hover:border-[#693F00] cursor-pointer transition text-xs"
+                            >
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="font-mono font-semibold text-[#693F00] bg-white px-2.5 py-1 rounded-lg border border-[#E5E7EB]">
+                                  {formatUKTime(b.start_time)}{b.end_time ? ` – ${formatUKTime(b.end_time)}` : ''}
+                                </span>
+                                <span className="font-semibold text-sm text-[#2C332B]">{b.client_name}</span>
+                                <span className="text-[#4B5563]">
+                                  {b.treatments?.title || 'Treatment'}
+                                  {b.treatments?.duration_minutes ? ` (${b.treatments.duration_minutes} mins)` : ''}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 self-end sm:self-center">
+                                <span className="capitalize px-2 py-0.5 rounded-full bg-white border border-[#E5E7EB] text-[11px] text-[#4B5563]">
+                                  {b.status}
+                                </span>
+                                <span className="font-semibold text-[#2C332B]">£{effectivePrice}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-              {editingClient && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                  <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
-                    <h3 className="font-serif text-xl">Edit Client Details</h3>
-                    <form onSubmit={handleSaveClientDetails} className="space-y-3">
-                      <div>
-                        <label className="block text-xs uppercase mb-1">Name</label>
-                        <input type="text" required value={editingClient.name} onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+        {activeTab === 'crm' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className={`${selectedClient ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Client Records ({clientsList.length})</h2>
+              <div className="grid gap-3">
+                {clientsList.map((client) => (
+                  <div key={client.key} onClick={() => setSelectedClientKey(client.key)} className={`p-6 bg-white rounded-2xl border cursor-pointer flex justify-between items-center transition ${selectedClientKey === client.key ? 'border-[#693F00] shadow-sm' : 'border-[#E5E7EB]'}`}>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-serif text-xl text-[#2C332B]">{client.name}</h3>
+                        <span className={`text-[10px] px-2 py-0.5 uppercase rounded-full font-bold ${client.marketingOptIn ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+                          {client.marketingOptIn ? 'Opted In' : 'No Consent'}
+                        </span>
                       </div>
-                      <div>
-                        <label className="block text-xs uppercase mb-1">Email</label>
-                        <input type="email" required value={editingClient.email} onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs uppercase mb-1">Phone</label>
-                        <input type="text" required value={editingClient.phone} onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
-                      </div>
-                      <div className="flex space-x-3 pt-2">
-                        <button type="button" onClick={() => setEditingClient(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
-                        <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-full text-xs uppercase">Save Profile</button>
-                      </div>
-                    </form>
+                      <p className="text-xs text-[#6B7280]">{client.email} • {client.phone} • £{client.totalSpend} total spend ({client.bookings.length} bookings)</p>
+                    </div>
+                    <span className="text-xs text-[#693F00]">View Profile &rarr;</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedClient && (
+              <div className="bg-white p-6 sm:p-8 rounded-2xl border space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] uppercase font-semibold text-[#693F00]">Client Profile</span>
+                    <h3 className="font-serif text-2xl text-[#2C332B] mt-0.5">{selectedClient.name}</h3>
+                  </div>
+                  <button onClick={() => setSelectedClientKey(null)} className="text-xs text-[#6B7280] hover:text-black">Close</button>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t text-xs">
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Email:</span><span className="font-medium">{selectedClient.email}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Phone:</span><span className="font-medium">{selectedClient.phone}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-[#6B7280]">Total Spend:</span><span className="font-medium text-[#693F00]">£{selectedClient.totalSpend}</span></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7280]">Marketing Opt-In:</span>
+                    <span className={`font-medium ${selectedClient.marketingOptIn ? 'text-emerald-700' : 'text-gray-500'}`}>
+                      {selectedClient.marketingOptIn ? `Yes (${selectedClient.marketingOptInAt ? formatUKDateTime(selectedClient.marketingOptInAt) : 'Recorded'})` : 'No'}
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="flex space-x-2 pt-2">
+                  <button onClick={() => setEditingClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone })} className="w-1/2 py-2 bg-[#FAF9F6] border text-xs uppercase rounded-xl">Edit Details</button>
+                  <button onClick={() => handleDeleteClient(selectedClient.email, selectedClient.name)} className="w-1/2 py-2 bg-red-50 text-red-600 border border-red-200 text-xs uppercase rounded-xl hover:bg-red-100 transition">Delete Client</button>
+                </div>
+
+                <div className="pt-4 border-t space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Merge into Another Profile</h4>
+                  <div className="flex space-x-2">
+                    <select
+                      value={mergingTargetKey}
+                      onChange={(e) => setMergingTargetKey(e.target.value)}
+                      className="w-full p-2 border rounded-xl text-xs bg-white"
+                    >
+                      <option value="">Select target client profile...</option>
+                      {clientsList.filter(c => c.key !== selectedClient.key).map(c => (
+                        <option key={c.key} value={c.key}>{c.name} ({c.email})</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleMergeProfiles(mergingTargetKey)}
+                      className="px-3 py-2 bg-[#693F00] text-white text-[10px] uppercase rounded-xl font-semibold whitespace-nowrap"
+                    >
+                      Merge
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Associated Bookings ({selectedClient.bookings.length})</h4>
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedClient.bookings.map((b) => {
+                      const effectivePrice = b.price_override !== null && b.price_override !== undefined ? Number(b.price_override) : (b.treatments?.price_gbp || 0);
+                      return (
+                        <div key={b.id} className="p-3 bg-[#FAF9F6] border rounded-xl text-xs space-y-1">
+                          <div className="flex justify-between items-center">
+                            <strong>{b.treatments?.title || 'Treatment'}</strong> (£{effectivePrice} {b.price_override !== null && b.price_override !== undefined ? '(Overridden)' : ''})
+                            <div className="flex items-center space-x-3">
+                              <button 
+                                onClick={() => handleSendConsultationEmail(selectedClient.email, selectedClient.name, b.id)}
+                                className="text-[10px] text-[#693F00] underline hover:text-black"
+                              >
+                                Send Intake Form
+                              </button>
+                              <button 
+                                onClick={() => handleSendReviewEmail(selectedClient.email, selectedClient.name, b.id)}
+                                className="text-[10px] text-amber-700 underline hover:text-black"
+                              >
+                                Send Review Request
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-gray-500">{formatUKDateTime(b.start_time)} • <span className="capitalize">{b.status}</span></p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Consultation Forms</h4>
+                  {selectedClient.consultations.length > 0 ? (
+                    <div className="p-4 bg-[#FAF9F6] border rounded-xl space-y-2 text-xs">
+                      <p><strong>Date of Birth:</strong> {selectedClient.consultations[0].date_of_birth || selectedClient.consultations[0].responses?.['Date of Birth'] || selectedClient.consultations[0].responses?.date_of_birth || 'Not provided'}</p>
+                      <p><strong>Medical:</strong> {selectedClient.consultations[0].medical_conditions || 'None'}</p>
+                      <p><strong>Allergies:</strong> {selectedClient.consultations[0].allergies || 'None'}</p>
+                      <p><strong>Pressure:</strong> {selectedClient.consultations[0].pressure_preference || 'Standard'}</p>
+                      <p><strong>Emergency:</strong> {selectedClient.consultations[0].emergency_contact || 'None'}</p>
+                      <p><strong>Medical Disclaimer:</strong> {selectedClient.consultations[0].medical_disclaimer_accepted || selectedClient.consultations[0].responses?.medical_disclaimer_accepted ? <span className="text-emerald-600 font-medium">✓ Accepted</span> : <span className="text-red-500 font-medium">Not Accepted</span>}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#6B7280] italic">No consultation form completed yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {editingClient && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-4">
+                  <h3 className="font-serif text-xl">Edit Client Details</h3>
+                  <form onSubmit={handleSaveClientDetails} className="space-y-3">
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Name</label>
+                      <input type="text" required value={editingClient.name} onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Email</label>
+                      <input type="email" required value={editingClient.email} onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase mb-1">Phone</label>
+                      <input type="text" required value={editingClient.phone} onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })} className="w-full p-3 border rounded-xl text-sm" />
+                    </div>
+                    <div className="flex space-x-3 pt-2">
+                      <button type="button" onClick={() => setEditingClient(null)} className="w-1/2 py-2.5 border rounded-full text-xs uppercase">Cancel</button>
+                      <button type="submit" className="w-1/2 py-2.5 bg-[#693F00] text-white rounded-full text-xs uppercase">Save Profile</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1634,7 +1635,116 @@ export default function AdminDashboard() {
             </form>
           </div>
         )}
+
+        {/* Appointment Details Modal */}
+        {selectedBooking && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white max-w-lg w-full rounded-2xl p-6 sm:p-8 border border-[#E5E7EB] shadow-lg space-y-5 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between border-b border-[#F3F4F6] pb-4">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#693F00]">Appointment Details</span>
+                  <h3 className="font-serif text-2xl text-[#2C332B] mt-0.5">{selectedBooking.client_name}</h3>
+                  <p className="text-xs text-[#6B7280] mt-1">{formatUKDateTime(selectedBooking.start_time)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBooking(null)}
+                  className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#2C332B] hover:bg-[#FAF9F6] transition"
+                  aria-label="Close appointment details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                  <span className="text-[#6B7280]">Treatment:</span>
+                  <span className="font-semibold text-[#2C332B]">
+                    {selectedBooking.treatments?.title || 'Treatment'}
+                    {selectedBooking.treatments?.duration_minutes ? ` (${selectedBooking.treatments.duration_minutes} mins)` : ''}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                  <span className="text-[#6B7280]">Status:</span>
+                  <span className="font-semibold capitalize text-[#2C332B]">{selectedBooking.status}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                  <span className="text-[#6B7280]">Price:</span>
+                  <span className="font-semibold text-[#693F00]">
+                    £{selectedBooking.price_override !== null && selectedBooking.price_override !== undefined
+                      ? Number(selectedBooking.price_override)
+                      : (selectedBooking.treatments?.price_gbp || 0)}
+                    {selectedBooking.price_override !== null && selectedBooking.price_override !== undefined ? ' (Overridden)' : ''}
+                  </span>
+                </div>
+                {selectedBooking.override_reason && (
+                  <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                    <span className="text-[#6B7280]">Override Reason:</span>
+                    <span className="font-medium text-[#2C332B]">{selectedBooking.override_reason}</span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                  <span className="text-[#6B7280]">Email:</span>
+                  <span className="font-medium text-[#2C332B]">{selectedBooking.client_email}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-[#F9FAFB]">
+                  <span className="text-[#6B7280]">Phone:</span>
+                  <span className="font-medium text-[#2C332B]">{selectedBooking.client_phone}</span>
+                </div>
+                <div className="py-1">
+                  <span className="text-[#6B7280] block mb-1">Booking Notes:</span>
+                  <div className="p-3 bg-[#FAF9F6] border border-[#E5E7EB] rounded-xl text-[#2C332B] whitespace-pre-line">
+                    {selectedBooking.notes || 'None'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#F3F4F6] space-y-2 text-xs">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7280] block">Consultation Form</span>
+                {selectedBooking.consultations && selectedBooking.consultations.length > 0 ? (
+                  <div className="p-3.5 bg-[#FAF9F6] border border-[#E5E7EB] rounded-xl space-y-1.5">
+                    <p><strong>Date of Birth:</strong> {selectedBooking.consultations[0].date_of_birth || selectedBooking.consultations[0].responses?.['Date of Birth'] || selectedBooking.consultations[0].responses?.date_of_birth || 'Not provided'}</p>
+                    <p><strong>Medical:</strong> {selectedBooking.consultations[0].medical_conditions || 'None'}</p>
+                    <p><strong>Allergies:</strong> {selectedBooking.consultations[0].allergies || 'None'}</p>
+                    <p><strong>Pressure:</strong> {selectedBooking.consultations[0].pressure_preference || 'Standard'}</p>
+                    <p><strong>Emergency:</strong> {selectedBooking.consultations[0].emergency_contact || 'None'}</p>
+                    <p><strong>Medical Disclaimer:</strong> {selectedBooking.consultations[0].medical_disclaimer_accepted || selectedBooking.consultations[0].responses?.medical_disclaimer_accepted ? <span className="text-emerald-600 font-medium">✓ Accepted</span> : <span className="text-red-500 font-medium">Not Accepted</span>}</p>
+                  </div>
+                ) : (
+                  <p className="text-[#6B7280] italic">No consultation form completed yet.</p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#F3F4F6]">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSendConsultationEmail(selectedBooking.client_email, selectedBooking.client_name, selectedBooking.id)}
+                    className="text-xs font-semibold text-[#693F00] underline hover:text-black cursor-pointer"
+                  >
+                    Send Intake Form
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendReviewEmail(selectedBooking.client_email, selectedBooking.client_name, selectedBooking.id)}
+                    className="text-xs font-semibold text-amber-700 underline hover:text-black cursor-pointer"
+                  >
+                    Send Review Request
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBooking(null)}
+                  className="px-5 py-2 bg-[#693F00] text-white text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-[#523100] transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
+
