@@ -12,68 +12,78 @@ const recentScans = new Map<string, number>();
 export async function POST(request: Request) {
   try {
     const { identifier } = await request.json();
-    if (!identifier) {
+    if (!identifier || typeof identifier !== 'string') {
       return NextResponse.json({ error: 'identifier is required.' }, { status: 400 });
     }
 
-    let cleanId = identifier.trim().toLowerCase();
-    if (cleanId.includes('/p/')) {
-      const parts = cleanId.split('/p/');
-      cleanId = parts[parts.length - 1].trim();
+    let rawId = identifier.trim();
+    if (rawId.includes('/p/')) {
+      const parts = rawId.split('/p/');
+      rawId = parts[parts.length - 1].trim();
     }
+
+    const lowerId = rawId.toLowerCase();
+    const cleanPhone = rawId.replace(/\s+/g, '');
 
     // Cooldown check: prevent double scanning the same pass within 3 seconds
     const now = Date.now();
-    if (recentScans.has(cleanId) && now - recentScans.get(cleanId)! < 3000) {
+    if (recentScans.has(lowerId) && now - recentScans.get(lowerId)! < 3000) {
       return NextResponse.json({ error: 'scan already processed a moment ago. please wait.' }, { status: 429 });
     }
-    recentScans.set(cleanId, now);
+    recentScans.set(lowerId, now);
 
-    // Query matching pass serial, email, or phone
+    // Query matching pass serial (preserving case), email, or phone
     const { data: client, error: fetchErr } = await supabase
       .from('loyalty_cards')
       .select('*')
-      .or(`pass_serial.eq.${cleanId},client_email.eq.${cleanId},client_phone.eq.${cleanId}`)
-      .single();
+      .or(`pass_serial.eq.${rawId},pass_serial.eq.${lowerId},client_email.eq.${lowerId},client_phone.eq.${cleanPhone}`)
+      .maybeSingle();
 
     if (fetchErr || !client) {
-      return NextResponse.json({ error: `client pass not found in crm (scanned: ${cleanId})` }, { status: 404 });
+      return NextResponse.json({ error: `client pass not found in crm (scanned: ${rawId})` }, { status: 404 });
     }
 
-    const currentStamps = client.stamps_count;
+    const currentStamps = client.stamps_count ?? 0;
+    const currentTotalVisits = client.total_visits ?? 0;
+    const currentRewardsRedeemed = client.rewards_redeemed ?? 0;
+
     let newStamps = currentStamps + 1;
+    let newTotalVisits = currentTotalVisits + 1;
+    let newRewardsRedeemed = currentRewardsRedeemed;
     let actionType = 'stamp_added';
-    let passDisplayValue = '';
+    let passDisplayValue = `${newStamps}/8 stamps`;
 
     // 9th visit check (8 stamps complete, 9th scan triggers reward)
     if (currentStamps >= 8) {
       newStamps = 0;
+      newRewardsRedeemed = currentRewardsRedeemed + 1;
       actionType = 'reward_redeemed';
-      passDisplayValue = 'reward redeemed! card reset to 0/8';
+      passDisplayValue = '🎉 50% off redeemed!';
 
-      await supabase
+      const { error: updateErr } = await supabase
         .from('loyalty_cards')
-        .update({ 
-          stamps_count: 0, 
-          total_visits: client.total_visits + 1,
-          rewards_redeemed: client.rewards_redeemed + 1 
+        .update({
+          stamps_count: 0,
+          total_visits: newTotalVisits,
+          rewards_redeemed: newRewardsRedeemed
         })
         .eq('id', client.id);
 
+      if (updateErr) throw updateErr;
     } else {
-      passDisplayValue = `${newStamps}/8 stamps`;
-
-      await supabase
+      const { error: updateErr } = await supabase
         .from('loyalty_cards')
-        .update({ 
+        .update({
           stamps_count: newStamps,
-          total_visits: client.total_visits + 1
+          total_visits: newTotalVisits
         })
         .eq('id', client.id);
+
+      if (updateErr) throw updateErr;
     }
 
     // Write audit history log
-    await supabase.from('loyalty_scan_history').insert([{
+    const { error: historyErr } = await supabase.from('loyalty_scan_history').insert([{
       pass_serial: client.pass_serial,
       client_email: client.client_email,
       action_type: actionType,
@@ -81,11 +91,18 @@ export async function POST(request: Request) {
       new_stamps: newStamps
     }]);
 
-    // Push live update to Apple/Google Wallet pass (supports both key variations)
+    if (historyErr) {
+      console.error('Failed to log loyalty scan history:', historyErr);
+    }
+
+    // Push live update to Apple/Google Wallet pass
     const walletApiKey = process.env.WALLETWALLET_API_KEY || process.env.WALLET_API_KEY;
+    let walletSynced = false;
+    let walletError: string | null = null;
+
     if (walletApiKey && client.pass_serial) {
       try {
-        await fetch(`https://api.walletwallet.dev/api/passes/${client.pass_serial}`, {
+        const putRes = await fetch(`https://api.walletwallet.dev/api/passes/${client.pass_serial}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -96,30 +113,43 @@ export async function POST(request: Request) {
             barcodeFormat: 'QR',
             logoText: 'Calm Drift Sanctuary',
             organizationName: 'Calm Drift Sanctuary',
-            color: '#693f00',
-            logoURL: 'https://www.calmdriftsanctuary.co.uk/logo.png',
+            colorPreset: 'dark',
             primaryFields: [{ label: 'CARD', value: 'Loyalty Card' }],
             secondaryFields: [
               { label: 'MEMBER', value: client.client_name },
-              { label: 'VISITS', value: actionType === 'reward_redeemed' ? '🎉 50% off redeemed!' : passDisplayValue }
+              { label: 'VISITS', value: passDisplayValue }
             ]
           })
         });
-      } catch (walletErr) {
+
+        if (putRes.ok) {
+          walletSynced = true;
+        } else {
+          const errBody = await putRes.text();
+          walletError = `WalletWallet PUT failed (${putRes.status}): ${errBody}`;
+          console.error(walletError);
+        }
+      } catch (walletErr: any) {
+        walletError = walletErr?.message || 'WalletWallet sync background error';
         console.error('WalletWallet sync background error:', walletErr);
       }
+    } else {
+      walletError = 'Missing WALLETWALLET_API_KEY / WALLET_API_KEY or pass_serial';
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       clientName: client.client_name,
       action: actionType,
-      newStamps, 
-      totalVisits: client.total_visits + 1,
-      rewardsRedeemed: actionType === 'reward_redeemed' ? client.rewards_redeemed + 1 : client.rewards_redeemed
+      newStamps,
+      totalVisits: newTotalVisits,
+      rewardsRedeemed: newRewardsRedeemed,
+      walletSynced,
+      walletError
     });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Loyalty Scan Error:', err);
+    return NextResponse.json({ error: err.message || 'internal server error' }, { status: 500 });
   }
 }
